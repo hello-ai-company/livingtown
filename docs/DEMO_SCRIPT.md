@@ -17,26 +17,29 @@
 ## 0:30 — 幕1：会話を地図にする
 
 1. `街の記憶` を表示し、右側の `map tools` が3本だけであることを見せる。
-2. 投稿の自由文には氏名・住所・電話番号・診断名などを含めないことを先に示す。「登録する」をクリックすると、`contribute_knowledge` がActivityに出て雨天の知識が確認待ちで増える。
-3. 同じカードの「追認する」を1回クリックする。内部では `verifier_id: anon-demo-neighbor-a` というpseudonymous identifierが使われる。
-4. もう1回クリックする。内部では `verifier_id: anon-demo-neighbor-b` が使われる。
+2. 投稿の自由文には氏名・住所・電話番号・診断名などを含めないことを先に示す。「登録する」をクリックすると、`contribute_knowledge` がActivityに出て、該当座標へ水面／波紋のPENDING visualがsoft appearする。visualをクリックしてdetail cardの `未検証`、条件、確度、カウンタを見せる。
+3. 同じカードの「追認する」を1回クリックする。内部では `verifier_id: anon-demo-neighbor-a` というpseudonymous identifierが使われ、visualはまだPENDINGのまま。
+4. もう1回クリックする。内部では `verifier_id: anon-demo-neighbor-b` が使われ、threshold到達の短いtransitionと `Community verified` feedbackの後、visualがVERIFIEDへ変わる。
 5. 「同じknowledgeに同じidentifierが投票しても、`knowledge_id + verifier_id` が一意なので二重加算されません。これはsame identifier duplicate preventionの仕組みで、pseudonymous identifierの形式だけではPII非保持・本人性・Sybil耐性を保証せず、追認−反証が2以上になった時だけrouteに影響します」と説明する。
+6. LegendでPENDING／VERIFIED／AFFECTING current routeと、barrier／floodなどcategory別shapeを確認する。`Verified only` filterは表示だけを変え、domain dataを変更しない。
 
 ## 1:15 — 幕2：一つの知識が道を変える
 
 1. `避難訓練` をクリックし、`世帯A · 車椅子` を選択する。
 2. 条件は `洪水 / 雨 / 昼` のまま「経路を計算」をクリックする。
-3. 地図の緑の線が横断歩道を避けて南側へ回り、`この道を避けた理由` を表示する。
-4. `avoided[].reason` の日本語説明と `avoided[].edge_ids` の実際のグラフ辺が一致していることを説明する。
-5. 「household profileには診断名や氏名を渡していません。車椅子という制約enumだけで、理由のあるルートを返します」と説明する。
+3. 地図の緑の線が横断歩道を避けて南側へ回り、避けた道路が赤い破線で強調される。障害visualにはhaloとconnectorが付き、AFFECTING_ROUTEへ変わる。
+4. 障害visualをclickしてdetail cardを開き、`この情報により迂回`、選択世帯の `車椅子`、`avoided reason`、実際のaffected edgeを表示する。
+5. `avoided[].reason` の日本語説明と `avoided[].edge_ids` の実際のグラフ辺が一致していることを説明する。「household profileには診断名や氏名を渡していません。車椅子という制約enumだけで、理由のあるルートを返します」と説明する。
+6. `Affecting current route` filterに切り替え、現在のrouteを実際に変えたknowledgeだけが残ることを見せる。
 
 ## 2:00 — 幕3：街全体を振り返る
 
 1. 「現地の詰まりを報告」をクリックする。
 2. `振り返り` をクリックする。
 3. 世帯Aのフォーカスボタンをクリックし、`control_replay` のActivityを示す。
-4. 「2Dフォールバックは常に動きます。PLATEAUの設定があれば同じデータを3Dへ切り替えられます」と説明する。現フェーズではCesium／PLATEAUを主張しない。
-5. 「同じ地図が、平時は暮らしを、有事は命を守る。フェーズフリー防災です」と締める。
+4. `KNOWLEDGE → ROUTE` panelで、影響したverified knowledge、avoided reason、edge、bottleneckを確認する。項目をクリックすると地図上のdetail cardへ戻れる。
+5. 「2Dフォールバックは常に動きます。PLATEAUの設定があれば同じデータを3Dへ切り替えられます」と説明する。現フェーズではCesium／PLATEAUを主張しない。
+6. 「同じ地図が、平時は暮らしを、有事は命を守る。フェーズフリー防災です」と締める。
 
 ## 2:40 — WebMCP lifecycleの締め
 

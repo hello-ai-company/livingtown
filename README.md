@@ -23,6 +23,20 @@ npm run dev
 3. `drill` で車椅子世帯の洪水・雨天ルートを計算
 4. `avoided[].reason` と `avoided[].edge_ids` が、実際に外れたグラフ辺を説明していることを確認
 
+## Living Knowledge Visual World
+
+街の知識はリストだけでなく、現在の2Dマップ上の視覚的な状態として表示されます。表示状態は同じdomain dataから導出します。
+
+`Knowledge` のカテゴリ・検証カウンタと、選択中routeの `avoided[].knowledge_id` / `edge_ids` を使い、次の順で変化します。
+
+`PENDING`（未検証・半透明） → `VERIFIED`（threshold到達・明確なカテゴリ形状） → `AFFECTING_ROUTE`（現在のrouteを実際に迂回させた知識・edge connector付き）
+
+- barrier、flood、darkness、narrow path、safe spot、otherをカテゴリ別のinline SVGで描画します。safe spotは危険警告とは異なるpositive visualです。
+- `All`、`Verified only`、`Affecting current route` とカテゴリfilter、状態とカテゴリのLegendを提供します。filterはdomain dataを変更しません。
+- visualを選択すると、条件、確度、追認／反証、net score、verification状態、route impact、実際に避けたedge、avoided reasonをdetail cardで確認できます。Knowledgeの座標や自由文を新しいprofile情報として複製しません。
+- Replayにも `KNOWLEDGE → ROUTE` panelを表示し、routeを変えたverified knowledge、avoided reason、edge、bottleneckを同じsnapshotから振り返れます。
+- 詳細な視覚仕様は [docs/LIVING_KNOWLEDGE_VISUALS.md](./docs/LIVING_KNOWLEDGE_VISUALS.md) を参照してください。
+
 ## Quality gate
 
 ```bash
