@@ -150,3 +150,5 @@ This repository does not contain project credentials and the local environment d
 10. Stop Realtime or disconnect the network, confirm the last snapshot remains visible, the error is surfaced, and retry/refetch recovers without a false local success.
 
 Record the project, migration revision, browser roles, UTC timestamps, and observed pass/fail result. Never record access tokens, keys, raw user IDs, or verifier IDs.
+
+The latest environment audit is recorded in [`docs/evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md`](./evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md). It is `SUPABASE_REAL_ENVIRONMENT_BLOCKED` until a project owner supplies a secure staging/disposable project and completes the commands and Browser A/B procedure above.
