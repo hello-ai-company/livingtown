@@ -42,8 +42,26 @@ const allowedConstraints = new Set<HouseholdConstraint>(['wheelchair', 'infant',
 const verifierIdPattern = /^anon-[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/
 const householdLabelPattern = /^世帯[A-Z0-9]{1,3}$/
 
+export const DEMO_COORDINATE_BOUNDS = {
+  minLat: 35.67,
+  maxLat: 35.69,
+  minLng: 139.75,
+  maxLng: 139.77,
+} as const
+
 export function assertFiniteNumber(name: string, value: unknown) {
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${name} は有効な数値で指定してください。`)
+}
+
+export function assertDemoAreaCoordinate(lat: number, lng: number, label = '座標') {
+  if (
+    lat < DEMO_COORDINATE_BOUNDS.minLat ||
+    lat > DEMO_COORDINATE_BOUNDS.maxLat ||
+    lng < DEMO_COORDINATE_BOUNDS.minLng ||
+    lng > DEMO_COORDINATE_BOUNDS.maxLng
+  ) {
+    throw new Error(`${label} はLivingTownデモエリア（lat ${DEMO_COORDINATE_BOUNDS.minLat}〜${DEMO_COORDINATE_BOUNDS.maxLat} / lng ${DEMO_COORDINATE_BOUNDS.minLng}〜${DEMO_COORDINATE_BOUNDS.maxLng}）内で指定してください。`)
+  }
 }
 
 export function assertString(name: string, value: unknown, maxLength?: number) {
@@ -92,6 +110,7 @@ export function validateContributeKnowledgeInput(input: ContributeKnowledgeInput
   if (!confidence.includes(input.confidence)) throw new Error('確度が不正です。')
   assertFiniteNumber('lat', input.lat)
   assertFiniteNumber('lng', input.lng)
+  assertDemoAreaCoordinate(input.lat, input.lng, 'Knowledgeの座標')
   assertString('description', input.description, 200)
 }
 
@@ -147,6 +166,7 @@ export function validateRegisterHouseholdInput(input: RegisterHouseholdInput) {
 export function validateBottleneckInput(input: ReportBottleneckInput) {
   assertFiniteNumber('lat', input.lat)
   assertFiniteNumber('lng', input.lng)
+  assertDemoAreaCoordinate(input.lat, input.lng, 'Bottleneckの座標')
   if (![1, 2, 3].includes(input.severity)) throw new Error('severity は1〜3で指定してください。')
   if (input.description) assertString('description', input.description, 200)
 }

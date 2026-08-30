@@ -69,7 +69,7 @@ App / WebMCP tools / useTownSnapshot
           deterministic route engine
 ```
 
-`VITE_LIVINGTOWN_DATA_MODE=local`（既定）では `LOCAL_DEMO` を選び、`shared` とSupabase URL/keyが揃った場合だけ `SUPABASE_SHARED` を選ぶ。設定不足は明示的なlocal fallbackであり、remote writeの失敗をlocal成功へ変換しない。shared snapshotではKnowledge／Verificationをremoteから読み、Verification recordsを再計算したcounterだけをroute／visualへ渡す。Auth ownerが必要なHousehold／BottleneckはRPCで登録し、`owner_id`をUIのdomain shapeへ戻さない。接続障害では最後のtrusted snapshotを保持してERROR／retryを表示し、管理ビューの明示操作でこのタブだけLOCAL_DEMOへ切り替えられる。
+`VITE_LIVINGTOWN_DATA_MODE=local`（既定）では `LOCAL_DEMO` を選び、`shared` とSupabase URL/keyが揃った場合だけ `SUPABASE_SHARED` を選ぶ。設定不足は明示的なlocal fallbackであり、remote writeの失敗をlocal成功へ変換しない。shared snapshotではKnowledgeとDB-maintained derived counterだけをremoteから読み、raw Verification recordsはbrowserへhydrateしない。Auth ownerが必要なHousehold／BottleneckはRPCで登録し、`owner_id`をUIのdomain shapeへ戻さない。接続障害では最後のtrusted snapshotを保持してERROR／retryを表示し、管理ビューの明示操作でこのタブだけLOCAL_DEMOへ切り替えられる。
 
 Data diagnosticsはmode、configured、connection、Realtime、authenticated、last sync/error、公開Knowledge／Verification件数だけを表示する。key、token、raw user id、verifier idは表示もEvidence出力もしない。
 
@@ -132,9 +132,10 @@ verification(id, knowledge_id, verifier_id, verdict, comment, created_at,
              unique(knowledge_id, verifier_id))
 ```
 
-- local demoの`verifier_id`はpseudonymous identifierのfixtureとして扱う。prefixやregexだけではPII非保持・本人性・Sybil耐性を保証しない。shared modeではclientのverifier_idを受け付けず、Supabase Auth identityをRPC内でhashしたopaqueなpseudonymous identifierを使う。同じAuth identityのduplicate preventionはできるが、anonymous Authやagentによる複数identity作成を防ぐものではない。
+- local demoの`verifier_id`はpseudonymous identifierのfixtureとして扱う。prefixやregexだけではPII非保持・本人性・Sybil耐性を保証しない。shared modeではclientのverifier_idを受け付けず、Supabase Auth identityをRPC内でhashしたopaqueなpseudonymous identifierをDB内部で使う。shared browserはVerification tableをSELECTせず、Knowledge counterだけを受け取る。同じAuth identityのduplicate preventionはできるが、anonymous Authやagentによる複数identity作成を防ぐものではない。
 - 同じ `knowledge_id + verifier_id` の再投票はidempotentな重複として無視し、agree/disagreeカウンタを二重加算しない。
 - `comment` は任意200文字以内、`created_at` はstore／DB側で生成する。クライアントに時刻を委ねない。
+- shared modeのraw VerificationはDB-privateであり、browser snapshotには含めない。Verification RPCの戻り値は`verification_id`、counter、verified、duplicate、created_atだけで、verifier_idやcommentは返さない。
 - デモfixtureにも既存のagree/disagree数と対応するverification recordを持たせ、カウンタとrecordの関係を説明可能にする。
 - LocalStorage snapshotの読込時はverification recordを先に検証し、`knowledge_id + verifier_id` の重複や存在しないknowledgeへの参照を拒否する。`agree_count` / `disagree_count` はrecordから再計算し、保存値を信頼しない。したがってrecordsがsource of truth、counterはderived cacheである。
 
@@ -224,7 +225,7 @@ local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagre
 - LocalStorageキーはv2。新しいschemaに適合しない旧・不正snapshotは読み込まない。
 - household入力は禁則fieldの再帰検査、anonymous label検証、constraint enum検証、デモエリア検証、ノードスナップを通過しない限り保存しない。
 - Supabase migration `0002_verification_privacy_rls.sql` はverificationのunique制約、householdのscope／expiry／label制約、全テーブルのRLSを追加する。後続の `0003_knowledge_counter_privileges.sql` はknowledge INSERTのcolumn privilegeを入力列だけに絞り、counterを0へ初期化するtriggerを追加する。`0004_shared_state_trust_boundary.sql` はowner scope、RPC-only verification／household／bottleneck writes、Auth-derived verifier id、Realtime publicationを追加する。適用済みmigrationは書き換えず、新migrationとして追加する。
-- `anon` roleにはread-onlyのknowledge以外のwriteを与えない。authenticated roleにもknowledgeのcounter列へのINSERT／UPDATE権限を与えず、verification INSERT後のsecurity-definer triggerだけがcounterを変更する。verificationはauthenticatedの直接INSERTもrevokeし、`submit_verification` RPCだけがserver-derived verifier idでinsertする。household／bottleneckの直接writeもrevokeし、ownerをAuth identityから導出するRPCだけをgrantする。
+- `anon` roleにはread-onlyのKnowledge以外のwriteを与えない。authenticated roleにもKnowledgeのcounter列へのINSERT／UPDATE権限を与えず、Verification INSERT後のsecurity-definer triggerだけがcounterを変更する。Verificationはanon／authenticatedのSELECTと直接INSERTをrevokeし、`submit_verification` RPCだけがserver-derived verifier idでinsertする。RealtimeもKnowledgeだけを公開し、household／bottleneckの直接writeをrevokeしてownerをAuth identityから導出するRPCだけをgrantする。
 - `knowledge.description` はcommunity free textで、knowledgeの座標もPIIを投稿・推測できる余地がある。投稿UI／tool descriptionでは注意を促すが、free-textのmoderation、retention、削除・再識別評価はPENDINGである。
 - household profileではdirect PIIを保持しない。これはLivingTown全体がPIIを保持しないことや、共有環境で完全に匿名であることを意味しない。認証主体の運用、監査、削除、鍵管理、DB上の既存データ検査は別途必要である。
 - `authenticated identity → server-side trusted boundary → opaque pseudonymous verifier_id` をshared RPCで実装した。ただしanonymous Auth identity自体はdistinct humanではなく、WebMCP agentが複数identityを作る可能性があるため、Sybil resistance／distinct-human verificationはPENDING。
@@ -282,7 +283,7 @@ livingtown/
 - [x] KnowledgeがPENDING／VERIFIED／AFFECTING_ROUTEの3状態でカテゴリ別に描画され、selected routeの実際の `avoided` recordとdetail／Replayが連動する。
 - [x] filter、Legend、keyboard focus、aria-label、reduced-motion、狭いviewport向けdetail cardを提供する。
 - [x] LOCAL_DEMOとSUPABASE_SHAREDをrepository factoryで分離し、設定不足時に安全なlocal fallbackを表示する。
-- [x] shared adapterはKnowledge／Verificationをremoteから読み、recordsからcounterを再導出し、UI/WebMCPと同じrepositoryを通す。
+- [x] shared adapterはKnowledgeとDB-maintained counterだけをremoteから読み、raw Verificationをbrowser snapshotへhydrateせず、UI/WebMCPと同じrepositoryを通す。
 - [x] shared verificationはcaller-supplied verifier_idを信用せず、Auth-derived RPCとDB unique制約でsame-identity duplicateを防ぐ。
 - [ ] 実Supabase projectへのmigration適用、Auth insert／counter bypass denial／duplicate verification／Browser A/B Realtimeの実証。
 

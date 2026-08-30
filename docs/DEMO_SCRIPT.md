@@ -59,7 +59,7 @@
 
 1. Browser AとBrowser Bで同じshared projectを開き、両方の管理ビューに `Data mode: SUPABASE_SHARED`、`Connection: CONNECTED`、`Realtime: CONNECTED` が表示されることを確認する。
 2. Browser AでKnowledgeを投稿し、Browser Bのmapへ同じKnowledgeが現れることを確認する。
-3. Browser Bで追認し、Browser Aのcounterが更新されることを確認する。shared modeでは同一Auth identityの再送はduplicateであり、別のAuth identityから2票目を入れる。
+3. Browser Bで追認し、DB内部のVerification→counter trigger→Knowledge Realtimeを経由してBrowser Aのcounterが更新されることを確認する。shared modeでは同一Auth identityの再送はduplicateであり、別のAuth identityから2票目を入れる。raw Verification recordはどちらのbrowserにも公開しない。
 4. Browser AのvisualがPENDINGからVERIFIEDへ変化したら、wheelchair householdを同じowner sessionで登録してrouteを計算する。
 5. `AFFECTING_ROUTE`、avoided reason、edge IDs、ReplayのKnowledge → Routeを確認する。
 6. 接続を切ってrefreshまたはretryを実行し、最後のsnapshotを保持したままERRORが表示されることを確認する。失敗したremote writeがlocal成功として表示されないことを説明する。

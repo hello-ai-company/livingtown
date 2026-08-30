@@ -3,11 +3,12 @@ import { SupabaseTownRepository } from './supabaseRepository'
 
 type Row = Record<string, unknown>
 type Response = { data: unknown; error: Error | null }
+type QueryResolver = () => Response | Promise<Response>
 
 class FakeQuery {
-  private evaluated: Response | undefined
+  private evaluated: Response | Promise<Response> | undefined
 
-  constructor(private readonly resolve: () => Response) {}
+  constructor(private readonly resolve: QueryResolver) {}
 
   order() {
     return this
@@ -25,7 +26,7 @@ class FakeQuery {
     return this
   }
 
-  private evaluate() {
+  private evaluate(): Response | Promise<Response> {
     if (!this.evaluated) this.evaluated = this.resolve()
     return this.evaluated
   }
@@ -69,10 +70,14 @@ class FakeSupabaseClient {
   readonly channelInstance = new FakeChannel()
   readonly removeChannel = vi.fn(async () => ({ status: 'ok' }))
   readonly insertPayloads: Array<{ table: string; payload: Row }> = []
+  readonly selectTables: string[] = []
   user: { id: string } | undefined
   failReads = false
   failWrites = false
   failRpc = false
+  knowledgeReadCount = 0
+  knowledgeSelectDelay?: Promise<void>
+  private readonly knowledgeReadWaiters: Array<() => void> = []
   private nextId = 1
 
   readonly auth = {
@@ -85,10 +90,23 @@ class FakeSupabaseClient {
 
   from(table: string) {
     return {
-      select: () => new FakeQuery(() => {
-        if (this.failReads) return { data: null, error: new Error('fake read failure') }
-        return { data: this.rows[table] ?? [], error: null }
-      }),
+      select: () => {
+        this.selectTables.push(table)
+        return new FakeQuery(async () => {
+          if (table === 'knowledge') {
+            this.knowledgeReadCount += 1
+            this.knowledgeReadWaiters.splice(0).forEach((resolve) => resolve())
+            const snapshotRows = (this.rows[table] ?? []).map((row) => ({ ...row }))
+            const delay = this.knowledgeSelectDelay
+            this.knowledgeSelectDelay = undefined
+            if (delay) await delay
+            if (this.failReads) return { data: null, error: new Error('fake read failure') }
+            return { data: snapshotRows, error: null }
+          }
+          if (this.failReads) return { data: null, error: new Error('fake read failure') }
+          return { data: this.rows[table] ?? [], error: null }
+        })
+      },
       insert: (payload: Row) => new FakeQuery(() => {
         if (this.failWrites) return { data: null, error: new Error('fake write failure') }
         this.insertPayloads.push({ table, payload })
@@ -111,6 +129,10 @@ class FakeSupabaseClient {
 
   channel() {
     return this.channelInstance
+  }
+
+  waitForNextKnowledgeRead() {
+    return new Promise<void>((resolve) => this.knowledgeReadWaiters.push(resolve))
   }
 
   private insertRow(table: string, payload: Row) {
@@ -215,15 +237,15 @@ function seedKnowledge(fake: FakeSupabaseClient, counters = { agree_count: 99, d
 }
 
 describe('SupabaseTownRepository', () => {
-  it('maps shared rows while deriving counters from verification records', async () => {
+  it('uses database-maintained counters for shared rows', async () => {
     const fake = new FakeSupabaseClient()
-    seedKnowledge(fake)
+    seedKnowledge(fake, { agree_count: 1, disagree_count: 0 })
     fake.rows.verification.push({
       id: 'v-1',
       knowledge_id: 'k-shared',
       verifier_id: 'anon-seed-a',
       verdict: 'agree',
-      comment: null,
+      comment: 'raw comment must remain private',
       created_at: '2026-08-30T09:01:00.000Z',
     })
     const repository = sharedRepository(fake)
@@ -231,7 +253,12 @@ describe('SupabaseTownRepository', () => {
 
     expect(repository.getStatus()).toMatchObject({ mode: 'SUPABASE_SHARED', connection: 'CONNECTED', authenticated: true })
     expect(repository.getSnapshot().knowledge[0]).toMatchObject({ id: 'k-shared', agree_count: 1, disagree_count: 0 })
-    expect(repository.getSnapshot().knowledge[0].agree_count).not.toBe(99)
+    expect(repository.getStatus().verificationCount).toBe(1)
+    expect(fake.selectTables).toContain('knowledge')
+    expect(fake.selectTables).not.toContain('verification')
+    expect(repository.getSnapshot().verifications).toEqual([])
+    expect(JSON.stringify(repository.getSnapshot())).not.toContain('anon-seed-a')
+    expect(JSON.stringify(repository.getSnapshot())).not.toContain('raw comment must remain private')
     repository.dispose()
   })
 
@@ -247,8 +274,10 @@ describe('SupabaseTownRepository', () => {
     expect(fake.rpcCalls[0]).toMatchObject({ name: 'submit_verification' })
     expect(fake.rpcCalls[0].args).not.toHaveProperty('verifier_id')
     expect(first).toMatchObject({ agree_count: 1, duplicate: false, verified: false })
+    expect(first).not.toHaveProperty('verifier_id')
     expect(duplicate).toMatchObject({ agree_count: 1, disagree_count: 0, duplicate: true })
-    expect(repository.getSnapshot().verifications).toHaveLength(1)
+    expect(repository.getSnapshot().verifications).toHaveLength(0)
+    expect(fake.selectTables).not.toContain('verification')
     repository.dispose()
   })
 
@@ -308,6 +337,7 @@ describe('SupabaseTownRepository', () => {
       { id: 'v-a', knowledge_id: 'k-shared', verifier_id: 'anon-remote-a', verdict: 'agree', comment: null, created_at: '2026-08-30T09:01:00.000Z' },
       { id: 'v-b', knowledge_id: 'k-shared', verifier_id: 'anon-remote-b', verdict: 'agree', comment: null, created_at: '2026-08-30T09:02:00.000Z' },
     )
+    fake.rows.knowledge[0].agree_count = 2
     fake.channelInstance.emit()
     await new Promise((resolve) => setTimeout(resolve, 0))
 
@@ -331,6 +361,32 @@ describe('SupabaseTownRepository', () => {
     repository.dispose()
     repository.dispose()
     expect(fake.removeChannel).toHaveBeenCalledTimes(1)
+  })
+
+  it('coalesces overlapping Knowledge events and converges through a trailing refresh', async () => {
+    const fake = new FakeSupabaseClient()
+    seedKnowledge(fake, { agree_count: 0, disagree_count: 0 })
+    const repository = sharedRepository(fake)
+    await repository.ready
+
+    let releaseFirstRefresh!: () => void
+    fake.knowledgeSelectDelay = new Promise<void>((resolve) => { releaseFirstRefresh = resolve })
+    const firstRead = fake.waitForNextKnowledgeRead()
+    fake.channelInstance.emit()
+    await firstRead
+
+    fake.rows.knowledge[0].agree_count = 2
+    const trailingRead = fake.waitForNextKnowledgeRead()
+    fake.channelInstance.emit()
+    releaseFirstRefresh()
+    await trailingRead
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(fake.knowledgeReadCount).toBe(3)
+    expect(repository.getSnapshot().knowledge[0]).toMatchObject({ agree_count: 2, disagree_count: 0 })
+    expect(repository.getSnapshot().knowledge[0].agree_count - repository.getSnapshot().knowledge[0].disagree_count).toBe(2)
+    expect(repository.getSnapshot().verifications).toEqual([])
+    repository.dispose()
   })
 
   it('surfaces connection errors, retries successfully, and never commits a failed write locally', async () => {

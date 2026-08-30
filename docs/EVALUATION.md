@@ -53,7 +53,7 @@ Base SHA: `79dd9f2376e57886a752854912ec0ff6a1d59e20`（PR #3 merge後のmain）
 - WebMCPオブジェクトがない通常Node/Vitest環境でも、同じtool definitionをfake adapterで検証できる。
 - 2Dフォールバックでmap → drill → replayの縦切りが成立する。
 - `npm run seed` は外部APIなしで決定的なdemo dataを生成する。
-- 既存47 testsを維持し、Phase 6でrepository／Supabase adapter testsを追加した。現在は9 files / 57 tests。
+- 既存57 testsを維持し、Phase 6のtrust-boundary／Realtime testsを2件追加した。現在は9 files / 59 tests。
 
 ### Living Knowledge Visual World
 
@@ -71,7 +71,7 @@ Base SHA: `79dd9f2376e57886a752854912ec0ff6a1d59e20`（PR #3 merge後のmain）
 
 - `TownRepository`をUI／WebMCP／route engineとの共通境界にし、`LocalTownRepository`と`SupabaseTownRepository`を分離した。local demoの同期APIとLocalStorage consistencyは維持している。
 - `VITE_LIVINGTOWN_DATA_MODE=shared` とSupabase URL/keyが揃った場合だけshared adapterを選択し、設定不足時は `LOCAL_DEMO` と理由を管理ビューに表示する。
-- fake Supabase clientで、remote Knowledge／Verification、recordsからのcounter再導出、server-derived verifier入力、owner_idのdomain漏洩防止、Realtime callback、retry、failed writeのno-commitを確認した。
+- fake Supabase clientで、remote Knowledge／DB-derived counter、Verification tableをSELECTしない境界、server-derived verifier入力、owner_idのdomain漏洩防止、Knowledge Realtime callback、retry、failed writeのno-commitを確認した。
 - 実Supabase projectへ適用した証跡はまだないため、adapter実装の自動テストだけをreal DB PASSとは扱わない。
 
 ### Visual UX manual verification
@@ -95,7 +95,7 @@ Base SHA: `79dd9f2376e57886a752854912ec0ff6a1d59e20`（PR #3 merge後のmain）
 
 ### Supabase security design
 
-`0002_verification_privacy_rls.sql`、`0003_knowledge_counter_privileges.sql`、`0004_shared_state_trust_boundary.sql` は、verification unique制約、RLS、anon roleのwrite禁止、knowledge counterのcolumn privilege、counter初期化trigger、Auth-derived verifier、RPC-only private writesを設計している。実DBでの確認SQLと期待値は [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md) にある。
+`0002_verification_privacy_rls.sql`、`0003_knowledge_counter_privileges.sql`、`0004_shared_state_trust_boundary.sql` は、verification unique制約、RLS、Verification tableのbrowser SELECT/write禁止、anon roleのwrite禁止、Knowledge counterのcolumn privilege、counter初期化trigger、Auth-derived verifier、RPC-only private writes、Knowledge-only Realtimeを設計している。実DBでの確認SQLと期待値は [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md) にある。
 
 共有Supabase projectへのmigration適用、実DBでのauthenticated／anon結果、server-mediated mutation、Realtime Browser A/B、監査ログはまだ確認していない。
 
@@ -116,12 +116,12 @@ Phase 6のPR #4 run `33310283020` / job `99253976986` も同じ状態（`conclus
 
 ## Phase 6 quality gate
 
-最終commitで次を実行し、結果をPR本文とこの表へ記録する。既存47 testsを削除・弱体化しない。
+最終commitで次を実行し、結果をPR本文とこの表へ記録する。既存57 testsを削除・弱体化しない。
 
 | Command | Result |
 |---|---|
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 9 files / 57 tests（既存47件 + 追加10件） |
+| `npm test` | PASS — 9 files / 59 tests（既存57件 + 追加2件） |
 | `npm run build` | PASS — Vite production build succeeded |
 | `npm run seed` | PASS — 6 nodes / 7 edges / 10 knowledge / 13 pseudonymous votes / 3 households |
 | `git diff --check` | PASS |

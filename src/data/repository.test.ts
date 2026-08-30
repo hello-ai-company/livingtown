@@ -42,4 +42,18 @@ describe('TownRepository mode boundary', () => {
     expect(sharedVerify.inputSchema).toMatchObject({ required: ['knowledge_id', 'verdict'] })
     expect(sharedVerify.inputSchema).not.toHaveProperty('properties.verifier_id')
   })
+
+  it('applies the demo coordinate boundary before local writes', () => {
+    const repository = new LocalTownRepository({ persist: false })
+
+    expect(() => repository.contributeKnowledge({
+      category: 'flood',
+      lat: 35.7,
+      lng: 139.761,
+      condition: 'rain',
+      description: 'outside demo boundary',
+      confidence: 'experienced',
+    })).toThrow('デモエリア')
+    expect(() => repository.reportBottleneck({ lat: 35.7, lng: 139.761, severity: 1 })).toThrow('デモエリア')
+  })
 })

@@ -7,9 +7,7 @@ import type {
   Knowledge,
   RouteResult,
   TownSnapshot,
-  Verification,
 } from '../sim/types'
-import { reconcilePersistedKnowledgeCounters } from './supabase'
 import type {
   ContributeKnowledgeInput,
   EvacuationRouteInput,
@@ -26,9 +24,9 @@ import type {
 } from './repository'
 import {
   assertFiniteNumber,
+  assertDemoAreaCoordinate,
   isAllowedHouseholdConstraint,
   isValidHouseholdLabel,
-  isValidVerifierId,
   validateBottleneckInput,
   validateContributeKnowledgeInput,
   validateRegisterHouseholdInput,
@@ -36,7 +34,6 @@ import {
 } from './validation'
 
 const KNOWLEDGE_COLUMNS = 'id,category,lat,lng,condition,description,confidence,agree_count,disagree_count,created_at'
-const VERIFICATION_COLUMNS = 'id,knowledge_id,verifier_id,verdict,comment,created_at'
 const HOUSEHOLD_COLUMNS = 'id,label,constraints,start_lat,start_lng,location_scope,expires_at,created_at'
 const BOTTLENECK_COLUMNS = 'id,lat,lng,severity,description,household_id,created_at'
 
@@ -96,6 +93,12 @@ function requiredFiniteNumber(record: Record<string, unknown>, key: string) {
   return value
 }
 
+function requiredCounter(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) throw new Error(`Supabase row has invalid ${key}.`)
+  return value
+}
+
 function mapKnowledgeRow(value: unknown): Knowledge {
   const row = asRecord(value)
   if (!row) throw new Error('Supabase returned an invalid knowledge row.')
@@ -106,36 +109,20 @@ function mapKnowledgeRow(value: unknown): Knowledge {
   if (!['always', 'rain', 'night', 'crowded'].includes(String(condition))) throw new Error('Supabase returned an invalid knowledge condition.')
   if (!['experienced', 'heard', 'guess'].includes(String(confidence))) throw new Error('Supabase returned an invalid knowledge confidence.')
   const description = requiredString(row, 'description')
-  if (description.length > 200) throw new Error('Supabase returned an oversized knowledge description.')
+  if (description.trim().length === 0 || description.length > 200) throw new Error('Supabase returned an invalid knowledge description.')
+  const lat = requiredFiniteNumber(row, 'lat')
+  const lng = requiredFiniteNumber(row, 'lng')
+  assertDemoAreaCoordinate(lat, lng, 'Knowledgeの座標')
   return {
     id: requiredString(row, 'id'),
     category: category as Knowledge['category'],
-    lat: requiredFiniteNumber(row, 'lat'),
-    lng: requiredFiniteNumber(row, 'lng'),
+    lat,
+    lng,
     condition: condition as Knowledge['condition'],
     description,
     confidence: confidence as Knowledge['confidence'],
-    agree_count: typeof row.agree_count === 'number' && Number.isFinite(row.agree_count) ? row.agree_count : 0,
-    disagree_count: typeof row.disagree_count === 'number' && Number.isFinite(row.disagree_count) ? row.disagree_count : 0,
-    created_at: requiredString(row, 'created_at'),
-  }
-}
-
-function mapVerificationRow(value: unknown): Verification {
-  const row = asRecord(value)
-  if (!row) throw new Error('Supabase returned an invalid verification row.')
-  const verifierId = requiredString(row, 'verifier_id')
-  if (!isValidVerifierId(verifierId)) throw new Error('Supabase returned an invalid verifier identifier.')
-  const verdict = row.verdict
-  if (verdict !== 'agree' && verdict !== 'disagree') throw new Error('Supabase returned an invalid verification verdict.')
-  const comment = row.comment
-  if (comment !== null && comment !== undefined && (typeof comment !== 'string' || comment.length > 200)) throw new Error('Supabase returned an invalid verification comment.')
-  return {
-    id: requiredString(row, 'id'),
-    knowledge_id: requiredString(row, 'knowledge_id'),
-    verifier_id: verifierId,
-    verdict,
-    ...(typeof comment === 'string' && comment.length > 0 ? { comment } : {}),
+    agree_count: requiredCounter(row, 'agree_count'),
+    disagree_count: requiredCounter(row, 'disagree_count'),
     created_at: requiredString(row, 'created_at'),
   }
 }
@@ -171,10 +158,13 @@ function mapBottleneckRow(value: unknown): Bottleneck {
   const description = row.description
   if (description !== null && description !== undefined && (typeof description !== 'string' || description.length > 200)) throw new Error('Supabase returned an invalid bottleneck description.')
   const householdId = row.household_id
+  const lat = requiredFiniteNumber(row, 'lat')
+  const lng = requiredFiniteNumber(row, 'lng')
+  assertDemoAreaCoordinate(lat, lng, 'Bottleneckの座標')
   return {
     id: requiredString(row, 'id'),
-    lat: requiredFiniteNumber(row, 'lat'),
-    lng: requiredFiniteNumber(row, 'lng'),
+    lat,
+    lng,
     severity,
     ...(typeof description === 'string' && description.length > 0 ? { description } : {}),
     ...(typeof householdId === 'string' ? { household_id: householdId } : {}),
@@ -199,6 +189,10 @@ function recalculateRoutes(snapshot: TownSnapshot): Record<string, RouteResult> 
   return nextRoutes
 }
 
+function countDerivedVerifications(knowledge: Knowledge[]) {
+  return knowledge.reduce((total, item) => total + item.agree_count + item.disagree_count, 0)
+}
+
 function queryWithSignal(query: AnyQuery, signal?: AbortSignal): AnyQuery {
   if (signal && typeof query?.abortSignal === 'function') return query.abortSignal(signal)
   return query
@@ -215,6 +209,7 @@ export class SupabaseTownRepository implements TownRepository {
   private status: RepositoryStatus
   private channel?: RealtimeChannel
   private refreshPromise?: Promise<void>
+  private refreshPending = false
   private disposed = false
 
   constructor(options: SupabaseTownRepositoryOptions) {
@@ -247,7 +242,7 @@ export class SupabaseTownRepository implements TownRepository {
     this.listeners.forEach((listener) => listener())
     this.setStatus({
       visibleKnowledgeCount: next.knowledge.length,
-      verificationCount: next.verifications.length,
+      verificationCount: countDerivedVerifications(next.knowledge),
     })
   }
 
@@ -305,22 +300,8 @@ export class SupabaseTownRepository implements TownRepository {
   }
 
   private async loadRemoteState(signal?: AbortSignal) {
-    const [knowledgeRows, verificationRows] = await Promise.all([
-      this.selectRows('knowledge', KNOWLEDGE_COLUMNS, signal),
-      this.selectRows('verification', VERIFICATION_COLUMNS, signal),
-    ])
+    const knowledgeRows = await this.selectRows('knowledge', KNOWLEDGE_COLUMNS, signal)
     const knowledge = knowledgeRows.map(mapKnowledgeRow)
-    const verifications = verificationRows.map(mapVerificationRow)
-    const knowledgeIds = new Set(knowledge.map((item) => item.id))
-    const verificationKeys = new Set<string>()
-    for (const verification of verifications) {
-      if (!knowledgeIds.has(verification.knowledge_id)) throw new Error('Supabase verification references unknown knowledge.')
-      const key = `${verification.knowledge_id}:${verification.verifier_id}`
-      if (verificationKeys.has(key)) throw new Error('Supabase returned duplicate verification records.')
-      verificationKeys.add(key)
-    }
-    const reconciledKnowledge = reconcilePersistedKnowledgeCounters(knowledge, verifications)
-    if (!reconciledKnowledge) throw new Error('Supabase verification/counter relationship is invalid.')
 
     let households: Household[] = []
     let bottlenecks: Bottleneck[] = []
@@ -338,11 +319,13 @@ export class SupabaseTownRepository implements TownRepository {
 
     const next: TownSnapshot = {
       ...this.snapshot,
-      knowledge: reconciledKnowledge,
-      verifications,
+      knowledge,
+      // Verification records are DB-private. Shared browser snapshots expose
+      // only the counters maintained by the database trigger.
+      verifications: [],
       households,
       bottlenecks,
-      routes: recalculateRoutes({ ...this.snapshot, knowledge: reconciledKnowledge, households, bottlenecks }),
+      routes: recalculateRoutes({ ...this.snapshot, knowledge, verifications: [], households, bottlenecks }),
     }
     return next
   }
@@ -353,6 +336,7 @@ export class SupabaseTownRepository implements TownRepository {
     try {
       const next = await this.loadRemoteState(signal)
       throwIfAborted(signal)
+      if (this.disposed) return
       this.commit(next)
       this.setStatus({ connection: 'CONNECTED', lastSync: this.now().toISOString(), lastSyncError: undefined })
     } catch (error) {
@@ -363,11 +347,28 @@ export class SupabaseTownRepository implements TownRepository {
   }
 
   private refreshRemoteState(signal?: AbortSignal) {
-    if (this.refreshPromise) return this.refreshPromise
-    this.refreshPromise = this.performRefresh(signal).finally(() => {
-      this.refreshPromise = undefined
+    if (this.disposed) return Promise.resolve()
+    if (this.refreshPromise) {
+      this.refreshPending = true
+      return this.refreshPromise
+    }
+
+    const run = async () => {
+      while (!this.disposed) {
+        this.refreshPending = false
+        await this.performRefresh(signal)
+        if (!this.refreshPending) break
+      }
+    }
+    let tracked: Promise<void>
+    tracked = run().finally(() => {
+      if (this.refreshPromise === tracked) {
+        this.refreshPromise = undefined
+        this.refreshPending = false
+      }
     })
-    return this.refreshPromise
+    this.refreshPromise = tracked
+    return tracked
   }
 
   private async closeRealtimeChannel() {
@@ -394,9 +395,6 @@ export class SupabaseTownRepository implements TownRepository {
     this.channel = this.client
       .channel('livingtown-shared-state')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'knowledge' }, () => {
-        void this.refreshRemoteState().catch(() => undefined)
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'verification' }, () => {
         void this.refreshRemoteState().catch(() => undefined)
       })
       .subscribe((state: string) => {
@@ -484,7 +482,7 @@ export class SupabaseTownRepository implements TownRepository {
       if (!updated) throw new Error('検証後の暗黙知が見つかりません。')
       return {
         id: updated.id,
-        verification_id: typeof record?.verification_id === 'string' ? record.verification_id : this.snapshot.verifications.find((item) => item.knowledge_id === updated.id)?.id ?? '',
+        verification_id: typeof record?.verification_id === 'string' ? record.verification_id : '',
         agree_count: updated.agree_count,
         disagree_count: updated.disagree_count,
         verified: updated.agree_count - updated.disagree_count >= 2,

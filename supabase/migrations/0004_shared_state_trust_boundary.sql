@@ -17,6 +17,22 @@ create index if not exists household_owner_id_idx on public.household(owner_id);
 create index if not exists bottleneck_owner_id_idx on public.bottleneck(owner_id);
 create index if not exists drill_run_owner_id_idx on public.drill_run(owner_id);
 
+-- Knowledge is the only public shared state. Keep the same demo-area
+-- integrity boundary in the database as in the client validator, and reject
+-- whitespace-only community observations even when a browser bypasses UI
+-- validation and calls the table with its authenticated key.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'knowledge_demo_coordinate_bounds') then
+    alter table public.knowledge add constraint knowledge_demo_coordinate_bounds
+      check (lat between 35.67 and 35.69 and lng between 139.75 and 139.77);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'knowledge_description_is_nonblank') then
+    alter table public.knowledge add constraint knowledge_description_is_nonblank
+      check (char_length(trim(description)) between 1 and 200);
+  end if;
+end $$;
+
 -- The browser never supplies this value. It is derived from auth.uid() inside a
 -- SECURITY DEFINER function and remains only a pseudonymous identifier in the
 -- verification domain. Hashing is not a claim of distinct-human or Sybil
@@ -33,11 +49,12 @@ $$;
 
 revoke all on function public.server_verifier_id() from public;
 
--- Direct verification writes are disabled. The RPC below is the only browser
--- mutation path, so the client cannot choose verifier_id or counters.
-revoke insert, update, delete on table public.verification from anon, authenticated;
-revoke select on table public.household, public.bottleneck, public.drill_run, public.verification from anon;
-grant select on table public.verification to authenticated;
+-- Verification is DB-private source of truth. Browser clients receive only
+-- Knowledge counters maintained by the trigger; the RPC below is the only
+-- browser mutation path, so clients cannot choose verifier_id or counters.
+revoke select, insert, update, delete on table public.verification from anon, authenticated;
+drop policy if exists verification_read_authenticated on public.verification;
+revoke select on table public.household, public.bottleneck, public.drill_run from anon;
 
 drop policy if exists verification_write_authenticated on public.verification;
 
@@ -232,6 +249,11 @@ begin
   if actor is null then
     raise exception 'authenticated identity is required';
   end if;
+  if p_lat is null or p_lng is null
+    or p_lat not between 35.67 and 35.69
+    or p_lng not between 139.75 and 139.77 then
+    raise exception 'bottleneck coordinate is outside the demo area';
+  end if;
   if p_severity not between 1 and 3 then raise exception 'invalid bottleneck severity'; end if;
   if p_description is not null and char_length(p_description) > 200 then raise exception 'bottleneck description is too long'; end if;
   if p_household_id is not null and not exists (
@@ -267,8 +289,10 @@ revoke insert, update, delete on table public.drill_run from anon, authenticated
 grant select on table public.drill_run to authenticated;
 drop policy if exists drill_run_write_authenticated on public.drill_run;
 
--- Realtime only carries public knowledge and verification updates. Household
--- and bottleneck rows are deliberately excluded from this public channel.
+-- Realtime only carries public Knowledge updates. Verification rows remain
+-- private and are intentionally removed from the publication; its trigger
+-- updates Knowledge counters, which is the browser-visible synchronization
+-- event. Household and bottleneck rows are excluded as private drill state.
 do $$
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
@@ -278,11 +302,11 @@ begin
     ) then
       execute 'alter publication supabase_realtime add table public.knowledge';
     end if;
-    if not exists (
+    if exists (
       select 1 from pg_publication_tables
       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'verification'
     ) then
-      execute 'alter publication supabase_realtime add table public.verification';
+      execute 'alter publication supabase_realtime drop table public.verification';
     end if;
   end if;
 end $$;

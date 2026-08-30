@@ -26,17 +26,17 @@ Both the mode and the two Supabase settings are required. If the mode requests s
 ```text
 Supabase Auth identity
           │
-          ├─ RPC submit_verification ──→ verification row
+          ├─ RPC submit_verification ──→ private Verification row
           │                              │
-          │                              └─ trigger → derived counters
+          │                              └─ trigger → Knowledge counters
           │
           └─ RPC register_household / report_bottleneck
 
-knowledge + verification rows ──→ repository snapshot ──→ visual state + route engine + Replay
-             Realtime event ──────┘
+Knowledge rows + derived counters ──→ repository snapshot ──→ visual state + route engine + Replay
+             Knowledge Realtime event ──────────────────────┘
 ```
 
-Knowledge and Verification are shared public/community state. Household and bottleneck rows are owner-scoped private drill state. A route is recalculated locally from the current snapshot and the fixed graph; no external routing service is used.
+Knowledge is shared community-readable state. Verification is the DB-private source of truth for those counters; a shared browser never selects or receives raw `verifier_id`, `verdict`, `comment`, or `created_at` records. Shared clients receive Knowledge plus derived `agree_count` / `disagree_count` only. Household and bottleneck rows are owner-scoped private drill state. A route is recalculated locally from the current snapshot and the fixed graph; no external routing service is used.
 
 ## Verification trust boundary
 
@@ -46,7 +46,7 @@ The invariant remains:
 verified ⇔ agree_count - disagree_count >= 2
 ```
 
-Verification records are the source of truth. `agree_count` and `disagree_count` are a derived cache. The repository ignores caller-supplied counters, and remote snapshot hydration recalculates the counters from the records before a snapshot is committed.
+Verification records are the DB source of truth. `agree_count` and `disagree_count` are a derived cache maintained by the trigger. `LOCAL_DEMO` keeps records in its local snapshot and recalculates counters on load. `SUPABASE_SHARED` never hydrates raw records into the browser; it reads the database-maintained Knowledge counters, while `verificationCount` is derived from their sum.
 
 In `LOCAL_DEMO`, the existing pseudonymous fixture identifier is retained for deterministic demos. In `SUPABASE_SHARED`, the WebMCP/UI input schema has no `verifier_id`. The repository calls `submit_verification`; the SQL function derives `anon-<sha256(auth.uid())>` inside the trusted database function. This is a pseudonymous identifier and provides same-identifier duplicate prevention, not proof of a distinct human. Anonymous Auth accounts and a WebMCP agent that can obtain multiple identities remain known Sybil risks.
 
@@ -80,15 +80,15 @@ Apply migrations in filename order:
 1. `0001_init.sql` — base tables and domain checks.
 2. `0002_verification_privacy_rls.sql` — Verification record, RLS, initial trigger and grants.
 3. `0003_knowledge_counter_privileges.sql` — zero-counter insert trigger and knowledge column privileges.
-4. `0004_shared_state_trust_boundary.sql` — owner scope, RPC-only private writes, server-derived verifier identity, and Realtime publication membership.
+4. `0004_shared_state_trust_boundary.sql` — owner scope, RPC-only private writes, server-derived verifier identity, Knowledge trust checks, and Knowledge-only Realtime publication membership.
 
-The migrations use `if not exists`, named `drop policy if exists`, trigger replacement, and a guarded publication block where possible. Do not edit an applied migration in a deployed project; apply `0004` as a new migration.
+The migrations use `if not exists`, named `drop policy if exists`, trigger replacement, and guarded publication changes where possible. `0004` revokes browser SELECT/INSERT/UPDATE/DELETE on Verification and drops the earlier authenticated read policy. If a deployed project already added Verification to `supabase_realtime`, the guarded block executes `ALTER PUBLICATION supabase_realtime DROP TABLE public.verification`; this changes publication exposure, not stored records. Do not edit an applied migration in a deployed project; apply `0004` as a new migration.
 
 The relevant permissions are:
 
 - `anon`: public Knowledge read only; no table write.
 - `authenticated`: Knowledge read and insert of domain columns only; no counter column or Knowledge update/delete.
-- `authenticated`: Verification read only; verification mutation through `submit_verification` RPC.
+- `authenticated`: no Verification table read or write; verification mutation through `submit_verification` RPC only. The RPC executes inside the trusted database function and returns aggregate result fields, not the verifier identity.
 - `authenticated`: Household and Bottleneck read only for the current owner; writes through owner-derived RPCs.
 - `service_role`: server-side operational role only; never expose it to a browser.
 
@@ -99,18 +99,40 @@ select has_table_privilege('anon', 'public.knowledge', 'INSERT') as anon_can_ins
 select has_table_privilege('authenticated', 'public.knowledge', 'UPDATE') as auth_can_update_knowledge;
 select has_column_privilege('authenticated', 'public.knowledge', 'agree_count', 'INSERT') as auth_can_insert_agree_count;
 select has_table_privilege('authenticated', 'public.verification', 'INSERT') as auth_can_insert_verification;
+select has_table_privilege('authenticated', 'public.verification', 'SELECT') as auth_can_select_verification;
+select has_table_privilege('anon', 'public.verification', 'SELECT') as anon_can_select_verification;
 select has_function_privilege('authenticated', 'public.submit_verification(uuid,text,text)', 'EXECUTE') as auth_can_call_verification_rpc;
 select relrowsecurity from pg_class where oid = 'public.household'::regclass;
 select relrowsecurity from pg_class where oid = 'public.verification'::regclass;
+select not exists (
+  select 1 from pg_publication_tables
+  where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'verification'
+) as verification_not_in_realtime;
 ```
 
-Expected results after `0004`: the first four booleans are `false`, `false`, `false`, `false`; the RPC privilege is `true`; both RLS values are `true`. Execute the negative checks with a real authenticated/anonymous client as well, because SQL-editor owner privileges do not model the browser role.
+Expected results after `0004`: table/column write checks are `false`, both Verification SELECT checks are `false`, the RPC privilege is `true`, both RLS values are `true`, and `verification_not_in_realtime` is `true`. Execute the negative checks with a real authenticated/anonymous client as well, because SQL-editor owner privileges do not model the browser role.
 
 ## Realtime and recovery
 
-The adapter subscribes to `INSERT`, `UPDATE`, and `DELETE` events on `public.knowledge` and `public.verification`, then re-fetches both tables. It deliberately does not broadcast private household or bottleneck rows. The migration adds only Knowledge and Verification to `supabase_realtime`. Supabase documents Postgres Changes setup, publication membership, and RLS interaction in the [Postgres Changes guide](https://supabase.com/docs/guides/realtime/postgres-changes); for larger deployments, evaluate the documented Broadcast option.
+The adapter subscribes only to `INSERT`, `UPDATE`, and `DELETE` events on `public.knowledge`, then re-fetches Knowledge counters. The synchronization path is:
 
-On an event, records are validated, duplicate `knowledge_id + verifier_id` pairs are rejected, counters are rebuilt, and existing route inputs are recalculated through the same deterministic engine. A failed refresh leaves the previous trusted snapshot in place and exposes `lastSyncError`. `retry()` performs a fresh read and re-establishes the channel when necessary.
+```text
+submit_verification
+        ↓
+private Verification row
+        ↓
+counter trigger
+        ↓
+Knowledge UPDATE
+        ↓
+Knowledge Postgres Changes
+        ↓
+Browser A / Browser B derived visual state
+```
+
+It deliberately does not broadcast private Verification, household, or bottleneck rows. The migration adds Knowledge to `supabase_realtime` and removes Verification if a previous deployment had added it. Supabase documents Postgres Changes setup, publication membership, and RLS interaction in the [Postgres Changes guide](https://supabase.com/docs/guides/realtime/postgres-changes); for larger deployments, evaluate the documented Broadcast option.
+
+On a Knowledge event, counters are validated and existing route inputs are recalculated through the same deterministic engine. A failed refresh leaves the previous trusted snapshot in place and exposes `lastSyncError`. `retry()` performs a fresh read and re-establishes the channel when necessary.
 
 ## Manual shared-mode verification
 
@@ -123,7 +145,7 @@ This repository does not contain project credentials and the local environment d
 5. Browser A calls `contribute_knowledge`; Browser B observes the same row.
 6. Attempt an unauthenticated Knowledge insert with the anon key; expect denial.
 7. Attempt a direct insert with `agree_count = 99`; expect column-privilege denial. Insert without counters and verify `0,0`.
-8. Browser B calls the verification RPC. A second call from the same Auth identity is a duplicate and does not change counters. A second Auth identity raises the net score to two and Browser A receives the verified update.
+8. Browser B calls the verification RPC. A second call from the same Auth identity is a duplicate and does not change counters. A second Auth identity raises the net score to two; the DB trigger updates Knowledge and Browser A receives the verified update through Knowledge Realtime. Neither browser selects the raw Verification row.
 9. Register a temporary wheelchair household and calculate the route. Confirm the deterministic `avoided.reason`, `knowledge_id`, and edge IDs match the shared Knowledge.
 10. Stop Realtime or disconnect the network, confirm the last snapshot remains visible, the error is surfaced, and retry/refetch recovers without a false local success.
 
