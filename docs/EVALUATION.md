@@ -78,7 +78,7 @@ Base SHA: `a746927ea4a3a86bf193aa1c70eeb368d0c2c437`（PR #1 merge commit）
 
 ### GitHub Actions
 
-`CI_INFRA_BLOCKED`: PR #1の指定run `33295537735` はGitHub API上で `conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。checkout／Node／npmのstep開始証跡がないため、コードのtest failureとは判定していない。前PRで同じ起動前failureを記録しており、Phase 4Aでも新runが同じ状態ならこの分類を継続する。
+`CI_INFRA_BLOCKED`: PR #1の指定run `33295537735` はGitHub API上で `conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。Phase 4AのPR #2 run `33302362702` / job `99232743694` も、`conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。checkout／Node／npmのstep開始証跡がないため、いずれもコードのtest failureとは判定していない。
 
 ## PENDING
 
