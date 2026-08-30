@@ -17,9 +17,12 @@ export function PhaseProvider({ store, children }: PropsWithChildren<{ store: Li
   const [phase, setPhaseState] = useState<Phase>('map')
   const [registry, setRegistry] = useState<RegistryStatus>({
     phase: 'map',
+    transition_id: 0,
     registeredToolNames: getToolNames('map'),
     nativeAvailable: false,
     nativeRegistered: false,
+    nativeToolNames: [],
+    toolchangeCount: 0,
   })
 
   useEffect(() => {

@@ -11,6 +11,7 @@ export type KnowledgeCategory =
 export type KnowledgeCondition = 'always' | 'rain' | 'night' | 'crowded'
 export type KnowledgeConfidence = 'experienced' | 'heard' | 'guess'
 export type HouseholdConstraint = 'wheelchair' | 'infant' | 'elderly' | 'pet'
+export type HouseholdLocationScope = 'demo' | 'temporary_drill'
 export type Scenario = 'earthquake' | 'flood'
 export type Weather = 'clear' | 'rain'
 export type TimeOfDay = 'day' | 'night'
@@ -34,6 +35,17 @@ export interface Household {
   constraints: HouseholdConstraint[]
   start_lat: number
   start_lng: number
+  location_scope: HouseholdLocationScope
+  expires_at?: string
+  created_at: string
+}
+
+export interface Verification {
+  id: string
+  knowledge_id: string
+  verifier_id: string
+  verdict: 'agree' | 'disagree'
+  comment?: string
   created_at: string
 }
 
@@ -68,6 +80,7 @@ export interface AvoidedKnowledge {
   reason: string
   category: KnowledgeCategory
   description: string
+  edge_ids: string[]
 }
 
 export interface RouteResult {
@@ -114,6 +127,7 @@ export interface DebriefSummary {
 
 export interface TownSnapshot {
   knowledge: Knowledge[]
+  verifications: Verification[]
   households: Household[]
   bottlenecks: Bottleneck[]
   routes: Record<string, RouteResult>

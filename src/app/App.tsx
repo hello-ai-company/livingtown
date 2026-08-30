@@ -98,7 +98,9 @@ function AppShell() {
 
   const verifyLastKnowledge = async () => {
     if (!lastKnowledgeId) return
-    await runTool('verify_knowledge', { knowledge_id: lastKnowledgeId, verdict: 'agree' })
+    const agreeCount = snapshot.verifications.filter((verification) => verification.knowledge_id === lastKnowledgeId && verification.verdict === 'agree').length
+    const verifierId = agreeCount === 0 ? 'anon-demo-neighbor-a' : 'anon-demo-neighbor-b'
+    await runTool('verify_knowledge', { knowledge_id: lastKnowledgeId, verifier_id: verifierId, verdict: 'agree' })
   }
 
   const calculateRoute = async () => {

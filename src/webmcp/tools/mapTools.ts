@@ -29,20 +29,26 @@ export function mapTools(store: LivingTownStore): ToolDefinition[] {
     {
       name: 'verify_knowledge',
       title: '暗黙知を追認・反証',
-      description: '既存の暗黙知への追認または反証。閲覧者本人の知見に基づく場合に使う。',
+      description: '既存の暗黙知への追認または反証。閲覧者本人の知見に基づく場合に使う。verifier_id は氏名やメールではない anon- 接頭辞の匿名識別子を指定し、同じ暗黙知への重複投票は無視する。',
       inputSchema: {
         type: 'object',
         properties: {
           knowledge_id: { type: 'string' },
+          verifier_id: { type: 'string', pattern: '^anon-[A-Za-z0-9][A-Za-z0-9_-]{2,63}$' },
           verdict: { type: 'string', enum: ['agree', 'disagree'] },
           comment: { type: 'string', maxLength: 200 },
         },
-        required: ['knowledge_id', 'verdict'],
+        required: ['knowledge_id', 'verifier_id', 'verdict'],
       },
       readOnlyHint: false,
       run: (input: VerifyKnowledgeInput) => {
         const result = store.verifyKnowledge(input)
-        store.recordActivity('verify_knowledge', `${input.verdict === 'agree' ? '追認' : '反証'}を記録。現在の追認${result.agree_count}件`)
+        store.recordActivity(
+          'verify_knowledge',
+          result.duplicate
+            ? `同じ匿名識別子の重複投票を無視。現在の追認${result.agree_count}件`
+            : `${input.verdict === 'agree' ? '追認' : '反証'}を記録。現在の追認${result.agree_count}件`,
+        )
         return result
       },
     },
