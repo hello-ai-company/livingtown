@@ -160,7 +160,7 @@ function demoVerifications(knowledgeId: string, agreeCount: number, disagreeCoun
       knowledge_id: knowledgeId,
       verifier_id: `anon-seed-agree-${index + 1}`,
       verdict: 'agree' as const,
-      comment: 'デモ用の匿名追認',
+      comment: 'デモ用のpseudonymous追認',
       created_at: '2026-08-30T08:10:00.000Z',
     })),
     ...Array.from({ length: disagreeCount }, (_, index) => ({
@@ -168,7 +168,7 @@ function demoVerifications(knowledgeId: string, agreeCount: number, disagreeCoun
       knowledge_id: knowledgeId,
       verifier_id: `anon-seed-disagree-${index + 1}`,
       verdict: 'disagree' as const,
-      comment: 'デモ用の匿名反証',
+      comment: 'デモ用のpseudonymous反証',
       created_at: '2026-08-30T08:11:00.000Z',
     })),
   ]

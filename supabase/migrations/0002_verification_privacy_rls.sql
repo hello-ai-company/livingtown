@@ -129,7 +129,7 @@ create trigger verification_apply_count
   after insert on verification
   for each row execute function public.apply_verification_count();
 
-comment on table verification is 'One pseudonymous verdict per knowledge_id + verifier_id; verifier_id must not contain PII.';
+comment on table verification is 'One verdict per knowledge_id + verifier_id; verifier_id is an untrusted pseudonymous identifier whose format does not prove non-PII or a distinct human.';
 comment on column household.start_lat is 'Snapped demo coordinate or temporary drill-session coordinate; never an address field.';
 comment on column household.start_lng is 'Snapped demo coordinate or temporary drill-session coordinate; never an address field.';
 comment on column household.location_scope is 'Retention/meaning boundary for the origin coordinate: demo or temporary_drill.';

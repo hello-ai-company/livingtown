@@ -3,6 +3,17 @@ import type { Phase } from '../sim/types'
 import { getToolDefinitions } from './tools'
 import type { ToolDefinition } from './types'
 
+const LIVING_TOWN_TOOL_NAMES = new Set([
+  'contribute_knowledge',
+  'verify_knowledge',
+  'query_area',
+  'register_household',
+  'get_evacuation_route',
+  'report_bottleneck',
+  'control_replay',
+  'get_debrief_summary',
+])
+
 export interface RegistryStatus {
   phase: Phase
   transition_id: number
@@ -24,11 +35,15 @@ interface RegistrationRun {
   active: boolean
   controllers: Map<string, AbortController>
   registeredToolNames: Set<string>
+  phaseSignal: AbortSignal
 }
 
 export interface WebMcpRegistry {
   setPhase: (phase: Phase, store: LivingTownStore) => Promise<RegistryStatus>
   getStatus: () => RegistryStatus
+  getSnapshot: () => RegistryStatus
+  subscribe: (listener: () => void) => () => void
+  getPhaseSignal: () => AbortSignal
   inspectNativeSurface: () => Promise<string[]>
   dispose: () => void
 }
@@ -57,6 +72,38 @@ function abortError() {
   return error
 }
 
+/**
+ * Small compatibility helper for browsers that do not expose
+ * AbortSignal.any(). It intentionally returns one signal that aborts when
+ * registration, phase, or caller execution cancellation occurs.
+ */
+export function composeAbortSignals(signals: readonly (AbortSignal | undefined)[]): AbortSignal {
+  const controller = new AbortController()
+  const sources = signals.filter((signal): signal is AbortSignal => Boolean(signal))
+  let finished = false
+
+  let cleanup = () => {}
+  const abort = () => {
+    if (finished) return
+    finished = true
+    cleanup()
+    controller.abort()
+  }
+  cleanup = () => {
+    sources.forEach((source) => source.removeEventListener('abort', abort))
+  }
+
+  for (const source of sources) {
+    if (source.aborted) {
+      abort()
+      break
+    }
+    source.addEventListener('abort', abort, { once: true })
+  }
+
+  return controller.signal
+}
+
 function toolNamesFromSurface(surface: unknown): string[] {
   if (!Array.isArray(surface)) return []
   return [...new Set(surface.flatMap((tool) => {
@@ -64,6 +111,13 @@ function toolNamesFromSurface(surface: unknown): string[] {
     if (tool && typeof tool === 'object' && 'name' in tool && typeof tool.name === 'string') return [tool.name]
     return []
   }))]
+}
+
+function hasExactLivingTownSurface(expectedNames: Iterable<string>, actualNames: string[]) {
+  const expected = new Set(expectedNames)
+  const actualLivingTown = new Set(actualNames.filter((name) => LIVING_TOWN_TOOL_NAMES.has(name)))
+  if (expected.size !== actualLivingTown.size) return false
+  return [...expected].every((name) => actualLivingTown.has(name))
 }
 
 function documentModelContext(): ModelContext | undefined {
@@ -84,14 +138,19 @@ export function createWebMcpRegistry(
   let currentRun: RegistrationRun | undefined
   let observedContext: ModelContext | undefined
   let toolchangeListener: EventListener | undefined
+  let phaseController = new AbortController()
+  let nativeSurfaceRevision = 0
+  const subscribers = new Set<() => void>()
 
   const isCurrent = (run: RegistrationRun) => currentRun === run && run.active && run.id === transitionId
 
   const setStatus = (status: RegistryStatus) => {
     latestStatus = cloneStatus(status)
+    subscribers.forEach((listener) => listener())
   }
 
   const detachContextListener = () => {
+    nativeSurfaceRevision += 1
     if (observedContext && toolchangeListener && observedContext.removeEventListener) {
       observedContext.removeEventListener('toolchange', toolchangeListener)
     }
@@ -118,19 +177,20 @@ export function createWebMcpRegistry(
       const run = currentRun
       if (!run || !isCurrent(run)) return
       const currentContext = observedContext
+      const revision = ++nativeSurfaceRevision
       const toolchangeCount = latestStatus.toolchangeCount + 1
       setStatus({
         ...latestStatus,
         toolchangeCount,
+        nativeRegistered: false,
         lastToolchangeAt: new Date().toISOString(),
       })
       void refreshNativeSurface(currentContext).then((nativeToolNames) => {
-        if (!isCurrent(run)) return
+        if (!isCurrent(run) || revision !== nativeSurfaceRevision) return
         setStatus({
           ...latestStatus,
           nativeToolNames,
-          nativeRegistered: run.registeredToolNames.size > 0 &&
-            (currentContext?.getTools ? run.registeredToolNames.size === nativeToolNames.filter((name) => run.registeredToolNames.has(name)).length : true),
+          nativeRegistered: Boolean(currentContext?.getTools) && hasExactLivingTownSurface(run.registeredToolNames, nativeToolNames),
         })
       })
     }
@@ -150,7 +210,10 @@ export function createWebMcpRegistry(
   const setPhase = async (phase: Phase, store: LivingTownStore): Promise<RegistryStatus> => {
     transitionId += 1
     const id = transitionId
+    phaseController.abort()
+    phaseController = new AbortController()
     abortRun(currentRun)
+    nativeSurfaceRevision += 1
 
     const definitions = resolveDefinitions(phase, store)
     const context = resolveContext()
@@ -171,11 +234,12 @@ export function createWebMcpRegistry(
       active: true,
       controllers: new Map(),
       registeredToolNames: new Set(),
+      phaseSignal: phaseController.signal,
     }
     currentRun = run
     setStatus(status)
 
-    if (!context) return cloneStatus(status)
+    if (!context) return cloneStatus(latestStatus)
 
     for (const definition of definitions) {
       if (!isCurrent(run)) break
@@ -194,8 +258,10 @@ export function createWebMcpRegistry(
             },
             execute: async (input: unknown, executionContext?: WebMcpToolContext) => {
               if (!isCurrent(run) || controller.signal.aborted || executionContext?.signal?.aborted) throw abortError()
-              const result = await definition.run(input, executionContext)
-              if (!isCurrent(run) || controller.signal.aborted || executionContext?.signal?.aborted) throw abortError()
+              const toolSignal = composeAbortSignals([run.phaseSignal, controller.signal, executionContext?.signal])
+              if (toolSignal.aborted) throw abortError()
+              const result = await definition.run(input, { signal: toolSignal })
+              if (!isCurrent(run) || toolSignal.aborted) throw abortError()
               return JSON.stringify(result)
             },
           },
@@ -214,19 +280,13 @@ export function createWebMcpRegistry(
         continue
       }
       run.registeredToolNames.add(definition.name)
-      if (isCurrent(run)) {
-        setStatus({
-          ...latestStatus,
-          nativeRegistered: true,
-        })
-      }
     }
 
-    if (!isCurrent(run)) return cloneStatus(status)
+    if (!isCurrent(run)) return cloneStatus(latestStatus)
     const nativeToolNames = await refreshNativeSurface(context)
-    if (!isCurrent(run)) return cloneStatus(status)
+    if (!isCurrent(run)) return cloneStatus(latestStatus)
     const nativeRegistered = context.getTools
-      ? definitions.every((definition) => nativeToolNames.includes(definition.name))
+      ? hasExactLivingTownSurface(definitions.map((definition) => definition.name), nativeToolNames)
       : false
     const finalStatus: RegistryStatus = {
       ...latestStatus,
@@ -240,23 +300,20 @@ export function createWebMcpRegistry(
   return {
     setPhase,
     getStatus: () => cloneStatus(latestStatus),
+    getSnapshot: () => latestStatus,
+    subscribe: (listener) => {
+      subscribers.add(listener)
+      return () => subscribers.delete(listener)
+    },
+    getPhaseSignal: () => phaseController.signal,
     inspectNativeSurface: async () => refreshNativeSurface(resolveContext()),
     dispose: () => {
       transitionId += 1
+      phaseController.abort()
       abortRun(currentRun)
       currentRun = undefined
       detachContextListener()
       setStatus({ ...emptyStatus, transition_id: transitionId })
     },
   }
-}
-
-const defaultRegistry = createWebMcpRegistry()
-
-export async function setPhase(phase: Phase, store: LivingTownStore) {
-  return defaultRegistry.setPhase(phase, store)
-}
-
-export function getRegistryStatus() {
-  return defaultRegistry.getStatus()
 }

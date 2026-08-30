@@ -6,7 +6,7 @@ export function mapTools(store: LivingTownStore): ToolDefinition[] {
     {
       name: 'contribute_knowledge',
       title: '街の暗黙知を登録',
-      description: '街の暗黙知を1件登録する。閲覧者との会話から得た事実を構造化して渡す。本人の実体験は experienced、又聞きは heard、推測は guess とする。',
+      description: '街の暗黙知を1件登録する。閲覧者との会話から得た事実を構造化して渡す。自由文には氏名・住所・電話番号・診断名などを含めない。本人の実体験は experienced、又聞きは heard、推測は guess とする。',
       inputSchema: {
         type: 'object',
         properties: {
@@ -29,7 +29,7 @@ export function mapTools(store: LivingTownStore): ToolDefinition[] {
     {
       name: 'verify_knowledge',
       title: '暗黙知を追認・反証',
-      description: '既存の暗黙知への追認または反証。閲覧者本人の知見に基づく場合に使う。verifier_id は氏名やメールではない anon- 接頭辞の匿名識別子を指定し、同じ暗黙知への重複投票は無視する。',
+      description: '既存の暗黙知への追認または反証。閲覧者本人の知見に基づく場合に使う。verifier_id はpseudonymous identifierとして anon- 接頭辞の形式を指定する（形式だけではPII非保持や本人性を保証しない）。同じ暗黙知への同一識別子の重複投票は無視する。',
       inputSchema: {
         type: 'object',
         properties: {
@@ -46,7 +46,7 @@ export function mapTools(store: LivingTownStore): ToolDefinition[] {
         store.recordActivity(
           'verify_knowledge',
           result.duplicate
-            ? `同じ匿名識別子の重複投票を無視。現在の追認${result.agree_count}件`
+            ? `同じpseudonymous identifierの重複投票を無視。現在の追認${result.agree_count}件`
             : `${input.verdict === 'agree' ? '追認' : '反証'}を記録。現在の追認${result.agree_count}件`,
         )
         return result

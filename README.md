@@ -12,14 +12,14 @@ npm run seed
 npm run dev
 ```
 
-`npm run seed` は、外部APIなしでデモ用歩行グラフ、暗黙知10件、匿名追認データ、世帯3件を `seed/` に生成します。アプリは初回起動時に同じ決定的データをLocalStorageへ読み込みます。
+`npm run seed` は、外部APIなしでデモ用歩行グラフ、暗黙知10件、pseudonymous verification data、世帯3件を `seed/` に生成します。アプリは初回起動時に同じ決定的データをLocalStorageへ読み込みます。
 
 ## 3分デモ
 
 手順は [docs/DEMO_SCRIPT.md](./docs/DEMO_SCRIPT.md) を参照してください。中心シーンは次の一連です。
 
 1. `contribute_knowledge` で雨天の横断歩道を投稿
-2. `verify_knowledge` を `anon-demo-neighbor-a` と `anon-demo-neighbor-b` で1回ずつ実行
+2. `verify_knowledge` を2つのpseudonymous identifier（`anon-demo-neighbor-a` / `anon-demo-neighbor-b`）で1回ずつ実行
 3. `drill` で車椅子世帯の洪水・雨天ルートを計算
 4. `avoided[].reason` と `avoided[].edge_ids` が、実際に外れたグラフ辺を説明していることを確認
 
@@ -42,16 +42,17 @@ WebMCP固有のブラウザAPIは [`src/webmcp/register.ts`](./src/webmcp/regist
 - `drill`: `register_household`, `get_evacuation_route`, `report_bottleneck`
 - `replay`: `control_replay`, `get_debrief_summary`
 
-phase遷移は世代番号で管理し、遅延した古い登録や実行結果を破棄します。adapterテストでは `getTools()` の実surface、`toolchange`、重複登録防止、unregisterを検証しています。公式仕様は [Chrome WebMCP Imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api?hl=en) と [WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices?hl=en) を参照してください。
+phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実行中の取消し・遅延した古い結果を分離して扱います。ReactのPhaseProviderごとにregistryを生成し、unmount時にtoolとlistenerをdisposeします。adapterテストでは `getTools()` の実surface、既知LivingTown tool集合の完全一致、`toolchange`、重複登録防止、unregister、実行中phase変更を検証しています。公式仕様は [Chrome WebMCP Imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api?hl=en) と [WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices?hl=en) を参照してください。
 
 ## Privacy and verification boundary
 
 - 検証判定は `agree_count - disagree_count >= 2` を維持します。
-- `verification` レコードは `knowledge_id + verifier_id` を一意とし、`verifier_id` は個人情報を含まない `anon-...` 形式だけを受け付けます。コメントと作成時刻もレコードに保存します。
-- householdに保存できるのは、安全な匿名ラベル、`wheelchair | infant | elderly | pet` の制約enum、デモエリア内でグラフノードへスナップした `start_lat/start_lng`、`demo | temporary_drill` のスコープだけです。氏名・メール・電話・診断名・自由入力医療情報・正確な住所フィールドは保存できません。
-- 新しい訓練世帯の座標は `temporary_drill` と24時間の有効期限を持ちます。共有Supabase向けには [`supabase/migrations/0002_verification_privacy_rls.sql`](./supabase/migrations/0002_verification_privacy_rls.sql) でRLSを有効化し、匿名キーからのwriteを許可しません。
+- `verification` レコードは `knowledge_id + verifier_id` を一意とし、`verifier_id` はデモ用のpseudonymous identifier形式を受け付けます。形式だけではPII非保持や本人性を保証しません。コメントと作成時刻もレコードに保存します。
+- household profileに保存できるのは、安全な匿名ラベル、`wheelchair | infant | elderly | pet` の制約enum、デモエリア内でグラフノードへスナップした `start_lat/start_lng`、`demo | temporary_drill` のスコープだけです。氏名・メール・電話・診断名・自由入力医療情報・正確な住所フィールドは保存できません。
+- `start_lat/start_lng` は共有住所ではなく、`demo` または一時的な `temporary_drill` sessionの座標として扱います。新しい訓練世帯は24時間の有効期限を持ちます。共有Supabase向けには [`0002_verification_privacy_rls.sql`](./supabase/migrations/0002_verification_privacy_rls.sql) でRLS、[`0003_knowledge_counter_privileges.sql`](./supabase/migrations/0003_knowledge_counter_privileges.sql) でcounter列のcolumn privilegeを設定し、匿名キーからのwriteを許可しません。
+- `knowledge.description` はcommunity free textで、座標も含めてPIIを投稿・推測できる余地があります。投稿時に氏名・住所・電話番号・診断名などを含めないよう表示しますが、moderation・retention・再識別評価は未実装です。
 
-これは「PIIを保持しない」ためのアプリ境界であり、共有環境で完全匿名になることや、認証・監査・削除運用まで完了したことを意味しません。評価状態は [docs/EVALUATION.md](./docs/EVALUATION.md) に明示しています。
+これは「household profileでdirect PIIを保持しない」ためのアプリ境界であり、knowledge全体がPIIを含まないことや、共有環境で完全匿名になること、認証・監査・削除運用まで完了したことを意味しません。評価状態は [docs/EVALUATION.md](./docs/EVALUATION.md) に明示しています。
 
 ## Optional integrations
 
@@ -62,7 +63,7 @@ phase遷移は世代番号で管理し、遅延した古い登録や実行結果
 ## Repository contract
 
 - WebMCP APIに触れるコードは `src/webmcp/register.ts` のみ。
-- 世帯情報は匿名の制約enumとデモ／一時訓練スコープの座標のみ。
+- household profileは匿名の制約enumとデモ／一時訓練スコープの座標のみ。
 - 検証済み（追認−反証が2以上）の知識だけを経路計算へ反映。
 - `avoided[].edge_ids` は、その知識を除いた経路から外れた実際のグラフ辺を指す。
 - 3Dは加点要素であり、2Dフォールバックを壊さない。

@@ -16,10 +16,10 @@
 ## 0:30 — 幕1：会話を地図にする
 
 1. `街の記憶` を表示し、右側の `map tools` が3本だけであることを見せる。
-2. 「登録する」をクリックする。`contribute_knowledge` がActivityに出て、雨天の知識が確認待ちで増える。
-3. 同じカードの「追認する」を1回クリックする。内部では `verifier_id: anon-demo-neighbor-a` が使われる。
+2. 投稿の自由文には氏名・住所・電話番号・診断名などを含めないことを先に示す。「登録する」をクリックすると、`contribute_knowledge` がActivityに出て雨天の知識が確認待ちで増える。
+3. 同じカードの「追認する」を1回クリックする。内部では `verifier_id: anon-demo-neighbor-a` というpseudonymous identifierが使われる。
 4. もう1回クリックする。内部では `verifier_id: anon-demo-neighbor-b` が使われる。
-5. 「同じknowledgeに同じ匿名主体が投票しても、`knowledge_id + verifier_id` が一意なので二重加算されません。追認−反証が2以上になった時だけrouteに影響します」と説明する。
+5. 「同じknowledgeに同じidentifierが投票しても、`knowledge_id + verifier_id` が一意なので二重加算されません。prefixはPII非保持や本人性の証明ではなく、追認−反証が2以上になった時だけrouteに影響します」と説明する。
 
 ## 1:15 — 幕2：一つの知識が道を変える
 
@@ -27,7 +27,7 @@
 2. 条件は `洪水 / 雨 / 昼` のまま「経路を計算」をクリックする。
 3. 地図の緑の線が横断歩道を避けて南側へ回り、`この道を避けた理由` を表示する。
 4. `avoided[].reason` の日本語説明と `avoided[].edge_ids` の実際のグラフ辺が一致していることを説明する。
-5. 「世帯には診断名や氏名を渡していません。車椅子という制約enumだけで、理由のあるルートを返します」と説明する。
+5. 「household profileには診断名や氏名を渡していません。車椅子という制約enumだけで、理由のあるルートを返します」と説明する。
 
 ## 2:00 — 幕3：街全体を振り返る
 
@@ -43,7 +43,7 @@
 
 - 右側のtool名が `3本 → 3本 → 2本` に変わる。
 - 対応実機では `document.modelContext.getTools()` の結果も同じphase集合になる。
-- 前phaseのtoolはAbortSignalで解除され、`toolchange` 後にsurfaceが再照合される。
+- 前phaseのtoolは登録解除用AbortSignalで解除され、実行中toolにはphase cancellation signalも伝搬される。`toolchange` 後に既知LivingTown tool集合が再照合される。
 - WebMCP非対応ブラウザでは `SIMULATED` fallbackとして同じ縦切りを実行できる。
 
 「LivingTownは、エージェントに長い手順を暗記させません。今できることだけがtoolとして存在し、街の状態そのものがプロトコルになります。」

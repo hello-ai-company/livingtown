@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { LivingTownStore } from '../data/supabase'
 import type { Phase } from '../sim/types'
 import { getToolNames } from './tools'
@@ -17,6 +17,7 @@ function createFakeModelContext(config: { gateFirstRegistration?: boolean } = {}
   const listeners = new Map<string, Set<EventListener>>()
   let registrationCount = 0
   let releaseFirstRegistration: (() => void) | undefined
+  let removedListenerCount = 0
 
   const registerTool = async (tool: FakeRegisteredTool, options?: { signal?: AbortSignal }) => {
     registrationCount += 1
@@ -45,6 +46,7 @@ function createFakeModelContext(config: { gateFirstRegistration?: boolean } = {}
     },
     removeEventListener: (type: string, listener: EventListener) => {
       listeners.get(type)?.delete(listener)
+      removedListenerCount += 1
     },
   } as WebMcpModelContext
 
@@ -56,6 +58,7 @@ function createFakeModelContext(config: { gateFirstRegistration?: boolean } = {}
     releaseFirstRegistration: () => releaseFirstRegistration?.(),
     emit: (type: string) => listeners.get(type)?.forEach((listener) => listener({ type } as Event)),
     inject: (name: string) => active.set(name, { tool: { name, execute: async () => '' } }),
+    removedListenerCount: () => removedListenerCount,
   }
 }
 
@@ -136,16 +139,27 @@ describe('WebMCP lifecycle adapter', () => {
   it('does not publish an in-flight result after a phase transition', async () => {
     const fake = createFakeModelContext()
     let executionStarted: (() => void) | undefined
-    let releaseExecution: (() => void) | undefined
+    let observedSignal: AbortSignal | undefined
+    let mutationCommitted = false
     const slowTool: ToolDefinition = {
       name: 'slow_demo_tool',
       title: 'slow demo tool',
       description: 'A lifecycle test tool.',
       inputSchema: { type: 'object', properties: {} },
       readOnlyHint: false,
-      run: async () => {
+      run: async (_input, { signal }) => {
+        observedSignal = signal
         executionStarted?.()
-        await new Promise<void>((resolve) => { releaseExecution = resolve })
+        await new Promise<void>((resolve) => {
+          const onAbort = () => {
+            signal.removeEventListener('abort', onAbort)
+            resolve()
+          }
+          if (signal.aborted) onAbort()
+          else signal.addEventListener('abort', onAbort, { once: true })
+        })
+        if (signal.aborted) return { done: false }
+        mutationCommitted = true
         return { done: true }
       },
     }
@@ -161,14 +175,15 @@ describe('WebMCP lifecycle adapter', () => {
     const execution = registered.execute({})
     await started
     const transition = registry.setPhase('drill', store)
-    releaseExecution?.()
+    expect(observedSignal?.aborted).toBe(true)
 
     await expect(execution).rejects.toMatchObject({ name: 'AbortError' })
     await transition
+    expect(mutationCommitted).toBe(false)
     expect(await registry.inspectNativeSurface()).toEqual([])
   })
 
-  it('tracks toolchange and refreshes the observed native surface', async () => {
+  it('requires exact LivingTown native tools while allowing external host tools', async () => {
     const fake = createFakeModelContext()
     const registry = createWebMcpRegistry(() => fake.context)
     const store = newStore()
@@ -181,6 +196,32 @@ describe('WebMCP lifecycle adapter', () => {
 
     expect(registry.getStatus().toolchangeCount).toBe(1)
     expect(registry.getStatus().nativeToolNames).toContain('external-tool-from-host')
+    expect(registry.getStatus().nativeRegistered).toBe(true)
+
+    fake.inject('get_evacuation_route')
+    fake.emit('toolchange')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(registry.getStatus().nativeToolNames).toContain('get_evacuation_route')
+    expect(registry.getStatus().nativeRegistered).toBe(false)
+  })
+
+  it('disposes tools and the toolchange listener at registry teardown', async () => {
+    const fake = createFakeModelContext()
+    const registry = createWebMcpRegistry(() => fake.context)
+    const subscriber = vi.fn()
+
+    registry.subscribe(subscriber)
+    await registry.setPhase('map', newStore())
+    const notificationsBeforeDispose = subscriber.mock.calls.length
+
+    registry.dispose()
+
+    expect(fake.active.size).toBe(0)
+    expect(fake.removedListenerCount()).toBe(1)
+    expect(subscriber.mock.calls.length).toBeGreaterThan(notificationsBeforeDispose)
+    expect(registry.getStatus().registeredToolNames).toEqual([])
   })
 
   it('supports unregister cleanup without a WebMCP object in the test runtime', async () => {

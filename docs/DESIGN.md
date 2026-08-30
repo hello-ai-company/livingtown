@@ -41,9 +41,10 @@
 1. 現在のregistration runをinactiveにし、全toolの登録controllerをabortする。
 2. 世代を進め、新phaseの定義だけを順番に `registerTool` する。
 3. `registerTool` のawait中に別phaseへ進んだ場合、戻ってきた古いrunはstaleとして登録完了扱いにしない。controllerも直ちにabortする。
-4. tool実行の前後でrunの世代とsignalを確認し、phase変更後の実行結果を採用しない。
-5. 登録完了後に `getTools()` を呼び、`nativeToolNames` と定義の集合を照合する。
-6. `toolchange` listenerはcontextごとに1つだけ付け、再通知時にsurfaceを再取得する。context変更・dispose時にはlistenerを外す。
+4. tool実行時はregistration signal、phase signal、caller execution signalを小さなcomposition helperで合成し、`ToolDefinition.run(input, { signal })` へ必ず渡す。実装はsignalを観測して非同期mutationのcommit前に中断できる。
+5. tool実行の前後でrunの世代と合成signalを確認し、phase変更後の実行結果を採用しない。
+6. 登録完了後に `getTools()` を呼び、外部toolは許容しつつ、既知のLivingTown tool集合だけは現在phaseの定義集合と完全一致することを確認する。
+7. `toolchange` listenerはcontextごとに1つだけ付け、再通知時にsurfaceを再取得する。context変更・dispose時にはlistenerを外す。statusはsubscription経由でReactへ反映する。
 
 WebMCP非対応ブラウザでは `document.modelContext` がないため、登録statusだけをSIMULATEDとして返す。UIとtool定義は同じものを使い、通常のVitest／Node環境でもadapterへfake contextを注入して検証できる。
 
@@ -60,10 +61,10 @@ verification(id, knowledge_id, verifier_id, verdict, comment, created_at,
              unique(knowledge_id, verifier_id))
 ```
 
-- `verifier_id` は氏名・メール・電話などではない `anon-...` 形式のpseudonymous identifierだけを受け付ける。
+- `verifier_id` はpseudonymous identifierの形式として `anon-...` を受け付ける。prefixやregexだけではPII非保持・本人性・Sybil耐性を保証しない。
 - 同じ `knowledge_id + verifier_id` の再投票はidempotentな重複として無視し、agree/disagreeカウンタを二重加算しない。
 - `comment` は任意200文字以内、`created_at` はstore／DB側で生成する。クライアントに時刻を委ねない。
-- デモfixtureにも既存のagree/disagree数と対応する匿名verificationを持たせ、カウンタとrecordの関係を説明可能にする。
+- デモfixtureにも既存のagree/disagree数と対応するverification recordを持たせ、カウンタとrecordの関係を説明可能にする。
 
 ### 4.2 Household
 
@@ -76,7 +77,7 @@ household(
 
 `constraints` は `wheelchair | infant | elderly | pet` の集合だけ。保存可能なlabelはUI表示用の `世帯A` 形式に限定する。氏名、メール、電話、診断名、自由入力の医療情報、正確な住所、それらを表すフィールドは入力時に拒否し、オブジェクトのunknown fieldも再帰的に検査する。
 
-`start_lat/start_lng` は住所入力ではない。コードはLivingTownデモエリア内だけを受け付け、6つの静的グラフノードのいずれかへスナップして保存する。新規世帯は `location_scope = temporary_drill` と24時間の `expires_at` を持つ。seed世帯だけが `demo` である。
+`start_lat/start_lng` は住所入力ではない。コードはLivingTownデモエリア内だけを受け付け、6つの静的グラフノードのいずれかへスナップして保存する。値は `demo` または一時的な `temporary_drill` sessionの座標であることを `location_scope` で明示する。新規世帯は `location_scope = temporary_drill` と24時間の `expires_at` を持つ。seed世帯だけが `demo` である。
 
 ### 4.3 その他
 
@@ -93,11 +94,11 @@ drill_run(id, scenario, weather, routes, created_at)
 
 #### `contribute_knowledge`
 
-引数: `category`, `lat`, `lng`, `condition`, `description`（200文字以内）, `confidence`。戻り値: `{ id, status: "pending_verification", verifiedThreshold: 2 }`。
+引数: `category`, `lat`, `lng`, `condition`, `description`（200文字以内）, `confidence`。自由文には氏名・住所・電話番号・診断名などを含めない。戻り値: `{ id, status: "pending_verification", verifiedThreshold: 2 }`。
 
 #### `verify_knowledge`
 
-引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagree`）, 任意の `comment`（200文字以内）。`verifier_id` は `anon-[A-Za-z0-9_-]+` の匿名識別子で必須。同一識別子の重複投票は無視する。戻り値は `{ id, verification_id, verifier_id, agree_count, disagree_count, verified, duplicate, created_at }`。
+引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagree`）, 任意の `comment`（200文字以内）。`verifier_id` は `anon-[A-Za-z0-9_-]+` のpseudonymous identifier形式で必須。同じ識別子の重複投票は無視するが、distinct-human verificationやSybil resistanceは保証しない。戻り値は `{ id, verification_id, verifier_id, agree_count, disagree_count, verified, duplicate, created_at }`。
 
 #### `query_area`
 
@@ -148,9 +149,29 @@ drill_run(id, scenario, weather, routes, created_at)
 
 - LocalStorageキーはv2。新しいschemaに適合しない旧・不正snapshotは読み込まない。
 - household入力は禁則fieldの再帰検査、anonymous label検証、constraint enum検証、デモエリア検証、ノードスナップを通過しない限り保存しない。
-- Supabase migration `0002_verification_privacy_rls.sql` はverificationのunique制約、householdのscope／expiry／label制約、全テーブルのRLSを追加する。
-- `anon` roleにはread-onlyのknowledge以外のwriteを与えない。household・bottleneck・drill_run・verificationのwriteはauthenticated/server-mediated経路を前提とする。
-- これは「PIIを保持しない」コード境界であり、「共有環境で完全に匿名」を意味しない。認証主体の運用、監査、削除、鍵管理、DB上の既存データ検査は別途必要である。
+- Supabase migration `0002_verification_privacy_rls.sql` はverificationのunique制約、householdのscope／expiry／label制約、全テーブルのRLSを追加する。後続の `0003_knowledge_counter_privileges.sql` はknowledge INSERTのcolumn privilegeを入力列だけに絞り、counterを0へ初期化するtriggerを追加する。
+- `anon` roleにはread-onlyのknowledge以外のwriteを与えない。authenticated roleにもknowledgeのcounter列へのINSERT／UPDATE権限を与えず、verification INSERT後のsecurity-definer triggerだけがcounterを変更する。
+- `knowledge.description` はcommunity free textで、knowledgeの座標もPIIを投稿・推測できる余地がある。投稿UI／tool descriptionでは注意を促すが、free-textのmoderation、retention、削除・再識別評価はPENDINGである。
+- household profileではdirect PIIを保持しない。これはLivingTown全体がPIIを保持しないことや、共有環境で完全に匿名であることを意味しない。認証主体の運用、監査、削除、鍵管理、DB上の既存データ検査は別途必要である。
+- 将来は `authenticated identity → server-side trusted boundary → opaque pseudonymous verifier_id` とし、クライアント／WebMCP agentが任意のverifier_idを切り替えられない構成にする。現状はagentが複数のidentifierを装えるため、Sybil resistance／distinct-human verificationはPENDING。
+
+### Supabase migration verification
+
+`0002` の後に `0003` を適用した共有Supabaseで、authenticatedロールとして次を検証する。前者は成功し、返る `agree_count` と `disagree_count` は必ず `0, 0` になる。後者はcounter列のcolumn privilege不足で失敗することが期待値である。anonロールのINSERTはRLS／権限で失敗する。
+
+```sql
+insert into public.knowledge
+  (category, lat, lng, condition, description, confidence)
+values
+  ('flood', 35.6811, 139.7610, 'rain', 'migration verification fixture', 'experienced')
+returning id, agree_count, disagree_count;
+
+insert into public.knowledge
+  (category, lat, lng, condition, description, confidence, agree_count)
+values
+  ('flood', 35.6811, 139.7610, 'rain', 'counter privilege negative case', 'experienced', 99);
+-- Expected for authenticated: permission denied for the counter column.
+```
 
 ## 8. 3Dリプレイ方針
 
@@ -167,18 +188,19 @@ livingtown/
 ├── src/data/{demoData,supabase,store.test,useTownSnapshot}.ts
 ├── src/phases/PhaseContext.tsx
 ├── seed/{seed,extract-graph}.ts
-└── supabase/migrations/{0001_init,0002_verification_privacy_rls}.sql
+└── supabase/migrations/{0001_init,0002_verification_privacy_rls,0003_knowledge_counter_privileges}.sql
 ```
 
 ## 10. 受け入れ基準
 
-- [ ] 対応ブラウザでphase切替ごとに `getTools()` の実surfaceが変わり、`toolchange` と一致する（実機証跡取得まではPARTIAL）。
+- [ ] 対応ブラウザでphase切替ごとに既知LivingTown tool集合が現在phaseと完全一致し、外部toolを許容したうえで `getTools()` と `toolchange` が一致する（実機証跡取得まではPARTIAL）。
+- [x] phase変更時にregistration／phase／caller execution signalを合成してtoolへ渡し、実行中の古いtoolがsignalを検知してmutationをcommitしないことをfake adapterで検証する。
 - [x] `contribute_knowledge`（flood/rain）→ `verify_knowledge`×2 → `get_evacuation_route`（wheelchair/rain）で経路が変わる。
 - [x] 未検証、agree 1票、disagreeでthreshold未満の知識は経路を変えない。
 - [x] `avoided.reason` と `avoided.edge_ids` が実際に外れた辺を指す。
-- [x] householdに個人情報フィールドを保存できず、constraintsはenumのみ。
+- [x] household profileに個人情報フィールドを保存できず、constraintsはenumのみ。
 - [x] `VITE_ENABLE_3D` なしで全編が2Dで動く。
-- [x] `npm run seed` 一回でグラフ、暗黙知10件、匿名verification、世帯3件を生成できる。
+- [x] `npm run seed` 一回でグラフ、暗黙知10件、pseudonymous verification record、世帯3件を生成できる。
 
 ## 11. Devpost用要約
 

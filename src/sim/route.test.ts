@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DEMO_HOUSEHOLDS, DEMO_KNOWLEDGE } from '../data/demoData'
 import { DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES } from './graph'
 import { calculateEvacuationRoute, edgeIdsForKnowledge } from './route'
+import type { Knowledge } from './types'
 
 const routeShape = (result: ReturnType<typeof calculateEvacuationRoute>) => ({
   route: result.route,
@@ -136,9 +137,10 @@ describe('calculateEvacuationRoute', () => {
   it('reports avoided reasons with exactly the graph edges omitted from the selected route', () => {
     const household = DEMO_HOUSEHOLDS.find((item) => item.id === 'h-wheelchair')!
     const knowledge = DEMO_KNOWLEDGE.find((item) => item.id === 'k-flood-crosswalk')!
+    const routeKnowledge = DEMO_KNOWLEDGE.map((item) => item.id === knowledge.id ? { ...item, agree_count: 2 } : item)
     const changed = calculateEvacuationRoute({
       household,
-      knowledge: DEMO_KNOWLEDGE.map((item) => item.id === knowledge.id ? { ...item, agree_count: 2 } : item),
+      knowledge: routeKnowledge,
       scenario: 'flood',
       weather: 'rain',
       time_of_day: 'day',
@@ -146,8 +148,58 @@ describe('calculateEvacuationRoute', () => {
     const selectedEdges = new Set(routeEdgeIds(changed))
 
     for (const avoided of changed.avoided) {
-      expect(avoided.edge_ids).toEqual(edgeIdsForKnowledge(knowledge).filter((edgeId) => !selectedEdges.has(edgeId)))
+      const targetKnowledge = routeKnowledge.find((item) => item.id === avoided.knowledge_id)
+      expect(targetKnowledge).toBeDefined()
+      expect(avoided.edge_ids).toEqual(edgeIdsForKnowledge(targetKnowledge!).filter((edgeId) => !selectedEdges.has(edgeId)))
       expect(avoided.edge_ids.every((edgeId) => !selectedEdges.has(edgeId))).toBe(true)
+      expect(avoided.description).toBe(targetKnowledge?.description)
+      expect(avoided.reason).toContain(`追認${targetKnowledge?.agree_count}件`)
+    }
+  })
+
+  it('keeps each reason and edge set attached to the correct knowledge when two warnings cause a detour', () => {
+    const household = DEMO_HOUSEHOLDS.find((item) => item.id === 'h-wheelchair')!
+    const northFlood: Knowledge = {
+      id: 'k-test-north-flood',
+      category: 'flood',
+      lat: 35.6815,
+      lng: 139.76105,
+      condition: 'rain',
+      description: '北側の横断歩道は雨天に通れない。',
+      confidence: 'experienced',
+      agree_count: 2,
+      disagree_count: 0,
+      created_at: '2026-08-30T00:00:00.000Z',
+    }
+    const eastBarrier: Knowledge = {
+      id: 'k-test-east-barrier',
+      category: 'barrier',
+      lat: 35.68103,
+      lng: 139.761385,
+      condition: 'always',
+      description: '東側の大通りへ出る道に段差がある。',
+      confidence: 'experienced',
+      agree_count: 2,
+      disagree_count: 0,
+      created_at: '2026-08-30T00:00:00.000Z',
+    }
+    const verifiedKnowledge = [northFlood, eastBarrier]
+    const changed = calculateEvacuationRoute({
+      household,
+      knowledge: verifiedKnowledge,
+      scenario: 'flood',
+      weather: 'rain',
+      time_of_day: 'day',
+    })
+    const selectedEdges = new Set(routeEdgeIds(changed))
+
+    expect(changed.avoided).toHaveLength(2)
+    for (const avoided of changed.avoided) {
+      const targetKnowledge = verifiedKnowledge.find((item) => item.id === avoided.knowledge_id)
+      expect(targetKnowledge).toBeDefined()
+      expect(avoided.edge_ids).toEqual(edgeIdsForKnowledge(targetKnowledge!).filter((edgeId) => !selectedEdges.has(edgeId)))
+      expect(avoided.description).toBe(targetKnowledge?.description)
+      expect(avoided.reason).toContain(`追認${targetKnowledge?.agree_count}件`)
     }
   })
 

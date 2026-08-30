@@ -127,7 +127,7 @@
       "knowledge_id": "k-flood-underpass",
       "verifier_id": "anon-seed-agree-1",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -135,7 +135,7 @@
       "knowledge_id": "k-flood-underpass",
       "verifier_id": "anon-seed-agree-2",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -143,7 +143,7 @@
       "knowledge_id": "k-dark-park",
       "verifier_id": "anon-seed-agree-1",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -151,7 +151,7 @@
       "knowledge_id": "k-dark-park",
       "verifier_id": "anon-seed-agree-2",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -159,7 +159,7 @@
       "knowledge_id": "k-narrow-alley",
       "verifier_id": "anon-seed-agree-1",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -167,7 +167,7 @@
       "knowledge_id": "k-barrier-community",
       "verifier_id": "anon-seed-agree-1",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -175,7 +175,7 @@
       "knowledge_id": "k-barrier-community",
       "verifier_id": "anon-seed-agree-2",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -183,7 +183,7 @@
       "knowledge_id": "k-safe-library",
       "verifier_id": "anon-seed-agree-1",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -191,7 +191,7 @@
       "knowledge_id": "k-safe-library",
       "verifier_id": "anon-seed-agree-2",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -199,7 +199,7 @@
       "knowledge_id": "k-crowd-school",
       "verifier_id": "anon-seed-agree-1",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -207,7 +207,7 @@
       "knowledge_id": "k-crowd-school",
       "verifier_id": "anon-seed-agree-2",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -215,7 +215,7 @@
       "knowledge_id": "k-flood-riverpath",
       "verifier_id": "anon-seed-agree-1",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     },
     {
@@ -223,7 +223,7 @@
       "knowledge_id": "k-barrier-clinic",
       "verifier_id": "anon-seed-agree-1",
       "verdict": "agree",
-      "comment": "デモ用の匿名追認",
+      "comment": "デモ用のpseudonymous追認",
       "created_at": "2026-08-30T08:10:00.000Z"
     }
   ],

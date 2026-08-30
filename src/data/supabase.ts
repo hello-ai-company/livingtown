@@ -133,11 +133,11 @@ function assertNoForbiddenHouseholdFields(value: unknown): void {
   }
 }
 
-function assertAnonymousVerifierId(value: unknown) {
+function assertPseudonymousVerifierId(value: unknown) {
   assertString('verifier_id', value, 64)
   const verifierId = (value as string).trim()
   if (!verifierIdPattern.test(verifierId)) {
-    throw new Error('verifier_id は個人情報を含まない anon- 接頭辞の識別子で指定してください。')
+    throw new Error('verifier_id はpseudonymous identifierとして anon- 接頭辞の形式で指定してください。形式だけではPII非保持や本人性は保証されません。')
   }
   return verifierId
 }
@@ -325,7 +325,7 @@ export class LivingTownStore {
     const current = this.snapshot.knowledge.find((item) => item.id === input.knowledge_id)
     if (!current) throw new Error('指定された暗黙知が見つかりません。')
     if (input.verdict !== 'agree' && input.verdict !== 'disagree') throw new Error('判定が不正です。')
-    const verifierId = assertAnonymousVerifierId(input.verifier_id)
+    const verifierId = assertPseudonymousVerifierId(input.verifier_id)
     if (input.comment !== undefined) assertString('comment', input.comment, 200)
     const existing = this.snapshot.verifications.find((verification) =>
       verification.knowledge_id === input.knowledge_id && verification.verifier_id === verifierId,
