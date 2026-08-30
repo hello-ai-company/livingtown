@@ -72,7 +72,7 @@ Base SHA: `df8850ef2aef1a74caa21504cf0edaa1d2d4c742`（PR #4 merge後のmain）
 - `TownRepository`をUI／WebMCP／route engineとの共通境界にし、`LocalTownRepository`と`SupabaseTownRepository`を分離した。local demoの同期APIとLocalStorage consistencyは維持している。
 - `VITE_LIVINGTOWN_DATA_MODE=shared` とSupabase URL/keyが揃った場合だけshared adapterを選択し、設定不足時は `LOCAL_DEMO` と理由を管理ビューに表示する。
 - fake Supabase clientで、remote Knowledge／DB-derived counter、Verification tableをSELECTしない境界、server-derived verifier入力、owner_idのdomain漏洩防止、Knowledge Realtime callback、retry、failed writeのno-commitを確認した。
-- 初期4 migrationの実Livingtown projectへのapply、5 table、全table RLS、Knowledge-only Realtime、主要なbrowser privilege境界は [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) に記録した。ただしfunction EXECUTE hardening、pgTAP、Security Advisor再確認は未完了であり、full DB PASSとは扱わない。
+- 初期4 migrationとfunction EXECUTE hardeningの実Livingtown projectへのapply、5 table、全table RLS、Knowledge-only Realtime、主要なbrowser privilege境界、Security Advisor再確認は [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) に記録した。Hosted DB Security GateはPASSである。一方、LOCAL_PGTAPとBrowser A/B/Cによるreal client検証は未実行であり、full end-to-end Supabase PASSとは扱わない。
 
 ### Visual UX manual verification
 
@@ -95,9 +95,9 @@ Base SHA: `df8850ef2aef1a74caa21504cf0edaa1d2d4c742`（PR #4 merge後のmain）
 
 ### Supabase security design
 
-`20260830143556_verification_privacy_rls.sql`、`20260830143717_knowledge_counter_privileges.sql`、`20260830143808_shared_state_trust_boundary.sql` は、verification unique制約、RLS、Verification tableのbrowser SELECT/write禁止、anon roleのwrite禁止、Knowledge counterのcolumn privilege、counter初期化trigger、Auth-derived verifier、RPC-only private writes、Knowledge-only Realtimeを設計している。`20260830154252_function_execute_boundary.sql` はpublic schemaのdefault EXECUTE grantをhardeningし、内部helperをbrowser roleから隠し、authenticated向け公開RPCだけを残す。実DBでの確認SQLと期待値は [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md) にある。
+`20260830143556_verification_privacy_rls.sql`、`20260830143717_knowledge_counter_privileges.sql`、`20260830143808_shared_state_trust_boundary.sql` は、verification unique制約、RLS、Verification tableのbrowser SELECT/write禁止、anon roleのwrite禁止、Knowledge counterのcolumn privilege、counter初期化trigger、Auth-derived verifier、RPC-only private writes、Knowledge-only Realtimeを設計している。`20260830162803_function_execute_boundary.sql` はpublic schemaのdefault EXECUTE grantをhardeningし、内部helperをbrowser roleから隠し、authenticated向け公開RPCだけを残す。実DBでのapplyとSecurity Advisor再確認はPASSだが、pgTAPとBrowser A/B/Cは未実行である。実DBでの確認SQLと期待値は [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md) にある。
 
-初期4 migrationの実Livingtown projectへのapplyと、schema／RLS／基本権限／Knowledge-only Realtimeは [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) のとおり確認済み。ただしfunction EXECUTE hardeningは未適用、pgTAPとSecurity Advisorの再確認は未実行であり、full DB gateはまだ完了していない。
+初期4 migrationと `20260830162803_function_execute_boundary.sql` の実Livingtown projectへのapply、schema／RLS／基本権限／Knowledge-only Realtime、Security Advisor再確認は [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) のとおり確認済みで、`HOSTED_DB_SECURITY_GATE: PASS` とする。pgTAPはローカル環境のDocker／CLI不足で未実行、Browser A/B/Cは未実行であり、full end-to-end gateはまだ完了していない。
 
 ### GitHub Actions
 

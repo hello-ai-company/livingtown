@@ -81,9 +81,9 @@ Apply migrations in filename order:
 2. `20260830143556_verification_privacy_rls.sql` — Verification record, RLS, initial trigger and grants.
 3. `20260830143717_knowledge_counter_privileges.sql` — zero-counter insert trigger and knowledge column privileges.
 4. `20260830143808_shared_state_trust_boundary.sql` — owner scope, RPC-only private writes, server-derived verifier identity, Knowledge trust checks, and Knowledge-only Realtime publication membership.
-5. `20260830154252_function_execute_boundary.sql` — remove default browser-role EXECUTE grants from internal helpers and grant the three public RPCs to `authenticated` only.
+5. `20260830162803_function_execute_boundary.sql` — remove default browser-role EXECUTE grants from internal helpers and grant the three public RPCs to `authenticated` only. This hardening migration is applied to the Livingtown hosted project; its local filename follows the remote migration version.
 
-The initial four migrations use `if not exists`, named `drop policy if exists`, trigger replacement, and guarded publication changes where possible. `20260830143808_shared_state_trust_boundary.sql` revokes browser SELECT/INSERT/UPDATE/DELETE on Verification and drops the earlier authenticated read policy. If a deployed project already added Verification to `supabase_realtime`, its guarded block executes `ALTER PUBLICATION supabase_realtime DROP TABLE public.verification`; this changes publication exposure, not stored records. Do not edit an applied migration in a deployed project; apply `20260830154252_function_execute_boundary.sql` as a new migration.
+The initial four migrations use `if not exists`, named `drop policy if exists`, trigger replacement, and guarded publication changes where possible. `20260830143808_shared_state_trust_boundary.sql` revokes browser SELECT/INSERT/UPDATE/DELETE on Verification and drops the earlier authenticated read policy. If a deployed project already added Verification to `supabase_realtime`, its guarded block executes `ALTER PUBLICATION supabase_realtime DROP TABLE public.verification`; this changes publication exposure, not stored records. Do not edit an applied migration in a deployed project; apply `20260830162803_function_execute_boundary.sql` as a new migration.
 
 The relevant permissions are:
 
@@ -111,7 +111,7 @@ select not exists (
 ) as verification_not_in_realtime;
 ```
 
-Expected results after the initial four migrations and `20260830154252_function_execute_boundary.sql`: table/column write checks are `false`, both Verification SELECT checks are `false`, the three public RPC privileges are `true` only for `authenticated`, internal helper privileges are `false` for `anon` and `authenticated`, both RLS values are `true`, and `verification_not_in_realtime` is `true`. Execute the negative checks with a real authenticated/anonymous client as well, because SQL-editor owner privileges do not model the browser role.
+Expected results after the initial four migrations and `20260830162803_function_execute_boundary.sql`: table/column write checks are `false`, both Verification SELECT checks are `false`, the three public RPC privileges are `true` only for `authenticated`, internal helper privileges are `false` for `anon` and `authenticated`, both RLS values are `true`, and `verification_not_in_realtime` is `true`. These results, including the function EXECUTE hardening and Security Advisor recheck, are recorded as `HOSTED_DB_SECURITY_GATE: PASS` for the Livingtown project. Execute the negative checks with a real authenticated/anonymous client as well, because SQL-editor owner privileges do not model the browser role.
 
 ## Realtime and recovery
 
@@ -156,7 +156,7 @@ Use the authenticated ChatGPT Supabase MCP or safe read-only SQL/Advisor queries
 
 For the shared-mode manual flow, mark `SUPABASE_MANUAL_ACTION_REQUIRED` until the project owner records real application evidence.
 
-1. Apply the initial four migrations and `20260830154252_function_execute_boundary.sql` to a disposable Supabase project.
+1. Apply the initial four migrations and `20260830162803_function_execute_boundary.sql` to a disposable Supabase project. The Livingtown hosted project already has all five migrations applied; do not reapply them for this evidence record.
 2. Enable Anonymous Sign-Ins if the demo is to use the no-PII browser flow.
 3. Start two browser sessions with `VITE_LIVINGTOWN_DATA_MODE=shared` and the same project URL/key.
 4. Confirm `Data diagnostics` shows `SUPABASE_SHARED`, authenticated status, connected database, and Realtime status. Do not copy keys or raw identity values into evidence.
@@ -169,4 +169,4 @@ For the shared-mode manual flow, mark `SUPABASE_MANUAL_ACTION_REQUIRED` until th
 
 Record the project, migration revision, browser roles, UTC timestamps, and observed pass/fail result. Never record access tokens, keys, raw user IDs, or verifier IDs.
 
-The [`docs/evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md`](./evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md) file is a historical local-environment audit and remains unchanged as history. The initial four migrations were later applied to the `Livingtown` project; the pre-hardening DB observations are recorded in [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md). That evidence also records the remaining Security Advisor function-EXECUTE finding, the locally prepared hardening migration, and the fact that pgTAP was not executed. Do not treat the pre-hardening report, fake adapters, or Vitest results as a full real-project PASS.
+The [`docs/evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md`](./evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md) file is a historical local-environment audit and remains unchanged as history. The initial four migrations and `20260830162803_function_execute_boundary.sql` were later applied to the `Livingtown` project; the initial and post-hardening observations are recorded in [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md). That evidence records `HOSTED_DB_SECURITY_GATE: PASS`, while pgTAP remains `LOCAL_PGTAP: BLOCKED` and Browser A/B/C remains `BROWSER_REAL_CLIENT_GATE: NOT RUN`. Do not treat the fake adapters, Vitest results, or hosted DB-only PASS as a full real-client end-to-end PASS.

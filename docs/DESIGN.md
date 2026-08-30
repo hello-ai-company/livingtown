@@ -224,7 +224,7 @@ local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagre
 
 - LocalStorageキーはv2。新しいschemaに適合しない旧・不正snapshotは読み込まない。
 - household入力は禁則fieldの再帰検査、anonymous label検証、constraint enum検証、デモエリア検証、ノードスナップを通過しない限り保存しない。
-- Supabase migration `20260830143531_init.sql` は基礎tableとdomain check、`20260830143556_verification_privacy_rls.sql` はverificationのunique制約、householdのscope／expiry／label制約、全tableのRLSを追加する。後続の `20260830143717_knowledge_counter_privileges.sql` はknowledge INSERTのcolumn privilegeを入力列だけに絞り、counterを0へ初期化するtriggerを追加する。`20260830143808_shared_state_trust_boundary.sql` はowner scope、RPC-only verification／household／bottleneck writes、Auth-derived verifier id、Realtime publicationを追加する。`20260830154252_function_execute_boundary.sql` はdefault EXECUTE grantを取り除き、authenticated向け公開RPCだけをgrantする。適用済みmigrationは書き換えず、新migrationとして追加する。
+- Supabase migration `20260830143531_init.sql` は基礎tableとdomain check、`20260830143556_verification_privacy_rls.sql` はverificationのunique制約、householdのscope／expiry／label制約、全tableのRLSを追加する。後続の `20260830143717_knowledge_counter_privileges.sql` はknowledge INSERTのcolumn privilegeを入力列だけに絞り、counterを0へ初期化するtriggerを追加する。`20260830143808_shared_state_trust_boundary.sql` はowner scope、RPC-only verification／household／bottleneck writes、Auth-derived verifier id、Realtime publicationを追加する。`20260830162803_function_execute_boundary.sql` はdefault EXECUTE grantを取り除き、authenticated向け公開RPCだけをgrantする。適用済みmigrationは書き換えず、新migrationとして追加する。
 - `anon` roleにはread-onlyのKnowledge以外のwriteを与えない。authenticated roleにもKnowledgeのcounter列へのINSERT／UPDATE権限を与えず、Verification INSERT後のsecurity-definer triggerだけがcounterを変更する。Verificationはanon／authenticatedのSELECTと直接INSERTをrevokeし、`submit_verification` RPCだけがserver-derived verifier idでinsertする。RealtimeもKnowledgeだけを公開し、household／bottleneckの直接writeをrevokeしてownerをAuth identityから導出するRPCだけをgrantする。
 - `knowledge.description` はcommunity free textで、knowledgeの座標もPIIを投稿・推測できる余地がある。投稿UI／tool descriptionでは注意を促すが、free-textのmoderation、retention、削除・再識別評価はPENDINGである。
 - household profileではdirect PIIを保持しない。これはLivingTown全体がPIIを保持しないことや、共有環境で完全に匿名であることを意味しない。認証主体の運用、監査、削除、鍵管理、DB上の既存データ検査は別途必要である。
@@ -232,7 +232,7 @@ local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagre
 
 ### Supabase migration verification
 
-初期4 migrationと `20260830154252_function_execute_boundary.sql` を適用した共有Supabaseで、authenticatedロールとして次を検証する。Knowledgeのdomain列INSERTは成功し、返る `agree_count` と `disagree_count` は必ず `0, 0` になる。counter列の指定、anonロールのINSERT、verificationの直接INSERT、ownerを指定したhouseholdの直接INSERTは失敗し、authenticated Auth identityからの公開RPCだけが成功する。内部helperのEXECUTEはanon／authenticatedともに失敗する。
+初期4 migrationと `20260830162803_function_execute_boundary.sql` を適用した共有Supabaseで、authenticatedロールとして次を検証する。Knowledgeのdomain列INSERTは成功し、返る `agree_count` と `disagree_count` は必ず `0, 0` になる。counter列の指定、anonロールのINSERT、verificationの直接INSERT、ownerを指定したhouseholdの直接INSERTは失敗し、authenticated Auth identityからの公開RPCだけが成功する。内部helperのEXECUTEはanon／authenticatedともに失敗する。Livingtown projectではこのhardening migrationの実applyとSecurity Advisor再確認まで完了しており、pgTAPとBrowser A/B/Cは別gateとして未実行である。
 
 ```sql
 insert into public.knowledge
@@ -248,7 +248,7 @@ values
 -- Expected for authenticated: permission denied for the counter column.
 ```
 
-After the initial four migrations plus `20260830154252_function_execute_boundary.sql`, also expect `has_table_privilege('authenticated', 'public.verification', 'INSERT')` to be false, `has_function_privilege('authenticated', 'public.submit_verification(uuid,text,text)', 'EXECUTE')` to be true, and the three internal helpers to be non-executable by browser roles. The browser calls the public RPCs with domain inputs only; it never supplies `verifier_id`. Use the complete role/privilege checks in [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md), and run them against a disposable project rather than treating a SQL-editor owner session as browser evidence.
+After the initial four migrations plus `20260830162803_function_execute_boundary.sql`, also expect `has_table_privilege('authenticated', 'public.verification', 'INSERT')` to be false, `has_function_privilege('authenticated', 'public.submit_verification(uuid,text,text)', 'EXECUTE')` to be true, and the three internal helpers to be non-executable by browser roles. The browser calls the public RPCs with domain inputs only; it never supplies `verifier_id`. Use the complete role/privilege checks in [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md), and run them against a disposable project rather than treating a SQL-editor owner session as browser evidence.
 
 ## 8. 3Dリプレイ方針
 
@@ -266,7 +266,7 @@ livingtown/
 ├── src/data/{demoData,repository,townRepository,supabase,supabaseRepository,validation,useTownSnapshot}.ts
 ├── src/phases/PhaseContext.tsx
 ├── seed/{seed,extract-graph}.ts
-├── supabase/migrations/{20260830143531_init,20260830143556_verification_privacy_rls,20260830143717_knowledge_counter_privileges,20260830143808_shared_state_trust_boundary,20260830154252_function_execute_boundary}.sql
+├── supabase/migrations/{20260830143531_init,20260830143556_verification_privacy_rls,20260830143717_knowledge_counter_privileges,20260830143808_shared_state_trust_boundary,20260830162803_function_execute_boundary}.sql
 └── supabase/tests/0004_shared_state_trust_boundary.sql
 ```
 
