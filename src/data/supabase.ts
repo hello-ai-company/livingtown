@@ -1,9 +1,11 @@
-import { DEMO_HOUSEHOLDS, DEMO_KNOWLEDGE } from './demoData'
+import { DEMO_HOUSEHOLDS, DEMO_KNOWLEDGE, DEMO_VERIFICATIONS } from './demoData'
+import { DEMO_AREA, DEMO_GRAPH_NODES } from '../sim/graph'
 import type {
   Bottleneck,
   DebriefSummary,
   Household,
   HouseholdConstraint,
+  HouseholdLocationScope,
   Knowledge,
   KnowledgeCategory,
   KnowledgeCondition,
@@ -12,11 +14,43 @@ import type {
   Scenario,
   TimeOfDay,
   TownSnapshot,
+  Verification,
   Weather,
 } from '../sim/types'
 import { calculateEvacuationRoute } from '../sim/route'
 
-const STORAGE_KEY = 'livingtown-state-v1'
+const STORAGE_KEY = 'livingtown-state-v2'
+const TEMPORARY_DRILL_TTL_MS = 24 * 60 * 60 * 1000
+
+export const HOUSEHOLD_FORBIDDEN_FIELDS = [
+  'name',
+  'full_name',
+  'email',
+  'phone',
+  'phone_number',
+  'diagnosis',
+  'diagnosis_name',
+  'medical_info',
+  'medical_history',
+  'address',
+  'exact_address',
+  'street_address',
+  'postal_code',
+  'location',
+  'exact_location',
+  '氏名',
+  'メール',
+  '電話',
+  '診断名',
+  '医療情報',
+  '住所',
+  '正確な住所',
+] as const
+
+const forbiddenHouseholdFields = new Set<string>(HOUSEHOLD_FORBIDDEN_FIELDS)
+const allowedConstraints = new Set<HouseholdConstraint>(['wheelchair', 'infant', 'elderly', 'pet'])
+const verifierIdPattern = /^anon-[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/
+const householdLabelPattern = /^世帯[A-Z0-9]{1,3}$/
 
 export interface ContributeKnowledgeInput {
   category: KnowledgeCategory
@@ -29,6 +63,7 @@ export interface ContributeKnowledgeInput {
 
 export interface VerifyKnowledgeInput {
   knowledge_id: string
+  verifier_id: string
   verdict: 'agree' | 'disagree'
   comment?: string
 }
@@ -46,6 +81,7 @@ export interface RegisterHouseholdInput {
   constraints: HouseholdConstraint[]
   start_lat: number
   start_lng: number
+  location_scope?: 'temporary_drill'
 }
 
 export interface EvacuationRouteInput {
@@ -83,11 +119,96 @@ function assertString(name: string, value: unknown, maxLength?: number) {
   if (maxLength && value.length > maxLength) throw new Error(`${name} は${maxLength}文字以内で指定してください。`)
 }
 
-const allowedConstraints = new Set<HouseholdConstraint>(['wheelchair', 'infant', 'elderly', 'pet'])
+function assertNoForbiddenHouseholdFields(value: unknown): void {
+  if (!value || typeof value !== 'object') return
+  if (Array.isArray(value)) {
+    value.forEach((item) => assertNoForbiddenHouseholdFields(item))
+    return
+  }
+  for (const [key, nestedValue] of Object.entries(value)) {
+    if (forbiddenHouseholdFields.has(key.toLowerCase())) {
+      throw new Error(`household は ${key} を保存できません。匿名の制約enumだけを指定してください。`)
+    }
+    assertNoForbiddenHouseholdFields(nestedValue)
+  }
+}
+
+function assertPseudonymousVerifierId(value: unknown) {
+  assertString('verifier_id', value, 64)
+  const verifierId = (value as string).trim()
+  if (!verifierIdPattern.test(verifierId)) {
+    throw new Error('verifier_id はpseudonymous identifierとして anon- 接頭辞の形式で指定してください。形式だけではPII非保持や本人性は保証されません。')
+  }
+  return verifierId
+}
+
+function assertAnonymousHouseholdLabel(value: unknown) {
+  assertString('label', value, 20)
+  const label = (value as string).trim()
+  if (!householdLabelPattern.test(label)) {
+    throw new Error('label は匿名表示用の「世帯A」のような値だけを指定できます。')
+  }
+  return label
+}
+
+const EARTH_RADIUS_M = 6_371_000
+
+function distanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const toRadians = (value: number) => (value * Math.PI) / 180
+  const latDelta = toRadians(b.lat - a.lat)
+  const lngDelta = toRadians(b.lng - a.lng)
+  const lat1 = toRadians(a.lat)
+  const lat2 = toRadians(b.lat)
+  const h = Math.sin(latDelta / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(lngDelta / 2) ** 2
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h))
+}
+
+function snapToDemoCoordinate(lat: number, lng: number) {
+  const input = { lat, lng }
+  if (distanceMeters(input, DEMO_AREA.center) > DEMO_AREA.radius_m) {
+    throw new Error('start_lat/start_lng はLivingTownデモエリア内の座標だけを指定できます。')
+  }
+  const nearest = DEMO_GRAPH_NODES.reduce((current, node) => {
+    if (!current) return node
+    return distanceMeters(input, node) < distanceMeters(input, current) ? node : current
+  }, DEMO_GRAPH_NODES[0])
+  return { start_lat: nearest.lat, start_lng: nearest.lng }
+}
+
+function isSafePersistedHousehold(value: unknown): value is Household {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  try {
+    assertNoForbiddenHouseholdFields(value)
+  } catch {
+    return false
+  }
+  const household = value as Partial<Household>
+  return typeof household.id === 'string' &&
+    (household.label === undefined || householdLabelPattern.test(household.label)) &&
+    Array.isArray(household.constraints) && household.constraints.every((constraint) => allowedConstraints.has(constraint)) &&
+    typeof household.start_lat === 'number' && Number.isFinite(household.start_lat) &&
+    typeof household.start_lng === 'number' && Number.isFinite(household.start_lng) &&
+    DEMO_GRAPH_NODES.some((node) => node.lat === household.start_lat && node.lng === household.start_lng) &&
+    (household.location_scope === 'demo' || household.location_scope === 'temporary_drill') &&
+    (household.location_scope === 'demo' || (typeof household.expires_at === 'string' && Number.isFinite(Date.parse(household.expires_at)))) &&
+    typeof household.created_at === 'string'
+}
+
+function isSafePersistedVerification(value: unknown): value is Verification {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const verification = value as Partial<Verification>
+  return typeof verification.id === 'string' &&
+    typeof verification.knowledge_id === 'string' &&
+    typeof verification.verifier_id === 'string' && verifierIdPattern.test(verification.verifier_id) &&
+    (verification.verdict === 'agree' || verification.verdict === 'disagree') &&
+    (verification.comment === undefined || (typeof verification.comment === 'string' && verification.comment.length <= 200)) &&
+    typeof verification.created_at === 'string'
+}
 
 function initialSnapshot(): TownSnapshot {
   return {
     knowledge: clone(DEMO_KNOWLEDGE),
+    verifications: clone(DEMO_VERIFICATIONS),
     households: clone(DEMO_HOUSEHOLDS),
     bottlenecks: [],
     routes: {},
@@ -106,11 +227,38 @@ export class LivingTownStore {
     this.snapshot = this.readPersisted() ?? initialSnapshot()
   }
 
-  private readPersisted() {
+  private readPersisted(): TownSnapshot | null {
     if (!this.persist || typeof window === 'undefined') return null
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY)
-      return raw ? (JSON.parse(raw) as TownSnapshot) : null
+      if (!raw) return null
+      const candidate = JSON.parse(raw) as Partial<TownSnapshot>
+      if (!Array.isArray(candidate.knowledge) ||
+        !Array.isArray(candidate.verifications) ||
+        !Array.isArray(candidate.households) ||
+        !Array.isArray(candidate.bottlenecks) ||
+        !candidate.routes ||
+        !candidate.replay ||
+        !Array.isArray(candidate.events) ||
+        candidate.households.some((household) => !isSafePersistedHousehold(household)) ||
+        candidate.verifications.some((verification) => !isSafePersistedVerification(verification))) {
+        return null
+      }
+      const verificationKeys = new Set<string>()
+      for (const verification of candidate.verifications) {
+        const key = `${verification.knowledge_id}:${verification.verifier_id}`
+        if (verificationKeys.has(key)) return null
+        verificationKeys.add(key)
+      }
+      const activeHouseholds = candidate.households.filter((household) =>
+        household.location_scope === 'demo' || !household.expires_at || Date.parse(household.expires_at) > Date.now(),
+      )
+      const activeHouseholdIds = new Set(activeHouseholds.map((household) => household.id))
+      candidate.households = activeHouseholds
+      candidate.routes = Object.fromEntries(
+        Object.entries(candidate.routes as Record<string, RouteResult>).filter(([householdId]) => activeHouseholdIds.has(householdId)),
+      )
+      return candidate as TownSnapshot
     } catch {
       return null
     }
@@ -177,9 +325,35 @@ export class LivingTownStore {
     const current = this.snapshot.knowledge.find((item) => item.id === input.knowledge_id)
     if (!current) throw new Error('指定された暗黙知が見つかりません。')
     if (input.verdict !== 'agree' && input.verdict !== 'disagree') throw new Error('判定が不正です。')
+    const verifierId = assertPseudonymousVerifierId(input.verifier_id)
+    if (input.comment !== undefined) assertString('comment', input.comment, 200)
+    const existing = this.snapshot.verifications.find((verification) =>
+      verification.knowledge_id === input.knowledge_id && verification.verifier_id === verifierId,
+    )
+    if (existing) {
+      return {
+        id: current.id,
+        verification_id: existing.id,
+        verifier_id: existing.verifier_id,
+        agree_count: current.agree_count,
+        disagree_count: current.disagree_count,
+        verified: current.agree_count - current.disagree_count >= 2,
+        duplicate: true,
+        created_at: existing.created_at,
+      }
+    }
+    const verification: Verification = {
+      id: `${input.knowledge_id}:${verifierId}`,
+      knowledge_id: input.knowledge_id,
+      verifier_id: verifierId,
+      verdict: input.verdict,
+      ...(input.comment?.trim() ? { comment: input.comment.trim() } : {}),
+      created_at: new Date().toISOString(),
+    }
     this.withSnapshot((next) => {
       const item = next.knowledge.find((candidate) => candidate.id === input.knowledge_id)
       if (!item) return
+      next.verifications.push(verification)
       if (input.verdict === 'agree') item.agree_count += 1
       else item.disagree_count += 1
     })
@@ -187,9 +361,13 @@ export class LivingTownStore {
     if (!updated) throw new Error('更新後の暗黙知が見つかりません。')
     return {
       id: updated.id,
+      verification_id: verification.id,
+      verifier_id: verification.verifier_id,
       agree_count: updated.agree_count,
       disagree_count: updated.disagree_count,
       verified: updated.agree_count - updated.disagree_count >= 2,
+      duplicate: false,
+      created_at: verification.created_at,
     }
   }
 
@@ -206,16 +384,23 @@ export class LivingTownStore {
   }
 
   registerHousehold(input: RegisterHouseholdInput): Household {
+    assertNoForbiddenHouseholdFields(input)
     if (!Array.isArray(input.constraints) || input.constraints.some((item) => !allowedConstraints.has(item))) throw new Error('constraints には指定されたenumだけを設定できます。')
     assertFiniteNumber('start_lat', input.start_lat)
     assertFiniteNumber('start_lng', input.start_lng)
-    if (input.label !== undefined) assertString('label', input.label, 20)
+    const label = input.label === undefined ? undefined : assertAnonymousHouseholdLabel(input.label)
+    const location = snapToDemoCoordinate(input.start_lat, input.start_lng)
+    if (input.location_scope !== undefined && input.location_scope !== 'temporary_drill') {
+      throw new Error('location_scope は temporary_drill だけを指定できます。')
+    }
+    const locationScope: HouseholdLocationScope = input.location_scope ?? 'temporary_drill'
     const household: Household = {
       id: `h-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      ...(input.label ? { label: input.label.trim() } : {}),
+      ...(label ? { label } : {}),
       constraints: [...new Set(input.constraints)],
-      start_lat: input.start_lat,
-      start_lng: input.start_lng,
+      ...location,
+      location_scope: locationScope,
+      ...(locationScope === 'temporary_drill' ? { expires_at: new Date(Date.now() + TEMPORARY_DRILL_TTL_MS).toISOString() } : {}),
       created_at: new Date().toISOString(),
     }
     this.withSnapshot((next) => next.households.push(household))

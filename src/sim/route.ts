@@ -74,6 +74,14 @@ function appliesToHousehold(item: Knowledge, household: Household) {
   return true
 }
 
+function edgeMatchesKnowledge(edge: GraphEdge, item: Knowledge) {
+  const explicitlyAttached = item.id && DEMO_GRAPH_EDGES.some((candidate) => candidate.knowledge_ids?.includes(item.id))
+  if (explicitlyAttached) return edge.knowledge_ids?.includes(item.id) ?? false
+  const from = DEMO_GRAPH_NODES.find((node) => node.id === edge.from)
+  const to = DEMO_GRAPH_NODES.find((node) => node.id === edge.to)
+  return !!from && !!to && pointToSegmentDistanceMeters(item, from, to) <= 35
+}
+
 function relevantKnowledgeForEdge(edge: GraphEdge, context: RouteContext) {
   const from = DEMO_GRAPH_NODES.find((node) => node.id === edge.from)
   const to = DEMO_GRAPH_NODES.find((node) => node.id === edge.to)
@@ -81,14 +89,21 @@ function relevantKnowledgeForEdge(edge: GraphEdge, context: RouteContext) {
 
   return context.knowledge.filter((item) => {
     if (!isVerified(item) || !conditionMatches(item, context) || !appliesToHousehold(item, context.household)) return false
-    const explicitlyAttached = edge.knowledge_ids?.includes(item.id)
     // Keep the matching radius tight for this compact demo graph. A new
     // observation at a node (the primary challenge flow) still attaches to
     // adjacent edges, while nearby landmarks do not accidentally close every
     // road to the shelter.
-    const nearEdge = pointToSegmentDistanceMeters(item, from, to) <= 35
-    return explicitlyAttached || nearEdge
+    return edgeMatchesKnowledge(edge, item)
   })
+}
+
+/**
+ * Return the graph edges that a knowledge item can affect. Keeping this
+ * mapping shared by weighting and explanations prevents an avoided reason
+ * from pointing at a different edge than the route actually avoided.
+ */
+export function edgeIdsForKnowledge(item: Knowledge) {
+  return DEMO_GRAPH_EDGES.filter((edge) => edgeMatchesKnowledge(edge, item)).map((edge) => edge.id)
 }
 
 /**
@@ -204,25 +219,32 @@ export function calculateEvacuationRoute(context: RouteContext): RouteResult {
   const selectedEdgeIds = new Set(result.edges.map(({ edge }) => edge.id))
 
   // The avoided list is deliberately generated from verified knowledge that
-  // affected a closed or penalized edge but is not on the selected route.
+  // changed the selected path. Comparing against a route without the
+  // individual item avoids attributing a detour to a knowledge item that was
+  // not actually necessary because of another warning.
   const avoided = context.knowledge
     .filter((item) => isVerified(item) && conditionMatches(item, context) && appliesToHousehold(item, context.household))
     .filter((item) => ['flood', 'darkness', 'narrow_path', 'barrier'].includes(item.category))
-    .filter((item) => {
-      const affectingEdges = DEMO_GRAPH_EDGES.filter((edge) => {
-        const direct = edge.knowledge_ids?.includes(item.id)
-        const from = DEMO_GRAPH_NODES.find((node) => node.id === edge.from)
-        const to = DEMO_GRAPH_NODES.find((node) => node.id === edge.to)
-        return direct || (!!from && !!to && pointToSegmentDistanceMeters(item, from, to) <= 35)
+    .map((item) => {
+      const routeWithoutItem = shortestPath(start.id, goal.id, {
+        ...context,
+        knowledge: context.knowledge.filter((candidate) => candidate.id !== item.id),
       })
-      return affectingEdges.some((edge) => !selectedEdgeIds.has(edge.id))
+      const withoutItemEdgeIds = new Set(routeWithoutItem.edges.map(({ edge }) => edge.id))
+      const edgeIds = edgeIdsForKnowledge(item).filter((edgeId) => {
+        if (!withoutItemEdgeIds.has(edgeId) || selectedEdgeIds.has(edgeId)) return false
+        const edge = DEMO_GRAPH_EDGES.find((candidate) => candidate.id === edgeId)
+        return Boolean(edge && weightFor(edge, context).applied.some((applied) => applied.id === item.id))
+      })
+      return edgeIds.length > 0 ? {
+        knowledge_id: item.id,
+        reason: reasonFor(item, context),
+        category: item.category,
+        description: item.description,
+        edge_ids: edgeIds,
+      } : undefined
     })
-    .map((item) => ({
-      knowledge_id: item.id,
-      reason: reasonFor(item, context),
-      category: item.category,
-      description: item.description,
-    }))
+    .filter((item): item is NonNullable<typeof item> => item !== undefined)
 
   const coordinates = result.nodeIds.map((nodeId) => {
     const node = DEMO_GRAPH_NODES.find((candidate) => candidate.id === nodeId)

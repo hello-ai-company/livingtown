@@ -1,4 +1,4 @@
-import type { Household, Knowledge } from '../sim/types'
+import type { Household, Knowledge, Verification } from '../sim/types'
 
 export const DEMO_KNOWLEDGE: Knowledge[] = [
   {
@@ -130,6 +130,7 @@ export const DEMO_HOUSEHOLDS: Household[] = [
     constraints: ['wheelchair'],
     start_lat: 35.6810,
     start_lng: 139.7600,
+    location_scope: 'demo',
     created_at: '2026-08-30T08:00:00.000Z',
   },
   {
@@ -138,6 +139,7 @@ export const DEMO_HOUSEHOLDS: Household[] = [
     constraints: ['infant'],
     start_lat: 35.6810,
     start_lng: 139.7600,
+    location_scope: 'demo',
     created_at: '2026-08-30T08:00:00.000Z',
   },
   {
@@ -146,6 +148,32 @@ export const DEMO_HOUSEHOLDS: Household[] = [
     constraints: [],
     start_lat: 35.6810,
     start_lng: 139.7600,
+    location_scope: 'demo',
     created_at: '2026-08-30T08:00:00.000Z',
   },
 ]
+
+function demoVerifications(knowledgeId: string, agreeCount: number, disagreeCount = 0): Verification[] {
+  return [
+    ...Array.from({ length: agreeCount }, (_, index) => ({
+      id: `${knowledgeId}:anon-seed-agree-${index + 1}`,
+      knowledge_id: knowledgeId,
+      verifier_id: `anon-seed-agree-${index + 1}`,
+      verdict: 'agree' as const,
+      comment: 'デモ用のpseudonymous追認',
+      created_at: '2026-08-30T08:10:00.000Z',
+    })),
+    ...Array.from({ length: disagreeCount }, (_, index) => ({
+      id: `${knowledgeId}:anon-seed-disagree-${index + 1}`,
+      knowledge_id: knowledgeId,
+      verifier_id: `anon-seed-disagree-${index + 1}`,
+      verdict: 'disagree' as const,
+      comment: 'デモ用のpseudonymous反証',
+      created_at: '2026-08-30T08:11:00.000Z',
+    })),
+  ]
+}
+
+export const DEMO_VERIFICATIONS: Verification[] = DEMO_KNOWLEDGE.flatMap((item) =>
+  demoVerifications(item.id, item.agree_count, item.disagree_count),
+)

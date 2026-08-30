@@ -1,44 +1,252 @@
 import type { LivingTownStore } from '../data/supabase'
 import type { Phase } from '../sim/types'
 import { getToolDefinitions } from './tools'
+import type { ToolDefinition } from './types'
+
+const LIVING_TOWN_TOOL_NAMES = new Set([
+  'contribute_knowledge',
+  'verify_knowledge',
+  'query_area',
+  'register_household',
+  'get_evacuation_route',
+  'report_bottleneck',
+  'control_replay',
+  'get_debrief_summary',
+])
 
 export interface RegistryStatus {
   phase: Phase
+  transition_id: number
   registeredToolNames: string[]
   nativeAvailable: boolean
   nativeRegistered: boolean
+  nativeToolNames: string[]
+  toolchangeCount: number
+  lastToolchangeAt?: string
 }
 
-let unregisterControllers: AbortController[] = []
-let latestStatus: RegistryStatus = {
+type ModelContext = WebMcpModelContext
+type ModelContextResolver = () => ModelContext | undefined
+type ToolDefinitionResolver = (phase: Phase, store: LivingTownStore) => ToolDefinition[]
+
+interface RegistrationRun {
+  id: number
+  phase: Phase
+  active: boolean
+  controllers: Map<string, AbortController>
+  registeredToolNames: Set<string>
+  phaseSignal: AbortSignal
+}
+
+export interface WebMcpRegistry {
+  setPhase: (phase: Phase, store: LivingTownStore) => Promise<RegistryStatus>
+  getStatus: () => RegistryStatus
+  getSnapshot: () => RegistryStatus
+  subscribe: (listener: () => void) => () => void
+  getPhaseSignal: () => AbortSignal
+  inspectNativeSurface: () => Promise<string[]>
+  dispose: () => void
+}
+
+const emptyStatus: RegistryStatus = {
   phase: 'map',
+  transition_id: 0,
   registeredToolNames: [],
   nativeAvailable: false,
   nativeRegistered: false,
+  nativeToolNames: [],
+  toolchangeCount: 0,
+}
+
+function cloneStatus(status: RegistryStatus): RegistryStatus {
+  return {
+    ...status,
+    registeredToolNames: [...status.registeredToolNames],
+    nativeToolNames: [...status.nativeToolNames],
+  }
+}
+
+function abortError() {
+  const error = new Error('Tool execution cancelled because the active phase changed.')
+  error.name = 'AbortError'
+  return error
 }
 
 /**
- * The only file that touches document.modelContext. Keeping this boundary
- * small lets the challenge survive Origin Trial API changes.
+ * Small compatibility helper for browsers that do not expose
+ * AbortSignal.any(). It intentionally returns one signal that aborts when
+ * registration, phase, or caller execution cancellation occurs.
  */
-export async function setPhase(phase: Phase, store: LivingTownStore): Promise<RegistryStatus> {
-  unregisterControllers.forEach((controller) => controller.abort())
-  unregisterControllers = []
+export function composeAbortSignals(signals: readonly (AbortSignal | undefined)[]): AbortSignal {
+  const controller = new AbortController()
+  const sources = signals.filter((signal): signal is AbortSignal => Boolean(signal))
+  let finished = false
 
-  const definitions = getToolDefinitions(phase, store)
-  const modelContext = typeof document !== 'undefined' ? document.modelContext : undefined
-  const status: RegistryStatus = {
-    phase,
-    registeredToolNames: definitions.map((tool) => tool.name),
-    nativeAvailable: Boolean(modelContext),
-    nativeRegistered: false,
+  let cleanup = () => {}
+  const abort = () => {
+    if (finished) return
+    finished = true
+    cleanup()
+    controller.abort()
+  }
+  cleanup = () => {
+    sources.forEach((source) => source.removeEventListener('abort', abort))
   }
 
-  if (modelContext) {
+  for (const source of sources) {
+    if (source.aborted) {
+      abort()
+      break
+    }
+    source.addEventListener('abort', abort, { once: true })
+  }
+
+  return controller.signal
+}
+
+function toolNamesFromSurface(surface: unknown): string[] {
+  if (!Array.isArray(surface)) return []
+  return [...new Set(surface.flatMap((tool) => {
+    if (typeof tool === 'string') return [tool]
+    if (tool && typeof tool === 'object' && 'name' in tool && typeof tool.name === 'string') return [tool.name]
+    return []
+  }))]
+}
+
+function hasExactLivingTownSurface(expectedNames: Iterable<string>, actualNames: string[]) {
+  const expected = new Set(expectedNames)
+  const actualLivingTown = new Set(actualNames.filter((name) => LIVING_TOWN_TOOL_NAMES.has(name)))
+  if (expected.size !== actualLivingTown.size) return false
+  return [...expected].every((name) => actualLivingTown.has(name))
+}
+
+function documentModelContext(): ModelContext | undefined {
+  return typeof document !== 'undefined' ? document.modelContext : undefined
+}
+
+/**
+ * WebMCP boundary adapter. The only direct access to document.modelContext in
+ * the application lives in this file. Tests inject a fake ModelContext here,
+ * so the rest of the application and Vitest never need a WebMCP runtime.
+ */
+export function createWebMcpRegistry(
+  resolveContext: ModelContextResolver = documentModelContext,
+  resolveDefinitions: ToolDefinitionResolver = getToolDefinitions,
+): WebMcpRegistry {
+  let latestStatus = cloneStatus(emptyStatus)
+  let transitionId = 0
+  let currentRun: RegistrationRun | undefined
+  let observedContext: ModelContext | undefined
+  let toolchangeListener: EventListener | undefined
+  let phaseController = new AbortController()
+  let nativeSurfaceRevision = 0
+  const subscribers = new Set<() => void>()
+
+  const isCurrent = (run: RegistrationRun) => currentRun === run && run.active && run.id === transitionId
+
+  const setStatus = (status: RegistryStatus) => {
+    latestStatus = cloneStatus(status)
+    subscribers.forEach((listener) => listener())
+  }
+
+  const detachContextListener = () => {
+    nativeSurfaceRevision += 1
+    if (observedContext && toolchangeListener && observedContext.removeEventListener) {
+      observedContext.removeEventListener('toolchange', toolchangeListener)
+    }
+    observedContext = undefined
+    toolchangeListener = undefined
+  }
+
+  const refreshNativeSurface = async (context: ModelContext | undefined) => {
+    if (!context?.getTools) return []
+    try {
+      return toolNamesFromSurface(await context.getTools())
+    } catch (error) {
+      console.warn('[LivingTown] WebMCP getTools() failed', error)
+      return []
+    }
+  }
+
+  const observeContext = (context: ModelContext | undefined) => {
+    if (observedContext === context) return
+    detachContextListener()
+    if (!context?.addEventListener) return
+
+    const listener: EventListener = () => {
+      const run = currentRun
+      if (!run || !isCurrent(run)) return
+      const currentContext = observedContext
+      const revision = ++nativeSurfaceRevision
+      const toolchangeCount = latestStatus.toolchangeCount + 1
+      setStatus({
+        ...latestStatus,
+        toolchangeCount,
+        nativeRegistered: false,
+        lastToolchangeAt: new Date().toISOString(),
+      })
+      void refreshNativeSurface(currentContext).then((nativeToolNames) => {
+        if (!isCurrent(run) || revision !== nativeSurfaceRevision) return
+        setStatus({
+          ...latestStatus,
+          nativeToolNames,
+          nativeRegistered: Boolean(currentContext?.getTools) && hasExactLivingTownSurface(run.registeredToolNames, nativeToolNames),
+        })
+      })
+    }
+    observedContext = context
+    toolchangeListener = listener
+    context.addEventListener('toolchange', listener)
+  }
+
+  const abortRun = (run: RegistrationRun | undefined) => {
+    if (!run) return
+    run.active = false
+    for (const controller of run.controllers.values()) controller.abort()
+    run.controllers.clear()
+    run.registeredToolNames.clear()
+  }
+
+  const setPhase = async (phase: Phase, store: LivingTownStore): Promise<RegistryStatus> => {
+    transitionId += 1
+    const id = transitionId
+    phaseController.abort()
+    phaseController = new AbortController()
+    abortRun(currentRun)
+    nativeSurfaceRevision += 1
+
+    const definitions = resolveDefinitions(phase, store)
+    const context = resolveContext()
+    observeContext(context)
+    const status: RegistryStatus = {
+      phase,
+      transition_id: id,
+      registeredToolNames: definitions.map((tool) => tool.name),
+      nativeAvailable: Boolean(context),
+      nativeRegistered: false,
+      nativeToolNames: [],
+      toolchangeCount: latestStatus.toolchangeCount,
+      lastToolchangeAt: latestStatus.lastToolchangeAt,
+    }
+    const run: RegistrationRun = {
+      id,
+      phase,
+      active: true,
+      controllers: new Map(),
+      registeredToolNames: new Set(),
+      phaseSignal: phaseController.signal,
+    }
+    currentRun = run
+    setStatus(status)
+
+    if (!context) return cloneStatus(latestStatus)
+
     for (const definition of definitions) {
+      if (!isCurrent(run)) break
       const controller = new AbortController()
+      run.controllers.set(definition.name, controller)
       try {
-        await modelContext.registerTool(
+        await context.registerTool(
           {
             name: definition.name,
             title: definition.title,
@@ -48,27 +256,64 @@ export async function setPhase(phase: Phase, store: LivingTownStore): Promise<Re
               readOnlyHint: definition.readOnlyHint,
               untrustedContentHint: true,
             },
-            execute: async (input: unknown, context?: { signal?: AbortSignal }) => {
-              if (context?.signal?.aborted) throw new DOMException('Tool execution cancelled', 'AbortError')
-              const result = await definition.run(input, context)
+            execute: async (input: unknown, executionContext?: WebMcpToolContext) => {
+              if (!isCurrent(run) || controller.signal.aborted || executionContext?.signal?.aborted) throw abortError()
+              const toolSignal = composeAbortSignals([run.phaseSignal, controller.signal, executionContext?.signal])
+              if (toolSignal.aborted) throw abortError()
+              const result = await definition.run(input, { signal: toolSignal })
+              if (!isCurrent(run) || toolSignal.aborted) throw abortError()
               return JSON.stringify(result)
             },
           },
           { signal: controller.signal },
         )
-        unregisterControllers.push(controller)
-        status.nativeRegistered = true
       } catch (error) {
+        if (isCurrent(run)) console.warn(`[LivingTown] WebMCP registration failed for ${definition.name}`, error)
         controller.abort()
-        console.warn(`[LivingTown] WebMCP registration failed for ${definition.name}`, error)
+        run.controllers.delete(definition.name)
+        continue
       }
+
+      if (!isCurrent(run) || controller.signal.aborted) {
+        controller.abort()
+        run.controllers.delete(definition.name)
+        continue
+      }
+      run.registeredToolNames.add(definition.name)
     }
+
+    if (!isCurrent(run)) return cloneStatus(latestStatus)
+    const nativeToolNames = await refreshNativeSurface(context)
+    if (!isCurrent(run)) return cloneStatus(latestStatus)
+    const nativeRegistered = context.getTools
+      ? hasExactLivingTownSurface(definitions.map((definition) => definition.name), nativeToolNames)
+      : false
+    const finalStatus: RegistryStatus = {
+      ...latestStatus,
+      nativeRegistered,
+      nativeToolNames,
+    }
+    setStatus(finalStatus)
+    return cloneStatus(finalStatus)
   }
 
-  latestStatus = status
-  return status
-}
-
-export function getRegistryStatus() {
-  return latestStatus
+  return {
+    setPhase,
+    getStatus: () => cloneStatus(latestStatus),
+    getSnapshot: () => latestStatus,
+    subscribe: (listener) => {
+      subscribers.add(listener)
+      return () => subscribers.delete(listener)
+    },
+    getPhaseSignal: () => phaseController.signal,
+    inspectNativeSurface: async () => refreshNativeSurface(resolveContext()),
+    dispose: () => {
+      transitionId += 1
+      phaseController.abort()
+      abortRun(currentRun)
+      currentRun = undefined
+      detachContextListener()
+      setStatus({ ...emptyStatus, transition_id: transitionId })
+    },
+  }
 }

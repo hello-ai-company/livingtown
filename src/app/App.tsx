@@ -49,7 +49,7 @@ function formatTime(value: string) {
 
 function AppShell() {
   const snapshot = useTownSnapshot(townStore)
-  const { phase, selectPhase, registry } = usePhase()
+  const { phase, selectPhase, registry, phaseSignal } = usePhase()
   const [panel, setPanel] = useState<Phase | 'admin'>('map')
   const [selectedHouseholdId, setSelectedHouseholdId] = useState('h-wheelchair')
   const [lastKnowledgeId, setLastKnowledgeId] = useState<string | undefined>()
@@ -73,7 +73,7 @@ function AppShell() {
       return undefined
     }
     try {
-      const result = await definition.run(input)
+      const result = await definition.run(input, { signal: phaseSignal })
       setNotice(`${definition.title}を反映しました。`)
       return result
     } catch (error) {
@@ -82,7 +82,7 @@ function AppShell() {
       setNotice(message)
       return undefined
     }
-  }, [phase])
+  }, [phase, phaseSignal])
 
   const contributeDemoKnowledge = async () => {
     const result = await runTool('contribute_knowledge', {
@@ -98,7 +98,9 @@ function AppShell() {
 
   const verifyLastKnowledge = async () => {
     if (!lastKnowledgeId) return
-    await runTool('verify_knowledge', { knowledge_id: lastKnowledgeId, verdict: 'agree' })
+    const agreeCount = snapshot.verifications.filter((verification) => verification.knowledge_id === lastKnowledgeId && verification.verdict === 'agree').length
+    const verifierId = agreeCount === 0 ? 'anon-demo-neighbor-a' : 'anon-demo-neighbor-b'
+    await runTool('verify_knowledge', { knowledge_id: lastKnowledgeId, verifier_id: verifierId, verdict: 'agree' })
   }
 
   const calculateRoute = async () => {
@@ -181,7 +183,7 @@ function AppShell() {
             <ActivityLog events={snapshot.events} />
             <div className="inspector-note">
               <span className="inspector-note__icon">⌁</span>
-              <div><strong>Privacy by construction</strong><p>世帯には制約enumだけ。氏名・診断名・正確な住所は、この街のデータモデルに存在しません。</p></div>
+              <div><strong>Privacy by construction</strong><p>household profileは制約enumだけ。氏名・診断名・正確な住所を保持しません。knowledge投稿の自由文には氏名・住所・電話番号などを含めないでください。</p></div>
             </div>
           </aside>
         </div>
@@ -208,7 +210,7 @@ function MapStage({ snapshot, lastKnowledgeId, onContribute, onVerify, onDrill }
         <div><span className="eyebrow">ACT I / EVERYDAY</span><h2>街の記憶を採取する</h2></div>
         <span className="stage-panel__count">{snapshot.knowledge.length}<small> memories</small></span>
       </div>
-      <p className="stage-lead">エージェントとの会話から、地図にまだない「知っている」を拾います。追認が2票に届いた知識だけが、避難経路の計算に参加します。</p>
+      <p className="stage-lead">エージェントとの会話から、地図にまだない「知っている」を拾います。投稿の自由文には氏名・住所・電話番号などを含めません。追認が2票に届いた知識だけが、避難経路の計算に参加します。</p>
 
       <div className="demo-runbook">
         <div className="demo-runbook__header"><span className="eyebrow">THE MONEY SHOT</span><span>3 steps / one living route</span></div>

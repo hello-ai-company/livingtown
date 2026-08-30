@@ -121,6 +121,112 @@
       "created_at": "2026-08-20T16:20:00.000Z"
     }
   ],
+  "verifications": [
+    {
+      "id": "k-flood-underpass:anon-seed-agree-1",
+      "knowledge_id": "k-flood-underpass",
+      "verifier_id": "anon-seed-agree-1",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-flood-underpass:anon-seed-agree-2",
+      "knowledge_id": "k-flood-underpass",
+      "verifier_id": "anon-seed-agree-2",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-dark-park:anon-seed-agree-1",
+      "knowledge_id": "k-dark-park",
+      "verifier_id": "anon-seed-agree-1",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-dark-park:anon-seed-agree-2",
+      "knowledge_id": "k-dark-park",
+      "verifier_id": "anon-seed-agree-2",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-narrow-alley:anon-seed-agree-1",
+      "knowledge_id": "k-narrow-alley",
+      "verifier_id": "anon-seed-agree-1",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-barrier-community:anon-seed-agree-1",
+      "knowledge_id": "k-barrier-community",
+      "verifier_id": "anon-seed-agree-1",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-barrier-community:anon-seed-agree-2",
+      "knowledge_id": "k-barrier-community",
+      "verifier_id": "anon-seed-agree-2",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-safe-library:anon-seed-agree-1",
+      "knowledge_id": "k-safe-library",
+      "verifier_id": "anon-seed-agree-1",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-safe-library:anon-seed-agree-2",
+      "knowledge_id": "k-safe-library",
+      "verifier_id": "anon-seed-agree-2",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-crowd-school:anon-seed-agree-1",
+      "knowledge_id": "k-crowd-school",
+      "verifier_id": "anon-seed-agree-1",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-crowd-school:anon-seed-agree-2",
+      "knowledge_id": "k-crowd-school",
+      "verifier_id": "anon-seed-agree-2",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-flood-riverpath:anon-seed-agree-1",
+      "knowledge_id": "k-flood-riverpath",
+      "verifier_id": "anon-seed-agree-1",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    },
+    {
+      "id": "k-barrier-clinic:anon-seed-agree-1",
+      "knowledge_id": "k-barrier-clinic",
+      "verifier_id": "anon-seed-agree-1",
+      "verdict": "agree",
+      "comment": "デモ用のpseudonymous追認",
+      "created_at": "2026-08-30T08:10:00.000Z"
+    }
+  ],
   "households": [
     {
       "id": "h-wheelchair",
@@ -130,6 +236,7 @@
       ],
       "start_lat": 35.681,
       "start_lng": 139.76,
+      "location_scope": "demo",
       "created_at": "2026-08-30T08:00:00.000Z"
     },
     {
@@ -140,6 +247,7 @@
       ],
       "start_lat": 35.681,
       "start_lng": 139.76,
+      "location_scope": "demo",
       "created_at": "2026-08-30T08:00:00.000Z"
     },
     {
@@ -148,6 +256,7 @@
       "constraints": [],
       "start_lat": 35.681,
       "start_lng": 139.76,
+      "location_scope": "demo",
       "created_at": "2026-08-30T08:00:00.000Z"
     }
   ]

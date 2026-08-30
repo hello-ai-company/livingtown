@@ -1,39 +1,44 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type PropsWithChildren } from 'react'
 import type { LivingTownStore } from '../data/supabase'
 import type { Phase } from '../sim/types'
-import { getToolNames } from '../webmcp/tools'
-import { setPhase, type RegistryStatus } from '../webmcp/register'
+import { createWebMcpRegistry, type RegistryStatus, type WebMcpRegistry } from '../webmcp/register'
 
 interface PhaseContextValue {
   phase: Phase
   selectPhase: (phase: Phase) => void
   registry: RegistryStatus
   toolNames: string[]
+  phaseSignal: AbortSignal
 }
 
 const PhaseContext = createContext<PhaseContextValue | null>(null)
 
 export function PhaseProvider({ store, children }: PropsWithChildren<{ store: LivingTownStore }>) {
   const [phase, setPhaseState] = useState<Phase>('map')
-  const [registry, setRegistry] = useState<RegistryStatus>({
-    phase: 'map',
-    registeredToolNames: getToolNames('map'),
-    nativeAvailable: false,
-    nativeRegistered: false,
-  })
+  const [registryInstance] = useState<WebMcpRegistry>(() => createWebMcpRegistry())
+  const registry = useSyncExternalStore(
+    registryInstance.subscribe,
+    registryInstance.getSnapshot,
+    registryInstance.getSnapshot,
+  )
 
+  // Phase changes only start a new generation. Disposal belongs to the
+  // provider lifecycle so an in-flight phase transition cannot tear down the
+  // registry that the next phase is about to use.
   useEffect(() => {
-    let alive = true
-    void setPhase(phase, store).then((nextRegistry) => {
-      if (alive) setRegistry(nextRegistry)
-    })
-    return () => {
-      alive = false
-    }
-  }, [phase, store])
+    void registryInstance.setPhase(phase, store)
+  }, [phase, registryInstance, store])
+
+  useEffect(() => () => {
+    registryInstance.dispose()
+  }, [registryInstance])
 
   const selectPhase = useCallback((nextPhase: Phase) => setPhaseState(nextPhase), [])
-  const value = useMemo(() => ({ phase, selectPhase, registry, toolNames: registry.registeredToolNames }), [phase, selectPhase, registry])
+  const phaseSignal = registryInstance.getPhaseSignal()
+  const value = useMemo(
+    () => ({ phase, selectPhase, registry, toolNames: registry.registeredToolNames, phaseSignal }),
+    [phase, selectPhase, registry, phaseSignal],
+  )
 
   return <PhaseContext.Provider value={value}>{children}</PhaseContext.Provider>
 }

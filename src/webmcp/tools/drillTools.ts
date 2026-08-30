@@ -11,7 +11,7 @@ export function drillTools(store: LivingTownStore): ToolDefinition[] {
     {
       name: 'register_household',
       title: '訓練参加世帯を登録',
-      description: '訓練参加世帯を登録する。プライバシー原則として制約enumのみを渡し、診断名・病名・氏名・正確な住所は持ち込まない。',
+      description: '訓練参加世帯を登録する。プライバシー原則として制約enumとデモエリア内の一時座標だけを渡し、診断名・病名・氏名・メール・電話・正確な住所は持ち込まない。座標はサーバー側でデモグラフのノードへスナップされる。',
       inputSchema: {
         type: 'object',
         properties: {
@@ -19,6 +19,7 @@ export function drillTools(store: LivingTownStore): ToolDefinition[] {
           constraints: { type: 'array', items: { type: 'string', enum: ['wheelchair', 'infant', 'elderly', 'pet'] } },
           start_lat: { type: 'number' },
           start_lng: { type: 'number' },
+          location_scope: { type: 'string', enum: ['temporary_drill'], description: '一時的な訓練セッションの座標であることを明示する。' },
         },
         required: ['constraints', 'start_lat', 'start_lng'],
       },
