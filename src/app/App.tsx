@@ -1,23 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Map2D } from '../map/Map2D'
 import { Replay3D } from '../map/Replay3D'
+import { ReplayKnowledgePanel } from '../map/ReplayKnowledgePanel'
 import { townStore } from '../data/supabase'
 import { useTownSnapshot } from '../data/useTownSnapshot'
 import { PhaseProvider, usePhase } from '../phases/PhaseContext'
 import { isKnowledgeVerified } from '../sim/route'
 import type { Household, HouseholdConstraint, Knowledge, Phase, RouteResult } from '../sim/types'
+import { getKnowledgeVisualConfig } from '../map/knowledgeVisuals'
 import { createEvidenceBundle, createEvidenceSnapshot, diagnosticsModeMessage, type WebMcpEvidenceSnapshot } from '../webmcp/diagnostics'
 import type { RegistryStatus } from '../webmcp/register'
 import { getToolDefinitions } from '../webmcp/tools'
-
-const CATEGORY_LABEL: Record<Knowledge['category'], string> = {
-  flood: '水・浸水',
-  darkness: '暗がり',
-  narrow_path: '狭い道',
-  barrier: '段差・障害',
-  safe_spot: '安全スポット',
-  other: 'その他',
-}
 
 const CONDITION_LABEL: Record<Knowledge['condition'], string> = {
   always: 'いつも',
@@ -54,6 +47,7 @@ function AppShell() {
   const { phase, selectPhase, registry, phaseSignal } = usePhase()
   const [panel, setPanel] = useState<Phase | 'admin'>('map')
   const [selectedHouseholdId, setSelectedHouseholdId] = useState('h-wheelchair')
+  const [selectedKnowledgeId, setSelectedKnowledgeId] = useState<string>()
   const [lastKnowledgeId, setLastKnowledgeId] = useState<string | undefined>()
   const [routeInputs, setRouteInputs] = useState<{ scenario: 'earthquake' | 'flood'; weather: 'clear' | 'rain'; time_of_day: 'day' | 'night' }>({ scenario: 'flood', weather: 'rain', time_of_day: 'day' })
   const [notice, setNotice] = useState<string | undefined>()
@@ -151,7 +145,8 @@ function AppShell() {
     if (!lastKnowledgeId) return
     const agreeCount = snapshot.verifications.filter((verification) => verification.knowledge_id === lastKnowledgeId && verification.verdict === 'agree').length
     const verifierId = agreeCount === 0 ? 'anon-demo-neighbor-a' : 'anon-demo-neighbor-b'
-    await runTool('verify_knowledge', { knowledge_id: lastKnowledgeId, verifier_id: verifierId, verdict: 'agree' })
+    const result = await runTool('verify_knowledge', { knowledge_id: lastKnowledgeId, verifier_id: verifierId, verdict: 'agree' }) as { verified?: boolean; duplicate?: boolean } | undefined
+    if (result?.verified && !result.duplicate) setNotice('Community verified · 地図のvisualが検証済みに変わりました。')
   }
 
   const calculateRoute = async () => {
@@ -165,6 +160,7 @@ function AppShell() {
   const resetDemo = () => {
     townStore.resetDemo()
     setLastKnowledgeId(undefined)
+    setSelectedKnowledgeId(undefined)
     setNotice('デモデータを初期状態に戻しました。')
   }
 
@@ -222,10 +218,10 @@ function AppShell() {
 
         <div className="main-grid">
           <section className="map-column">
-            <Map2D snapshot={snapshot} focusHouseholdId={selectedHouseholdId} onSelectHousehold={selectPhaseAndFocusHousehold} />
+            <Map2D snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} />
             {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
             {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onRunTool={runTool} />}
-            {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} />}
+            {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} />}
             {panel === 'admin' && <AdminStage registry={registry} phase={phase} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} />}
           </section>
 
@@ -282,10 +278,11 @@ function MapStage({ snapshot, lastKnowledgeId, onContribute, onVerify, onDrill }
 
 function MemoryRow({ item }: { item: Knowledge }) {
   const verified = isKnowledgeVerified(item)
+  const visual = getKnowledgeVisualConfig(item.category)
   return (
     <article className={`memory-row${verified ? ' memory-row--verified' : ''}`}>
-      <span className={`memory-row__marker memory-row__marker--${item.category}`} aria-hidden="true">{item.category === 'flood' ? '≈' : item.category === 'darkness' ? '☾' : item.category === 'barrier' ? '▰' : item.category === 'safe_spot' ? '＋' : '·'}</span>
-      <div className="memory-row__body"><div className="memory-row__meta"><span>{CATEGORY_LABEL[item.category]}</span><span>·</span><span>{CONDITION_LABEL[item.condition]}</span><span className="confidence-label">{CONFIDENCE_LABEL[item.confidence]}</span></div><p>{item.description}</p></div>
+      <span className={`memory-row__marker memory-row__marker--${item.category}`} aria-hidden="true">{visual.icon}</span>
+      <div className="memory-row__body"><div className="memory-row__meta"><span>{visual.label}</span><span>·</span><span>{CONDITION_LABEL[item.condition]}</span><span className="confidence-label">{CONFIDENCE_LABEL[item.confidence]}</span></div><p>{item.description}</p></div>
       <div className={`verification-badge${verified ? ' verification-badge--verified' : ''}`}><span>{verified ? '●' : '○'}</span>{verified ? '検証済み' : `${item.agree_count}/2 追認`}</div>
     </article>
   )
@@ -340,7 +337,7 @@ function RouteResultPanel({ route, onReplay, onRunTool, selectedHouseholdId }: {
   )
 }
 
-function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, onRunTool, onSelectHousehold }: { snapshot: ReturnType<typeof townStore.getSnapshot>; selectedHouseholdId: string; selectedRoute?: RouteResult; onRunTool: (name: string, input: unknown) => Promise<unknown>; onSelectHousehold: (id: string) => void }) {
+function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, onRunTool, onSelectHousehold, onSelectKnowledge }: { snapshot: ReturnType<typeof townStore.getSnapshot>; selectedHouseholdId: string; selectedRoute?: RouteResult; onRunTool: (name: string, input: unknown) => Promise<unknown>; onSelectHousehold: (id: string) => void; onSelectKnowledge: (knowledgeId: string) => void }) {
   const [summaryRequested, setSummaryRequested] = useState(false)
   const selectedHousehold = snapshot.households.find((item) => item.id === selectedHouseholdId)
   const targetBottleneck = snapshot.bottlenecks[0]
@@ -356,6 +353,7 @@ function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, onRunTool, 
       <div className="replay-toolbar"><span className="replay-toolbar__status"><span className={`status-dot${snapshot.replay.is_playing ? ' status-dot--live' : ''}`} />{snapshot.replay.is_playing ? 'PLAYING' : 'PAUSED'} · {snapshot.replay.camera}</span><div><button className="icon-button" onClick={() => runReplay({ action: 'overview' })} aria-label="全体表示">◎</button><button className="icon-button" onClick={() => runReplay({ action: 'pause' })} aria-label="一時停止">Ⅱ</button><button className="icon-button" onClick={() => runReplay({ action: 'resume' })} aria-label="再生">▶</button></div></div>
       <div className="replay-focus-row"><span className="eyebrow">FOCUS HOUSEHOLD</span>{snapshot.households.map((household) => <button key={household.id} className={`focus-button${household.id === selectedHouseholdId ? ' focus-button--active' : ''}`} onClick={() => { onSelectHousehold(household.id); runReplay({ action: 'replay_route', target_id: household.id }) }}>{household.label ?? '匿名世帯'} <small>{household.constraints.length ? household.constraints.map((item) => CONSTRAINT_LABEL[item]).join(' · ') : '制約なし'}</small></button>)}</div>
       <Replay3D snapshot={snapshot} />
+      <ReplayKnowledgePanel snapshot={snapshot} selectedRoute={selectedRoute} selectedHousehold={selectedHousehold} onSelectKnowledge={onSelectKnowledge} />
       <div className="replay-summary-row"><div><span className="eyebrow">DEBRIEF</span><strong>{selectedHousehold?.label ?? '選択世帯'}の訓練ログ</strong><p>{selectedRoute ? `${selectedRoute.eta_minutes}分の経路。${selectedRoute.avoided.length}件の街の知識が影響しました。` : '先に訓練フェーズで経路を計算してください。'}</p></div><button className="secondary-button" onClick={() => { setSummaryRequested(true); void onRunTool('get_debrief_summary', {}) }}>集計を更新 <span>↗</span></button></div>
       {summaryRequested && <div className="mini-summary"><div><strong>{snapshot.households.length}</strong><span>世帯</span></div><div><strong>{Object.keys(snapshot.routes).length}</strong><span>経路</span></div><div><strong>{snapshot.bottlenecks.length}</strong><span>詰まり</span></div><div><strong>{snapshot.knowledge.filter(isKnowledgeVerified).length}</strong><span>検証知識</span></div>{targetBottleneck && <button className="text-button" onClick={() => runReplay({ action: 'highlight_bottleneck', target_id: targetBottleneck.id })}>詰まりを見る →</button>}</div>}
     </section>

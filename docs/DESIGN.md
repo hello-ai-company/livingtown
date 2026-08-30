@@ -49,6 +49,41 @@
 
 WebMCP非対応ブラウザでは `document.modelContext` がないため、登録statusだけをSIMULATEDとして返す。UIとtool定義は同じものを使い、通常のVitest／Node環境でもadapterへfake contextを注入して検証できる。
 
+## 3.2 Living Knowledge Visual World
+
+地図上のvisualは装飾用の別状態を持たない。`Knowledge` をsource of truthとし、`isKnowledgeVerified` と選択中 `RouteResult.avoided` から `KnowledgeVisualView` をpureに導出する。
+
+```text
+Knowledge + verification counters
+          │
+          ├─ net score >= 2 ───────────────→ VERIFIED
+          │                                  │
+          └─ threshold未達 ───────────────→ PENDING
+                                             │
+RouteResult.avoided.knowledge_id + edge_ids ─┘
+                         └──────────────────→ AFFECTING_ROUTE
+```
+
+`AFFECTING_ROUTE` は距離や推測で決めない。現在のroute resultに同じ `knowledge_id` が存在する場合だけ成立し、表示するconnectorとedge highlightはそのrecordの `edge_ids` から描く。`avoided.reason` も同じrecordからdetail card／Replayへ渡す。
+
+カテゴリ別の表示規則は [`src/map/knowledgeVisuals.ts`](../src/map/knowledgeVisuals.ts) のregistryに集約する。現在の `KnowledgeCategory` を増やさず、bottleneckは独立domain recordとして別configで描く。
+
+| domain category | visual type | 表示の意味 |
+|---|---|---|
+| `barrier` | obstruction | barricade／通行障害 |
+| `flood` | water area | 半透明の水面と波紋 |
+| `darkness` | dark halo | low-light zone／街灯警告 |
+| `narrow_path` | narrow segment | 道幅・アクセシビリティ警告 |
+| `safe_spot` | safe zone | 危険色ではない避難候補 |
+| `other` | flow warning | 未分類のcommunity signal |
+| `bottleneck`（別domain） | flow warning | 訓練中の詰まり |
+
+PENDINGは小さく、半透明、点線／muted、`未検証`ラベルで表示する。threshold到達時は、200〜500ms程度のsubtle transition（`prefers-reduced-motion`では抑制）でVERIFIEDへ変わる。現在のrouteを変えたものだけはAFFECTING_ROUTEとしてhalo、connector、避けたedgeの赤い破線、`この情報により迂回`を追加する。色だけに依存せず、文字label、shape、aria-labelを併用する。
+
+`KnowledgeVisual`、`KnowledgeDetailCard`、Legend／filter、`ReplayKnowledgePanel`を分離し、Map componentにカテゴリ判定の巨大なswitchを置かない。近接するKnowledgeは小さなcluster radius内でradial offsetを付け、少数のdemoデータでも操作不能な完全重複を避ける。detail cardはdesktopではmap内のpanel、狭いviewportではbottom sheetとして表示する。
+
+Replayでは同じselected routeを入力に `AFFECTING_ROUTE` knowledgeを再導出する。したがって、通常のmap、WebMCP tool経由の投稿／verification、drillのroute、Replayの説明は同じsnapshotから更新され、UIだけの影響状態を保持しない。
+
 ### 3.1 DiagnosticsとEvidence
 
 管理ビューの `WebMCP Diagnostics` は、adapterが保持するstatusだけを表示する。UIやEvidence exporterが `document.modelContext` を直接参照することはない。
@@ -195,8 +230,9 @@ CesiumJS + PLATEAU 3D Tilesは遅延ロードする任意機能。`VITE_ENABLE_3
 ```text
 livingtown/
 ├── README.md
-├── docs/{DESIGN,EVALUATION,DEMO_SCRIPT,WEBMCP_REAL_DEVICE}.md
+├── docs/{DESIGN,EVALUATION,DEMO_SCRIPT,WEBMCP_REAL_DEVICE,LIVING_KNOWLEDGE_VISUALS}.md
 ├── src/webmcp/{register.ts,register.test.ts,diagnostics.ts,diagnostics.test.ts,tools/}
+├── src/map/{Map2D,KnowledgeVisual,KnowledgeDetailCard,ReplayKnowledgePanel,knowledgeVisuals}.tsx
 ├── src/sim/{types,graph,route,route.test}.ts
 ├── src/data/{demoData,supabase,store.test,useTownSnapshot}.ts
 ├── src/phases/PhaseContext.tsx
@@ -214,6 +250,8 @@ livingtown/
 - [x] household profileに個人情報フィールドを保存できず、constraintsはenumのみ。
 - [x] `VITE_ENABLE_3D` なしで全編が2Dで動く。
 - [x] `npm run seed` 一回でグラフ、暗黙知10件、pseudonymous verification record、世帯3件を生成できる。
+- [x] KnowledgeがPENDING／VERIFIED／AFFECTING_ROUTEの3状態でカテゴリ別に描画され、selected routeの実際の `avoided` recordとdetail／Replayが連動する。
+- [x] filter、Legend、keyboard focus、aria-label、reduced-motion、狭いviewport向けdetail cardを提供する。
 
 ## 11. Devpost用要約
 

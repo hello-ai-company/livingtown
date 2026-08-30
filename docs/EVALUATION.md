@@ -1,8 +1,8 @@
 # LivingTown 実装評価
 
 評価日: 2026-08-30
-対象: `feat/webmcp-real-device-evidence`
-Base SHA: `a746927ea4a3a86bf193aa1c70eeb368d0c2c437`（PR #1 merge commit）
+対象: `feat/living-knowledge-visual-world`
+Base SHA: `cca5c9dda8291998a9ffb4a30515871eb4f72f37`（PR #2 merge後のmain）
 
 ## 判定ルール
 
@@ -53,9 +53,25 @@ Base SHA: `a746927ea4a3a86bf193aa1c70eeb368d0c2c437`（PR #1 merge commit）
 - WebMCPオブジェクトがない通常Node/Vitest環境でも、同じtool definitionをfake adapterで検証できる。
 - 2Dフォールバックでmap → drill → replayの縦切りが成立する。
 - `npm run seed` は外部APIなしで決定的なdemo dataを生成する。
-- 既存23 testsを維持し、Phase 4Aで8 testsを追加した。現在は5 files / 31 tests。
+- 既存31 testsを維持し、Phase 5で13 testsを追加した。現在は6 files / 44 tests。
+
+### Living Knowledge Visual World
+
+- `src/map/knowledgeVisuals.ts` に既存の6 `KnowledgeCategory` のvisual registryを集約し、`bottleneck`は別domain configとして扱う。unknown categoryは安全な `other` visualへfallbackする。
+- `PENDING → VERIFIED → AFFECTING_ROUTE` を `Knowledge` と `RouteResult.avoided` から導出する。thresholdは `agree_count - disagree_count >= 2` のままで、距離による推測はしない。
+- barrier、flood、darkness、narrow_path、safe_spot、otherを異なるinline SVGで描画し、pending／verified／route-impactでopacity、線種、halo、labelを変える。safe_spotはpositive visualである。
+- `KnowledgeDetailCard` はverification情報、route impact、avoided reason、actual affected edge、選択世帯のconstraint labelを表示する。`KnowledgeVisual`はkeyboard focus、aria-label、touch hit areaを持ち、reduced-motion CSSを備える。
+- All／Verified only／Affecting current route／category filter、Legend、近接visualのradial offset、投稿直後とverification threshold到達時のtransitionを実装した。filterはdomain dataを変更しない。
+- `ReplayKnowledgePanel` は同じselected routeからinfluential verified knowledge、avoided reason、edge、bottleneckを再導出する。通常UIとWebMCP tool経由の更新は同じstoreからvisualへ反映される。
+- `src/map/knowledgeVisuals.test.ts` でvisual state、registry、unknown fallback、safe spot、route linkage、複数filter、privacy境界を確認する。
 
 ## PARTIAL
+
+### Visual UX manual verification
+
+接続された通常Chrome（WebMCP APIなし、SIMULATED）で、desktop viewportのMAP表示、Knowledge投稿、PENDING、1票目、2票目のVERIFIED transition、visual detail card、Verified filter、wheelchair route、AFFECTING_ROUTE、avoided edge／reason、REPLAYの `KNOWLEDGE → ROUTE` panel、bottleneck、demo resetを確認した。これは通常ブラウザ上のUX確認であり、native WebMCP evidenceではない。
+
+狭いviewportのlayoutはresponsive CSSとbottom-sheet定義をコード確認したが、実機WebMCPの証拠とは別であり、端末別の視覚回帰は未取得である。
 
 ### WebMCP real-device evidence
 
@@ -90,18 +106,18 @@ Base SHA: `a746927ea4a3a86bf193aa1c70eeb368d0c2c437`（PR #1 merge commit）
 - 共有Supabaseへの適用と実DB検証、temporary drill sessionの削除ジョブ。
 - Cesium／PLATEAUの本格実装と対象都市・tilesetの固定。
 
-## Phase 4A quality gate
+## Phase 5 quality gate
 
-最終commitで次を実行し、結果をPR本文とこの表へ記録する。既存23 testsを削除・弱体化しない。
+最終commitで次を実行し、結果をPR本文とこの表へ記録する。既存31 testsを削除・弱体化しない。
 
 | Command | Result |
 |---|---|
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 5 files / 31 tests（既存23件 + 追加8件） |
+| `npm test` | PASS — 6 files / 44 tests（既存31件 + 追加13件） |
 | `npm run build` | PASS — Vite production build succeeded |
 | `npm run seed` | PASS — 6 nodes / 7 edges / 10 knowledge / 13 pseudonymous votes / 3 households |
 | `git diff --check` | PASS |
 
 ## 現時点の結論
 
-Phase 4Aは、実機証拠を保存できるDiagnostics path、LocalStorageのsource-of-truth整合性、2Dコア、WebMCP adapter境界を提供する。実機WebMCP、共有DB、完全匿名運用、Cesium／PLATEAUは未確認・未完了なので、全体を最終PASSとは扱わない。
+Phase 5は、KnowledgeをPENDING／VERIFIED／AFFECTING_ROUTEとして地図・route explanation・Replayへつなぐ2Dの縦切りを提供する。実機WebMCP、共有DB、完全匿名運用、moderation、Cesium／PLATEAUは未確認・未完了なので、LivingTown全体を最終PASSとは扱わない。
