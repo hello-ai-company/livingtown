@@ -19,7 +19,7 @@ import type {
 } from '../sim/types'
 import { calculateEvacuationRoute } from '../sim/route'
 
-const STORAGE_KEY = 'livingtown-state-v2'
+export const LIVING_TOWN_STORAGE_KEY = 'livingtown-state-v2'
 const TEMPORARY_DRILL_TTL_MS = 24 * 60 * 60 * 1000
 
 export const HOUSEHOLD_FORBIDDEN_FIELDS = [
@@ -205,6 +205,30 @@ function isSafePersistedVerification(value: unknown): value is Verification {
     typeof verification.created_at === 'string'
 }
 
+/**
+ * Verification records are the source of truth. Knowledge counters are only a
+ * denormalized cache used by the route and list views, so persisted counters
+ * are rebuilt instead of trusted.
+ */
+export function reconcilePersistedKnowledgeCounters(knowledge: Knowledge[], verifications: Verification[]): Knowledge[] | null {
+  const knowledgeIds = new Set(knowledge.map((item) => item.id))
+  const counts = new Map<string, { agree_count: number; disagree_count: number }>()
+
+  for (const verification of verifications) {
+    if (!knowledgeIds.has(verification.knowledge_id)) return null
+    const current = counts.get(verification.knowledge_id) ?? { agree_count: 0, disagree_count: 0 }
+    if (verification.verdict === 'agree') current.agree_count += 1
+    else current.disagree_count += 1
+    counts.set(verification.knowledge_id, current)
+  }
+
+  return knowledge.map((item) => ({
+    ...item,
+    agree_count: counts.get(item.id)?.agree_count ?? 0,
+    disagree_count: counts.get(item.id)?.disagree_count ?? 0,
+  }))
+}
+
 function initialSnapshot(): TownSnapshot {
   return {
     knowledge: clone(DEMO_KNOWLEDGE),
@@ -230,7 +254,7 @@ export class LivingTownStore {
   private readPersisted(): TownSnapshot | null {
     if (!this.persist || typeof window === 'undefined') return null
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY)
+      const raw = window.localStorage.getItem(LIVING_TOWN_STORAGE_KEY)
       if (!raw) return null
       const candidate = JSON.parse(raw) as Partial<TownSnapshot>
       if (!Array.isArray(candidate.knowledge) ||
@@ -250,6 +274,9 @@ export class LivingTownStore {
         if (verificationKeys.has(key)) return null
         verificationKeys.add(key)
       }
+      const reconciledKnowledge = reconcilePersistedKnowledgeCounters(candidate.knowledge, candidate.verifications)
+      if (!reconciledKnowledge) return null
+      candidate.knowledge = reconciledKnowledge
       const activeHouseholds = candidate.households.filter((household) =>
         household.location_scope === 'demo' || !household.expires_at || Date.parse(household.expires_at) > Date.now(),
       )
@@ -266,7 +293,7 @@ export class LivingTownStore {
 
   private commit(next: TownSnapshot) {
     this.snapshot = next
-    if (this.persist && typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    if (this.persist && typeof window !== 'undefined') window.localStorage.setItem(LIVING_TOWN_STORAGE_KEY, JSON.stringify(next))
     this.listeners.forEach((listener) => listener())
   }
 

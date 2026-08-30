@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Map2D } from '../map/Map2D'
 import { Replay3D } from '../map/Replay3D'
 import { townStore } from '../data/supabase'
@@ -6,6 +6,8 @@ import { useTownSnapshot } from '../data/useTownSnapshot'
 import { PhaseProvider, usePhase } from '../phases/PhaseContext'
 import { isKnowledgeVerified } from '../sim/route'
 import type { Household, HouseholdConstraint, Knowledge, Phase, RouteResult } from '../sim/types'
+import { createEvidenceBundle, createEvidenceSnapshot, diagnosticsModeMessage, type WebMcpEvidenceSnapshot } from '../webmcp/diagnostics'
+import type { RegistryStatus } from '../webmcp/register'
 import { getToolDefinitions } from '../webmcp/tools'
 
 const CATEGORY_LABEL: Record<Knowledge['category'], string> = {
@@ -55,6 +57,50 @@ function AppShell() {
   const [lastKnowledgeId, setLastKnowledgeId] = useState<string | undefined>()
   const [routeInputs, setRouteInputs] = useState<{ scenario: 'earthquake' | 'flood'; weather: 'clear' | 'rain'; time_of_day: 'day' | 'night' }>({ scenario: 'flood', weather: 'rain', time_of_day: 'day' })
   const [notice, setNotice] = useState<string | undefined>()
+  const [evidenceByPhase, setEvidenceByPhase] = useState<Partial<Record<Phase, WebMcpEvidenceSnapshot>>>({})
+
+  const browserUserAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+  const currentEvidence = useMemo(
+    () => createEvidenceSnapshot(registry, phaseSignal, browserUserAgent, phase),
+    [browserUserAgent, phase, phaseSignal, registry],
+  )
+
+  useEffect(() => {
+    setEvidenceByPhase((previous) => ({ ...previous, [currentEvidence.phase]: currentEvidence }))
+  }, [currentEvidence])
+
+  const evidenceJson = useMemo(
+    () => JSON.stringify(createEvidenceBundle(currentEvidence, evidenceByPhase), null, 2),
+    [currentEvidence, evidenceByPhase],
+  )
+
+  const downloadEvidence = useCallback(() => {
+    if (typeof document === 'undefined') {
+      setNotice('この環境ではEvidence JSONを保存できません。')
+      return
+    }
+    const blob = new Blob([evidenceJson], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `livingtown-webmcp-evidence-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+    setNotice('Evidence JSONをダウンロードしました。')
+  }, [evidenceJson])
+
+  const copyEvidence = useCallback(async () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(evidenceJson)
+        setNotice('Evidence JSONをクリップボードへコピーしました。')
+        return
+      } catch {
+        // Clipboard permissions vary by browser; download is the safe fallback.
+      }
+    }
+    downloadEvidence()
+  }, [downloadEvidence, evidenceJson])
 
   const selectedRoute = snapshot.routes[selectedHouseholdId]
   const selectedHousehold = snapshot.households.find((item) => item.id === selectedHouseholdId)
@@ -62,6 +108,11 @@ function AppShell() {
   const transitionTo = useCallback((nextPanel: Phase | 'admin') => {
     setPanel(nextPanel)
     if (nextPanel !== 'admin') selectPhase(nextPanel)
+  }, [selectPhase])
+
+  const selectPhaseFromAdmin = useCallback((nextPhase: Phase) => {
+    setPanel('admin')
+    selectPhase(nextPhase)
   }, [selectPhase])
 
   const runTool = useCallback(async (name: string, input: unknown) => {
@@ -175,7 +226,7 @@ function AppShell() {
             {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
             {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onRunTool={runTool} />}
             {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} />}
-            {panel === 'admin' && <AdminStage registry={registry} phase={phase} onSelectPhase={transitionTo} onReset={resetDemo} snapshot={snapshot} />}
+            {panel === 'admin' && <AdminStage registry={registry} phase={phase} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} />}
           </section>
 
           <aside className="inspector-column">
@@ -311,7 +362,7 @@ function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, onRunTool, 
   )
 }
 
-function AdminStage({ registry, phase, onSelectPhase, onReset, snapshot }: { registry: { registeredToolNames: string[]; nativeAvailable: boolean; nativeRegistered: boolean }; phase: Phase; onSelectPhase: (phase: Phase) => void; onReset: () => void; snapshot: ReturnType<typeof townStore.getSnapshot> }) {
+function AdminStage({ registry, phase, onSelectPhase, onReset, snapshot, currentEvidence, evidenceByPhase, evidenceJson, onCopyEvidence, onDownloadEvidence }: { registry: RegistryStatus; phase: Phase; onSelectPhase: (phase: Phase) => void; onReset: () => void; snapshot: ReturnType<typeof townStore.getSnapshot>; currentEvidence: WebMcpEvidenceSnapshot; evidenceByPhase: Partial<Record<Phase, WebMcpEvidenceSnapshot>>; evidenceJson: string; onCopyEvidence: () => void; onDownloadEvidence: () => void }) {
   const checks = [
     ['フェーズでツール面が入れ替わる', registry.registeredToolNames.length > 0],
     ['世帯は制約enumのみを保持', snapshot.households.every((household) => household.constraints.every((constraint) => ['wheelchair', 'infant', 'elderly', 'pet'].includes(constraint)))],
@@ -323,8 +374,48 @@ function AdminStage({ registry, phase, onSelectPhase, onReset, snapshot }: { reg
       <div className="stage-panel__head"><div><span className="eyebrow">ADMIN / PREFLIGHT</span><h2>提出前の観測パネル</h2></div><span className="admin-stage__score">{checks.filter(([, pass]) => pass).length}/{checks.length}<small> checks</small></span></div>
       <p className="stage-lead">WebMCP Challengeの評価軸に合わせ、プロダクトの成立条件をここで観測します。リセットして、デモを何度でも再現できます。</p>
       <div className="phase-observer"><span className="eyebrow">LIVE TOOL SURFACE</span><strong>現在のフェーズ: {phase.toUpperCase()}</strong><div className="phase-observer__buttons">{PHASE_META.map((item) => <button key={item.key} className={item.key === phase ? 'is-active' : ''} onClick={() => onSelectPhase(item.key)}>{item.short}</button>)}</div><small>Native WebMCP: {registry.nativeAvailable ? registry.nativeRegistered ? 'registered' : 'available / registration pending' : 'not exposed in this browser · local simulator active'}</small></div>
+      <WebMcpDiagnostics current={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={onCopyEvidence} onDownloadEvidence={onDownloadEvidence} />
       <div className="check-list">{checks.map(([label, pass]) => <div key={label} className="check-row"><span className={pass ? 'check-row__icon check-row__icon--pass' : 'check-row__icon'}>{pass ? '✓' : '—'}</span><span>{label}</span><span className="check-row__status">{pass ? 'PASS' : 'PENDING'}</span></div>)}</div>
       <div className="admin-actions"><button className="secondary-button" onClick={onReset}>デモデータをリセット <span>↻</span></button><span>リセットすると、投稿→2票検証→経路変更を再現できます。</span></div>
+    </section>
+  )
+}
+
+function WebMcpDiagnostics({ current, evidenceByPhase, evidenceJson, onCopyEvidence, onDownloadEvidence }: { current: WebMcpEvidenceSnapshot; evidenceByPhase: Partial<Record<Phase, WebMcpEvidenceSnapshot>>; evidenceJson: string; onCopyEvidence: () => void; onDownloadEvidence: () => void }) {
+  return (
+    <section className="webmcp-diagnostics" aria-labelledby="webmcp-diagnostics-title">
+      <div className="webmcp-diagnostics__head">
+        <div><span className="eyebrow">EVIDENCE GATE</span><h3 id="webmcp-diagnostics-title">WebMCP Diagnostics</h3></div>
+        <span className={`api-badge${current.exactMatch ? ' api-badge--live' : ''}`}>{current.exactMatch ? 'EXACT PASS' : 'NOT VERIFIED'}</span>
+      </div>
+      <div className={`webmcp-diagnostics__mode webmcp-diagnostics__mode--${current.mode.toLowerCase()}`}>
+        <strong>{current.mode}</strong>
+        <span>{diagnosticsModeMessage(current.mode)}</span>
+      </div>
+      <dl className="diagnostics-grid">
+        <div><dt>Browser WebMCP available</dt><dd>{current.nativeAvailable ? 'YES' : 'NO'}</dd></div>
+        <div><dt>Mode</dt><dd>{current.mode}</dd></div>
+        <div><dt>Current phase</dt><dd>{current.phase.toUpperCase()}</dd></div>
+        <div><dt>transition_id</dt><dd>{current.transitionId}</dd></div>
+        <div><dt>exact surface match</dt><dd className={current.exactMatch ? 'diagnostics-pass' : 'diagnostics-fail'}>{current.exactMatch ? 'PASS' : 'FAIL'}</dd></div>
+        <div><dt>nativeRegistered</dt><dd>{current.nativeRegistered ? 'YES' : 'NO'}</dd></div>
+        <div><dt>toolchangeCount</dt><dd>{current.toolchangeCount}</dd></div>
+        <div><dt>lastToolchangeAt</dt><dd>{current.lastToolchangeAt ?? '—'}</dd></div>
+        <div><dt>phase AbortSignal state</dt><dd>{current.phaseSignalAborted ? 'ABORTED' : 'ACTIVE'}</dd></div>
+      </dl>
+      <div className="diagnostics-surfaces">
+        <div><span>expected LivingTown tools</span><code>{current.expectedLivingTownTools.join(' · ')}</code></div>
+        <div><span>actual getTools() LivingTown tools</span><code>{current.actualLivingTownTools.length ? current.actualLivingTownTools.join(' · ') : 'none'}</code></div>
+        <div><span>external tools</span><code>{current.externalTools.length ? current.externalTools.join(' · ') : 'none'}</code></div>
+      </div>
+      <div className="diagnostics-phase-history" aria-label="Evidence phases">
+        {PHASE_META.map((item) => {
+          const evidence = evidenceByPhase[item.key]
+          return <div key={item.key}><strong>{item.short}</strong><span>{evidence ? `${evidence.mode} · ${evidence.exactMatch ? 'PASS' : 'FAIL'}` : 'not captured'}</span></div>
+        })}
+      </div>
+      <div className="diagnostics-actions"><button className="secondary-button" onClick={onCopyEvidence}>Evidence JSONをコピー</button><button className="secondary-button" onClick={onDownloadEvidence}>Evidence JSONを保存</button></div>
+      <details className="diagnostics-json"><summary>Evidence JSON preview</summary><pre>{evidenceJson}</pre></details>
     </section>
   )
 }

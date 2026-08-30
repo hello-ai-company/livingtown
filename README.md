@@ -30,6 +30,7 @@ npm run typecheck
 npm test
 npm run build
 npm run seed
+git diff --check
 ```
 
 実装状況と残課題は [docs/EVALUATION.md](./docs/EVALUATION.md)、設計の正本は [docs/DESIGN.md](./docs/DESIGN.md) と [Notionの設計書](https://app.notion.com/p/c22ef848aa464ff6b6a39dc010d5f2c7) です。
@@ -43,6 +44,12 @@ WebMCP固有のブラウザAPIは [`src/webmcp/register.ts`](./src/webmcp/regist
 - `replay`: `control_replay`, `get_debrief_summary`
 
 phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実行中の取消し・遅延した古い結果を分離して扱います。ReactのPhaseProviderごとにregistryを生成し、unmount時にtoolとlistenerをdisposeします。adapterテストでは `getTools()` の実surface、既知LivingTown tool集合の完全一致、`toolchange`、重複登録防止、unregister、実行中phase変更を検証しています。公式仕様は [Chrome WebMCP Imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api?hl=en) と [WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices?hl=en) を参照してください。
+
+### Diagnosticsと実機Evidence
+
+右上の `管理ビュー` にある `WebMCP Diagnostics` では、ブラウザAPIの有無、`NATIVE` / `SIMULATED` mode、現在phase、transition、phase AbortSignal、`getTools()` から分離したLivingTown toolと外部tool、exact surface match、`toolchange` の状態を確認できます。`Evidence JSONをコピー` または `Evidence JSONを保存` で、現在の診断と確認済みphaseのメタデータを一つに出力できます。Evidence JSONにはknowledge本文やhousehold profileを含めません。
+
+`SIMULATED` は通常ブラウザ用の動作確認であり、**This is not real-device WebMCP evidence.** と表示されます。実機WebMCPの判定は、対応Chromeで `getTools()`、phase切替、tool実行、旧toolの消滅を確認した記録だけを対象にします。手順は [docs/WEBMCP_REAL_DEVICE.md](./docs/WEBMCP_REAL_DEVICE.md) を参照してください。
 
 ## Privacy and verification boundary
 
