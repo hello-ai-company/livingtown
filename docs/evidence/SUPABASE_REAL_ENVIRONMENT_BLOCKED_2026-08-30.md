@@ -40,10 +40,10 @@ npx supabase init                       # only if supabase/config.toml is absent
 npx supabase link --project-ref <PROJECT_REF>
 npx supabase db push --dry-run
 npx supabase db push                    # staging/disposable project only
-npx supabase test db --linked
+npx supabase test db                    # local Docker/Supabase stack only
 ```
 
-`supabase db push --dry-run` must be reviewed before applying `0001` through `0004` in filename order. Do not use `npx supabase db reset --linked` unless the linked target has been independently confirmed as disposable; it is destructive. Expected SQL-test result is 19 passing assertions for `supabase/tests/0004_shared_state_trust_boundary.sql`.
+This historical runbook predates the remote-version rename and later pgTAP expansion. The current local command is `supabase test db`; do not treat `supabase test db --linked` as hosted-project pgTAP evidence. `supabase db push --dry-run` must be reviewed before applying the initial four migrations in filename order. Do not use `npx supabase db reset --linked` unless the linked target has been independently confirmed as disposable; it is destructive. The current SQL-test plan is 30 assertions in `supabase/tests/0004_shared_state_trust_boundary.sql`.
 
 For a local pgTAP run instead, start the local stack and run:
 

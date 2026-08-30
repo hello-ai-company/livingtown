@@ -67,7 +67,7 @@ The household domain stores only:
 - a graph-node-snapped `start_lat/start_lng`;
 - `location_scope = demo | temporary_drill` and a temporary expiry.
 
-It rejects names, email, phone, diagnosis, medical free text, exact addresses, and unknown nested fields. In the shared schema, `owner_id` scopes a household to the authenticated drill owner and is not mapped into the application `Household` shape. `0004_shared_state_trust_boundary.sql` repeats the coordinate snap and constraint checks inside an RPC, so the browser-side check is not the only boundary.
+It rejects names, email, phone, diagnosis, medical free text, exact addresses, and unknown nested fields. In the shared schema, `owner_id` scopes a household to the authenticated drill owner and is not mapped into the application `Household` shape. `20260830143808_shared_state_trust_boundary.sql` repeats the coordinate snap and constraint checks inside an RPC, so the browser-side check is not the only boundary.
 
 `knowledge.description` remains community free text and `knowledge.lat/lng` remains community location data. Those fields can still contain or enable PII. The UI and tool descriptions warn contributors, but moderation, retention, deletion, and re-identification assessment are future work.
 
@@ -77,12 +77,13 @@ Verification comments and bottleneck descriptions are also user-authored free te
 
 Apply migrations in filename order:
 
-1. `0001_init.sql` — base tables and domain checks.
-2. `0002_verification_privacy_rls.sql` — Verification record, RLS, initial trigger and grants.
-3. `0003_knowledge_counter_privileges.sql` — zero-counter insert trigger and knowledge column privileges.
-4. `0004_shared_state_trust_boundary.sql` — owner scope, RPC-only private writes, server-derived verifier identity, Knowledge trust checks, and Knowledge-only Realtime publication membership.
+1. `20260830143531_init.sql` — base tables and domain checks.
+2. `20260830143556_verification_privacy_rls.sql` — Verification record, RLS, initial trigger and grants.
+3. `20260830143717_knowledge_counter_privileges.sql` — zero-counter insert trigger and knowledge column privileges.
+4. `20260830143808_shared_state_trust_boundary.sql` — owner scope, RPC-only private writes, server-derived verifier identity, Knowledge trust checks, and Knowledge-only Realtime publication membership.
+5. `20260830154252_function_execute_boundary.sql` — remove default browser-role EXECUTE grants from internal helpers and grant the three public RPCs to `authenticated` only.
 
-The migrations use `if not exists`, named `drop policy if exists`, trigger replacement, and guarded publication changes where possible. `0004` revokes browser SELECT/INSERT/UPDATE/DELETE on Verification and drops the earlier authenticated read policy. If a deployed project already added Verification to `supabase_realtime`, the guarded block executes `ALTER PUBLICATION supabase_realtime DROP TABLE public.verification`; this changes publication exposure, not stored records. Do not edit an applied migration in a deployed project; apply `0004` as a new migration.
+The initial four migrations use `if not exists`, named `drop policy if exists`, trigger replacement, and guarded publication changes where possible. `20260830143808_shared_state_trust_boundary.sql` revokes browser SELECT/INSERT/UPDATE/DELETE on Verification and drops the earlier authenticated read policy. If a deployed project already added Verification to `supabase_realtime`, its guarded block executes `ALTER PUBLICATION supabase_realtime DROP TABLE public.verification`; this changes publication exposure, not stored records. Do not edit an applied migration in a deployed project; apply `20260830154252_function_execute_boundary.sql` as a new migration.
 
 The relevant permissions are:
 
@@ -110,7 +111,7 @@ select not exists (
 ) as verification_not_in_realtime;
 ```
 
-Expected results after `0004`: table/column write checks are `false`, both Verification SELECT checks are `false`, the RPC privilege is `true`, both RLS values are `true`, and `verification_not_in_realtime` is `true`. Execute the negative checks with a real authenticated/anonymous client as well, because SQL-editor owner privileges do not model the browser role.
+Expected results after the initial four migrations and `20260830154252_function_execute_boundary.sql`: table/column write checks are `false`, both Verification SELECT checks are `false`, the three public RPC privileges are `true` only for `authenticated`, internal helper privileges are `false` for `anon` and `authenticated`, both RLS values are `true`, and `verification_not_in_realtime` is `true`. Execute the negative checks with a real authenticated/anonymous client as well, because SQL-editor owner privileges do not model the browser role.
 
 ## Realtime and recovery
 
@@ -136,9 +137,26 @@ On a Knowledge event, counters are validated and existing route inputs are recal
 
 ## Manual shared-mode verification
 
-This repository does not contain project credentials and the local environment does not apply migrations to a live Supabase project. Mark the following `SUPABASE_MANUAL_ACTION_REQUIRED` until a project owner records real evidence.
+The local repository does not contain project credentials. Separate local and hosted checks:
 
-1. Apply migrations 0001–0004 to a disposable Supabase project.
+### Local database unit tests
+
+Run the pgTAP file against the Docker/Supabase local stack only:
+
+```bash
+npx supabase start
+npx supabase test db
+```
+
+`supabase test db --linked` is not evidence that the hosted project passed pgTAP. If the CLI or Docker daemon is unavailable, record `LOCAL_PGTAP_BLOCKED`.
+
+### Real hosted project
+
+Use the authenticated ChatGPT Supabase MCP or safe read-only SQL/Advisor queries to audit migration history, privileges, RLS, functions, and publication membership. Browser A/B/C is a separate real-application gate.
+
+For the shared-mode manual flow, mark `SUPABASE_MANUAL_ACTION_REQUIRED` until the project owner records real application evidence.
+
+1. Apply the initial four migrations and `20260830154252_function_execute_boundary.sql` to a disposable Supabase project.
 2. Enable Anonymous Sign-Ins if the demo is to use the no-PII browser flow.
 3. Start two browser sessions with `VITE_LIVINGTOWN_DATA_MODE=shared` and the same project URL/key.
 4. Confirm `Data diagnostics` shows `SUPABASE_SHARED`, authenticated status, connected database, and Realtime status. Do not copy keys or raw identity values into evidence.
@@ -151,4 +169,4 @@ This repository does not contain project credentials and the local environment d
 
 Record the project, migration revision, browser roles, UTC timestamps, and observed pass/fail result. Never record access tokens, keys, raw user IDs, or verifier IDs.
 
-The [`docs/evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md`](./evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md) file is a historical local-environment audit, not the latest project-status statement. An account-side check has since reported that the `Livingtown` Supabase project is active and currently has no application migrations, but that report is not migration evidence. This run still requires an authenticated Supabase MCP/CLI session before the repository migrations can be applied and the DB gate can be marked complete. Do not treat the historical blocked file, fake adapters, or Vitest results as real-project evidence.
+The [`docs/evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md`](./evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md) file is a historical local-environment audit and remains unchanged as history. The initial four migrations were later applied to the `Livingtown` project; the pre-hardening DB observations are recorded in [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md). That evidence also records the remaining Security Advisor function-EXECUTE finding, the locally prepared hardening migration, and the fact that pgTAP was not executed. Do not treat the pre-hardening report, fake adapters, or Vitest results as a full real-project PASS.

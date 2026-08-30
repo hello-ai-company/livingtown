@@ -1,9 +1,11 @@
--- Run with `supabase test db` after applying migrations 0001-0004.
+-- Run with `supabase test db` against the local Docker/Supabase stack after
+-- applying the initial four migrations and the function execute boundary
+-- migration.
 -- These checks cover grants/RLS metadata. Browser-role mutation checks still
 -- need the manual client runbook in docs/SUPABASE_SHARED_STATE.md.
 begin;
 
-select plan(19);
+select plan(30);
 select has_table('public', 'knowledge', 'knowledge table exists');
 select has_table('public', 'verification', 'verification table exists');
 select has_function('public', 'submit_verification', array['uuid', 'text', 'text'], 'verification RPC exists');
@@ -22,6 +24,17 @@ select ok(not exists (
 ), 'authenticated verification read policy is removed');
 select ok(not has_column_privilege('authenticated', 'public.knowledge', 'agree_count', 'INSERT'), 'authenticated cannot insert knowledge counter');
 select ok(has_function_privilege('authenticated', 'public.submit_verification(uuid,text,text)', 'EXECUTE'), 'authenticated can call verification RPC');
+select ok(not has_function_privilege('anon', 'public.submit_verification(uuid,text,text)', 'EXECUTE'), 'anon cannot call verification RPC');
+select ok(has_function_privilege('authenticated', 'public.register_household(text,text[],double precision,double precision)', 'EXECUTE'), 'authenticated can call household RPC');
+select ok(not has_function_privilege('anon', 'public.register_household(text,text[],double precision,double precision)', 'EXECUTE'), 'anon cannot call household RPC');
+select ok(has_function_privilege('authenticated', 'public.report_bottleneck(double precision,double precision,integer,text,uuid)', 'EXECUTE'), 'authenticated can call bottleneck RPC');
+select ok(not has_function_privilege('anon', 'public.report_bottleneck(double precision,double precision,integer,text,uuid)', 'EXECUTE'), 'anon cannot call bottleneck RPC');
+select ok(not has_function_privilege('anon', 'public.server_verifier_id()', 'EXECUTE'), 'anon cannot call verifier helper');
+select ok(not has_function_privilege('authenticated', 'public.server_verifier_id()', 'EXECUTE'), 'authenticated cannot call verifier helper');
+select ok(not has_function_privilege('anon', 'public.apply_verification_count()', 'EXECUTE'), 'anon cannot call verification trigger helper');
+select ok(not has_function_privilege('authenticated', 'public.apply_verification_count()', 'EXECUTE'), 'authenticated cannot call verification trigger helper');
+select ok(not has_function_privilege('anon', 'public.initialize_knowledge_counters()', 'EXECUTE'), 'anon cannot call knowledge counter helper');
+select ok(not has_function_privilege('authenticated', 'public.initialize_knowledge_counters()', 'EXECUTE'), 'authenticated cannot call knowledge counter helper');
 select ok(exists (
   select 1 from pg_constraint
   where conrelid = 'public.knowledge'::regclass and conname = 'knowledge_demo_coordinate_bounds'
