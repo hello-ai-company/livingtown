@@ -1,0 +1,154 @@
+{
+  "knowledge": [
+    {
+      "id": "k-flood-crosswalk",
+      "category": "flood",
+      "lat": 35.6811,
+      "lng": 139.761,
+      "condition": "rain",
+      "description": "駅前の横断歩道は、強い雨の日に水が溜まって渡りにくい。",
+      "confidence": "experienced",
+      "agree_count": 0,
+      "disagree_count": 0,
+      "created_at": "2026-08-30T08:00:00.000Z"
+    },
+    {
+      "id": "k-flood-underpass",
+      "category": "flood",
+      "lat": 35.6802,
+      "lng": 139.7592,
+      "condition": "rain",
+      "description": "川沿いの地下道は雨の後に水が残る。",
+      "confidence": "heard",
+      "agree_count": 2,
+      "disagree_count": 0,
+      "created_at": "2026-08-28T09:30:00.000Z"
+    },
+    {
+      "id": "k-dark-park",
+      "category": "darkness",
+      "lat": 35.6818,
+      "lng": 139.7601,
+      "condition": "night",
+      "description": "公園の北側は夜になると街灯が少なく暗い。",
+      "confidence": "experienced",
+      "agree_count": 2,
+      "disagree_count": 0,
+      "created_at": "2026-08-27T20:00:00.000Z"
+    },
+    {
+      "id": "k-narrow-alley",
+      "category": "narrow_path",
+      "lat": 35.6805,
+      "lng": 139.7605,
+      "condition": "always",
+      "description": "南側の路地は、すれ違いが難しい幅の区間がある。",
+      "confidence": "experienced",
+      "agree_count": 1,
+      "disagree_count": 0,
+      "created_at": "2026-08-26T07:45:00.000Z"
+    },
+    {
+      "id": "k-barrier-community",
+      "category": "barrier",
+      "lat": 35.682,
+      "lng": 139.7625,
+      "condition": "always",
+      "description": "集会所の入口に小さな段差があり、ベビーカーでは手助けが必要。",
+      "confidence": "experienced",
+      "agree_count": 2,
+      "disagree_count": 0,
+      "created_at": "2026-08-25T11:00:00.000Z"
+    },
+    {
+      "id": "k-safe-library",
+      "category": "safe_spot",
+      "lat": 35.6815,
+      "lng": 139.7624,
+      "condition": "always",
+      "description": "図書館は日中に一時退避でき、給水もできる。",
+      "confidence": "heard",
+      "agree_count": 2,
+      "disagree_count": 0,
+      "created_at": "2026-08-24T12:10:00.000Z"
+    },
+    {
+      "id": "k-barrier-station",
+      "category": "barrier",
+      "lat": 35.681,
+      "lng": 139.7607,
+      "condition": "always",
+      "description": "駅北口の段差は、車輪の小さいベビーカーで越えにくい。",
+      "confidence": "guess",
+      "agree_count": 0,
+      "disagree_count": 0,
+      "created_at": "2026-08-23T14:00:00.000Z"
+    },
+    {
+      "id": "k-crowd-school",
+      "category": "other",
+      "lat": 35.6808,
+      "lng": 139.7618,
+      "condition": "crowded",
+      "description": "下校時間は学校前に人が集まり、通り抜けに時間がかかる。",
+      "confidence": "experienced",
+      "agree_count": 2,
+      "disagree_count": 0,
+      "created_at": "2026-08-22T15:30:00.000Z"
+    },
+    {
+      "id": "k-flood-riverpath",
+      "category": "flood",
+      "lat": 35.6807,
+      "lng": 139.7624,
+      "condition": "rain",
+      "description": "川沿いの歩道は雨の日に水たまりが連続する。",
+      "confidence": "heard",
+      "agree_count": 1,
+      "disagree_count": 0,
+      "created_at": "2026-08-21T10:15:00.000Z"
+    },
+    {
+      "id": "k-barrier-clinic",
+      "category": "barrier",
+      "lat": 35.6822,
+      "lng": 139.7613,
+      "condition": "always",
+      "description": "診療所の前に短い急坂がある。",
+      "confidence": "experienced",
+      "agree_count": 1,
+      "disagree_count": 0,
+      "created_at": "2026-08-20T16:20:00.000Z"
+    }
+  ],
+  "households": [
+    {
+      "id": "h-wheelchair",
+      "label": "世帯A",
+      "constraints": [
+        "wheelchair"
+      ],
+      "start_lat": 35.681,
+      "start_lng": 139.76,
+      "created_at": "2026-08-30T08:00:00.000Z"
+    },
+    {
+      "id": "h-infant",
+      "label": "世帯B",
+      "constraints": [
+        "infant"
+      ],
+      "start_lat": 35.681,
+      "start_lng": 139.76,
+      "created_at": "2026-08-30T08:00:00.000Z"
+    },
+    {
+      "id": "h-open",
+      "label": "世帯C",
+      "constraints": [],
+      "start_lat": 35.681,
+      "start_lng": 139.76,
+      "created_at": "2026-08-30T08:00:00.000Z"
+    }
+  ]
+}
