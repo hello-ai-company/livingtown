@@ -1,11 +1,11 @@
-import type { LivingTownStore } from '../../data/supabase'
+import type { TownRepository } from '../../data/repository'
 import type { Phase } from '../../sim/types'
 import type { ToolDefinition } from '../types'
 import { drillTools } from './drillTools'
 import { mapTools } from './mapTools'
 import { replayTools } from './replayTools'
 
-export function getToolDefinitions(phase: Phase, store: LivingTownStore): ToolDefinition[] {
+export function getToolDefinitions(phase: Phase, store: TownRepository): ToolDefinition[] {
   if (phase === 'map') return mapTools(store)
   if (phase === 'drill') return drillTools(store)
   return replayTools(store)

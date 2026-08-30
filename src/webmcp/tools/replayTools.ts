@@ -1,7 +1,7 @@
-import type { LivingTownStore, ReplayControlInput } from '../../data/supabase'
+import type { ReplayControlInput, TownRepository } from '../../data/repository'
 import type { ToolDefinition } from '../types'
 
-export function replayTools(store: LivingTownStore): ToolDefinition[] {
+export function replayTools(store: TownRepository): ToolDefinition[] {
   return [
     {
       name: 'control_replay',
@@ -16,9 +16,9 @@ export function replayTools(store: LivingTownStore): ToolDefinition[] {
         required: ['action'],
       },
       readOnlyHint: false,
-      run: (input: ReplayControlInput) => {
-        const result = store.controlReplay(input)
-        store.recordActivity('control_replay', `リプレイを${result.now_showing}へ移動`)
+      run: async (input: ReplayControlInput, context) => {
+        const result = await store.controlReplay(input, { signal: context.signal })
+        await store.recordActivity('control_replay', `リプレイを${result.now_showing}へ移動`)
         return result
       },
     },
@@ -28,9 +28,9 @@ export function replayTools(store: LivingTownStore): ToolDefinition[] {
       description: '訓練全体の集計（世帯別所要時間、ボトルネック、経路変更に寄与した暗黙知）を返す。',
       inputSchema: { type: 'object', properties: {} },
       readOnlyHint: true,
-      run: () => {
-        const result = store.getDebriefSummary()
-        store.recordActivity('get_debrief_summary', `${result.households.length}世帯の振り返りを集計`)
+      run: async (_input: unknown, context) => {
+        const result = await store.getDebriefSummary({ signal: context.signal })
+        await store.recordActivity('get_debrief_summary', `${result.households.length}世帯の振り返りを集計`)
         return result
       },
     },

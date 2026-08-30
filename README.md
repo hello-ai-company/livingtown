@@ -49,6 +49,20 @@ git diff --check
 
 実装状況と残課題は [docs/EVALUATION.md](./docs/EVALUATION.md)、設計の正本は [docs/DESIGN.md](./docs/DESIGN.md) と [Notionの設計書](https://app.notion.com/p/c22ef848aa464ff6b6a39dc010d5f2c7) です。
 
+## Shared LivingTown mode
+
+既定値は、LocalStorageを使う決定的な `LOCAL_DEMO` です。共有DBを明示的に使う場合だけ、次の環境変数を設定して再起動してください。
+
+```bash
+VITE_LIVINGTOWN_DATA_MODE=shared
+VITE_SUPABASE_URL=https://<project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<publishable-or-anon-key>
+```
+
+`shared` とSupabaseの両方が設定された場合は `SupabaseTownRepository` がKnowledge／VerificationをDBへ保存し、Auth identityからserver-sideでopaqueなpseudonymous verifier identifierを導出します。`verifier_id`をWebMCPやUIから自由入力するshared contractではありません。SupabaseのURLまたはkeyが欠けている場合は、書き込みを試みず `LOCAL_DEMO` へ明示的にfallbackします。接続後の障害ではlocalへ黙って書き込まず、管理ビューの `Data diagnostics` にERRORを表示します。retryで再取得でき、必要なら「このタブをLOCAL_DEMOへ切替」で明示的にlocalへ切り替えます。
+
+UI、WebMCP、決定的route engineは `TownRepository` に依存します。`LocalTownRepository` は既存demoを維持し、`SupabaseTownRepository` はremote stateとRealtimeを担当します。household／bottleneckはAuth ownerにscopeされたRPC経由で扱い、public Knowledgeとは別の境界です。詳細なmigration、RLS、匿名Auth、Realtime、障害時の手動確認は [docs/SUPABASE_SHARED_STATE.md](./docs/SUPABASE_SHARED_STATE.md) を参照してください。
+
 ## WebMCP boundary
 
 WebMCP固有のブラウザAPIは [`src/webmcp/register.ts`](./src/webmcp/register.ts) に隔離しています。対応ブラウザでは現行Imperative APIの `document.modelContext.registerTool`、登録ごとの `AbortSignal`、`getTools()`、`toolchange` を使います。非対応ブラウザでは同じ定義をローカルシミュレーターから呼び出します。
@@ -68,18 +82,18 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 ## Privacy and verification boundary
 
 - 検証判定は `agree_count - disagree_count >= 2` を維持します。
-- `verification` レコードは `knowledge_id + verifier_id` を一意とし、`verifier_id` はデモ用のpseudonymous identifier形式を受け付けます。形式だけではPII非保持や本人性を保証しません。コメントと作成時刻もレコードに保存します。
+- `verification` レコードは `knowledge_id + verifier_id` を一意とし、local demoではpseudonymous identifierをfixtureとして受け付けます。形式だけではPII非保持や本人性を保証しません。shared modeではcallerのverifier_idを信用せず、認証identityからserver-sideでopaqueな値を導出します。コメントと作成時刻もレコードに保存します。
 - household profileに保存できるのは、安全な匿名ラベル、`wheelchair | infant | elderly | pet` の制約enum、デモエリア内でグラフノードへスナップした `start_lat/start_lng`、`demo | temporary_drill` のスコープだけです。氏名・メール・電話・診断名・自由入力医療情報・正確な住所フィールドは保存できません。
-- `start_lat/start_lng` は共有住所ではなく、`demo` または一時的な `temporary_drill` sessionの座標として扱います。新しい訓練世帯は24時間の有効期限を持ちます。共有Supabase向けには [`0002_verification_privacy_rls.sql`](./supabase/migrations/0002_verification_privacy_rls.sql) でRLS、[`0003_knowledge_counter_privileges.sql`](./supabase/migrations/0003_knowledge_counter_privileges.sql) でcounter列のcolumn privilegeを設定し、匿名キーからのwriteを許可しません。
+- `start_lat/start_lng` は共有住所ではなく、`demo` または一時的な `temporary_drill` sessionの座標として扱います。新しい訓練世帯は24時間の有効期限を持ちます。共有Supabase向けには [`0002_verification_privacy_rls.sql`](./supabase/migrations/0002_verification_privacy_rls.sql) でRLS、[`0003_knowledge_counter_privileges.sql`](./supabase/migrations/0003_knowledge_counter_privileges.sql) でcounter列のcolumn privilege、[`0004_shared_state_trust_boundary.sql`](./supabase/migrations/0004_shared_state_trust_boundary.sql) でAuth owner／RPC boundaryを設定し、匿名キーからのwriteを許可しません。
 - `knowledge.description` はcommunity free textで、座標も含めてPIIを投稿・推測できる余地があります。投稿時に氏名・住所・電話番号・診断名などを含めないよう表示しますが、moderation・retention・再識別評価は未実装です。
 
-これは「household profileでdirect PIIを保持しない」ためのアプリ境界であり、knowledge全体がPIIを含まないことや、共有環境で完全匿名になること、認証・監査・削除運用まで完了したことを意味しません。評価状態は [docs/EVALUATION.md](./docs/EVALUATION.md) に明示しています。
+これは「household profileでdirect PIIを保持しない」ためのアプリ境界であり、knowledge全体がPIIを含まないことや、共有環境で完全匿名になること、認証・監査・削除運用まで完了したことを意味しません。匿名Authもdistinct humanの証明ではなく、複数identityを作るSybil resistanceは未達です。評価状態は [docs/EVALUATION.md](./docs/EVALUATION.md) に明示しています。
 
 ## Optional integrations
 
 - `VITE_ENABLE_3D=1` と `VITE_PLATEAU_TILESET` を設定すると、Replayの3D境界を有効化します。未設定でも全編2Dで動作します。
 - `VITE_MAPLIBRE_STYLE_URL` を設定する場合は、MapLibre向けのスタイルURLと利用規約を確認してください。決定的なローカル地図はネットワーク障害時のフォールバックです。
-- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` は共有ストア統合の予約枠です。共有DBの認証済み書き込みadapterは未実装です。
+- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。実環境のmigration適用とBrowser A/B検証は別途必要です。
 
 ## Repository contract
 

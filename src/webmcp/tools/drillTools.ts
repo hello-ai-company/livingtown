@@ -1,12 +1,12 @@
 import type {
   EvacuationRouteInput,
-  LivingTownStore,
   RegisterHouseholdInput,
   ReportBottleneckInput,
-} from '../../data/supabase'
+  TownRepository,
+} from '../../data/repository'
 import type { ToolDefinition } from '../types'
 
-export function drillTools(store: LivingTownStore): ToolDefinition[] {
+export function drillTools(store: TownRepository): ToolDefinition[] {
   return [
     {
       name: 'register_household',
@@ -24,9 +24,9 @@ export function drillTools(store: LivingTownStore): ToolDefinition[] {
         required: ['constraints', 'start_lat', 'start_lng'],
       },
       readOnlyHint: false,
-      run: (input: RegisterHouseholdInput) => {
-        const result = store.registerHousehold(input)
-        store.recordActivity('register_household', `${result.label ?? '匿名世帯'}を制約enumのみで登録`)
+      run: async (input: RegisterHouseholdInput, context) => {
+        const result = await store.registerHousehold(input, { signal: context.signal })
+        await store.recordActivity('register_household', `${result.label ?? '匿名世帯'}を制約enumのみで登録`)
         return { household_id: result.id }
       },
     },
@@ -45,9 +45,9 @@ export function drillTools(store: LivingTownStore): ToolDefinition[] {
         required: ['household_id', 'scenario', 'weather', 'time_of_day'],
       },
       readOnlyHint: false,
-      run: (input: EvacuationRouteInput) => {
-        const result = store.getEvacuationRoute(input)
-        store.recordActivity('get_evacuation_route', `${result.eta_minutes}分の経路を計算。${result.avoided.length}件を回避・再評価`)
+      run: async (input: EvacuationRouteInput, context) => {
+        const result = await store.getEvacuationRoute(input, { signal: context.signal })
+        await store.recordActivity('get_evacuation_route', `${result.eta_minutes}分の経路を計算。${result.avoided.length}件を回避・再評価`)
         return result
       },
     },
@@ -67,9 +67,9 @@ export function drillTools(store: LivingTownStore): ToolDefinition[] {
         required: ['lat', 'lng', 'severity'],
       },
       readOnlyHint: false,
-      run: (input: ReportBottleneckInput) => {
-        const result = store.reportBottleneck(input)
-        store.recordActivity('report_bottleneck', `severity ${result.severity} の詰まりを報告`)
+      run: async (input: ReportBottleneckInput, context) => {
+        const result = await store.reportBottleneck(input, { signal: context.signal })
+        await store.recordActivity('report_bottleneck', `severity ${result.severity} の詰まりを報告`)
         return { id: result.id }
       },
     },

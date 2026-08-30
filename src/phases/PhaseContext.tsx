@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type PropsWithChildren } from 'react'
-import type { LivingTownStore } from '../data/supabase'
+import type { TownRepository } from '../data/repository'
 import type { Phase } from '../sim/types'
 import { createWebMcpRegistry, type RegistryStatus, type WebMcpRegistry } from '../webmcp/register'
 
@@ -13,7 +13,7 @@ interface PhaseContextValue {
 
 const PhaseContext = createContext<PhaseContextValue | null>(null)
 
-export function PhaseProvider({ store, children }: PropsWithChildren<{ store: LivingTownStore }>) {
+export function PhaseProvider({ store, children }: PropsWithChildren<{ store: TownRepository }>) {
   const [phase, setPhaseState] = useState<Phase>('map')
   const [registryInstance] = useState<WebMcpRegistry>(() => createWebMcpRegistry())
   const registry = useSyncExternalStore(

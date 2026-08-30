@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Map2D } from '../map/Map2D'
 import { Replay3D } from '../map/Replay3D'
 import { ReplayKnowledgePanel } from '../map/ReplayKnowledgePanel'
-import { townStore } from '../data/supabase'
-import { useTownSnapshot } from '../data/useTownSnapshot'
+import { townRepository } from '../data/townRepository'
+import { useRepositoryStatus, useTownSnapshot } from '../data/useTownSnapshot'
+import { dataModeLabel, switchToLocalDemo } from '../data/townRepository'
 import { PhaseProvider, usePhase } from '../phases/PhaseContext'
 import { isKnowledgeVerified } from '../sim/route'
-import type { Household, HouseholdConstraint, Knowledge, Phase, RouteResult } from '../sim/types'
+import type { Household, HouseholdConstraint, Knowledge, Phase, RouteResult, TownSnapshot } from '../sim/types'
 import { getKnowledgeVisualConfig } from '../map/knowledgeVisuals'
 import { createEvidenceBundle, createEvidenceSnapshot, diagnosticsModeMessage, type WebMcpEvidenceSnapshot } from '../webmcp/diagnostics'
 import type { RegistryStatus } from '../webmcp/register'
@@ -43,7 +44,8 @@ function formatTime(value: string) {
 }
 
 function AppShell() {
-  const snapshot = useTownSnapshot(townStore)
+  const snapshot = useTownSnapshot(townRepository)
+  const repositoryStatus = useRepositoryStatus(townRepository)
   const { phase, selectPhase, registry, phaseSignal } = usePhase()
   const [panel, setPanel] = useState<Phase | 'admin'>('map')
   const [selectedHouseholdId, setSelectedHouseholdId] = useState('h-wheelchair')
@@ -99,6 +101,12 @@ function AppShell() {
   const selectedRoute = snapshot.routes[selectedHouseholdId]
   const selectedHousehold = snapshot.households.find((item) => item.id === selectedHouseholdId)
 
+  useEffect(() => {
+    if (selectedHousehold) return
+    const firstHousehold = snapshot.households[0]
+    if (firstHousehold) setSelectedHouseholdId(firstHousehold.id)
+  }, [selectedHousehold, snapshot.households])
+
   const transitionTo = useCallback((nextPanel: Phase | 'admin') => {
     setPanel(nextPanel)
     if (nextPanel !== 'admin') selectPhase(nextPanel)
@@ -110,10 +118,10 @@ function AppShell() {
   }, [selectPhase])
 
   const runTool = useCallback(async (name: string, input: unknown) => {
-    const definition = getToolDefinitions(phase, townStore).find((tool) => tool.name === name)
+    const definition = getToolDefinitions(phase, townRepository).find((tool) => tool.name === name)
     if (!definition) {
       const message = `このフェーズでは ${name} は利用できません。`
-      townStore.recordActivity(name, message, 'error')
+      void townRepository.recordActivity(name, message, 'error')
       setNotice(message)
       return undefined
     }
@@ -123,7 +131,7 @@ function AppShell() {
       return result
     } catch (error) {
       const message = error instanceof Error ? error.message : 'ツールの実行に失敗しました。'
-      townStore.recordActivity(name, message, 'error')
+      void townRepository.recordActivity(name, message, 'error')
       setNotice(message)
       return undefined
     }
@@ -145,7 +153,10 @@ function AppShell() {
     if (!lastKnowledgeId) return
     const agreeCount = snapshot.verifications.filter((verification) => verification.knowledge_id === lastKnowledgeId && verification.verdict === 'agree').length
     const verifierId = agreeCount === 0 ? 'anon-demo-neighbor-a' : 'anon-demo-neighbor-b'
-    const result = await runTool('verify_knowledge', { knowledge_id: lastKnowledgeId, verifier_id: verifierId, verdict: 'agree' }) as { verified?: boolean; duplicate?: boolean } | undefined
+    const input = townRepository.dataMode === 'SUPABASE_SHARED'
+      ? { knowledge_id: lastKnowledgeId, verdict: 'agree' as const }
+      : { knowledge_id: lastKnowledgeId, verifier_id: verifierId, verdict: 'agree' as const }
+    const result = await runTool('verify_knowledge', input) as { verified?: boolean; duplicate?: boolean } | undefined
     if (result?.verified && !result.duplicate) setNotice('Community verified · 地図のvisualが検証済みに変わりました。')
   }
 
@@ -153,15 +164,33 @@ function AppShell() {
     await runTool('get_evacuation_route', { household_id: selectedHouseholdId, ...routeInputs })
   }
 
+  const registerDemoHousehold = async () => {
+    const result = await runTool('register_household', {
+      label: '世帯A',
+      constraints: ['wheelchair'],
+      start_lat: 35.6810,
+      start_lng: 139.7600,
+      location_scope: 'temporary_drill',
+    }) as { household_id?: string } | undefined
+    if (result?.household_id) {
+      setSelectedHouseholdId(result.household_id)
+      setNotice('車椅子の一時訓練世帯を登録しました。')
+    }
+  }
+
   const selectPhaseAndFocusHousehold = (householdId: string) => {
     setSelectedHouseholdId(householdId)
   }
 
-  const resetDemo = () => {
-    townStore.resetDemo()
-    setLastKnowledgeId(undefined)
-    setSelectedKnowledgeId(undefined)
-    setNotice('デモデータを初期状態に戻しました。')
+  const resetDemo = async () => {
+    try {
+      await townRepository.resetDemo()
+      setLastKnowledgeId(undefined)
+      setSelectedKnowledgeId(undefined)
+      setNotice('デモデータを初期状態に戻しました。')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'データをリセットできません。')
+    }
   }
 
   const currentMeta = PHASE_META.find((item) => item.key === phase) ?? PHASE_META[0]
@@ -179,7 +208,7 @@ function AppShell() {
           </div>
         </div>
         <div className="topbar__meta">
-          <span className="live-label"><span className="status-dot status-dot--live" /> DEMO AREA / LIVE GRAPH</span>
+          <span className="live-label"><span className={`status-dot${repositoryStatus.connection === 'CONNECTED' || repositoryStatus.connection === 'LOCAL' ? ' status-dot--live' : ''}`} /> {dataModeLabel(repositoryStatus.mode)} / {repositoryStatus.connection}</span>
           <button className={`admin-button${panel === 'admin' ? ' admin-button--active' : ''}`} onClick={() => transitionTo('admin')}>
             <span aria-hidden="true">◌</span> 管理ビュー
           </button>
@@ -220,9 +249,9 @@ function AppShell() {
           <section className="map-column">
             <Map2D snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} />
             {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
-            {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onRunTool={runTool} />}
+            {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
             {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} />}
-            {panel === 'admin' && <AdminStage registry={registry} phase={phase} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} />}
+            {panel === 'admin' && <AdminStage registry={registry} phase={phase} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} repositoryStatus={repositoryStatus} onRetry={() => { void townRepository.retry().catch((error) => setNotice(error instanceof Error ? error.message : 'Supabaseへの再接続に失敗しました。')) }} onFallbackToLocal={switchToLocalDemo} />}
           </section>
 
           <aside className="inspector-column">
@@ -245,10 +274,10 @@ function AppShell() {
 }
 
 export function App() {
-  return <PhaseProvider store={townStore}><AppShell /></PhaseProvider>
+  return <PhaseProvider store={townRepository}><AppShell /></PhaseProvider>
 }
 
-function MapStage({ snapshot, lastKnowledgeId, onContribute, onVerify, onDrill }: { snapshot: ReturnType<typeof townStore.getSnapshot>; lastKnowledgeId?: string; onContribute: () => void; onVerify: () => void; onDrill: () => void }) {
+function MapStage({ snapshot, lastKnowledgeId, onContribute, onVerify, onDrill }: { snapshot: TownSnapshot; lastKnowledgeId?: string; onContribute: () => void; onVerify: () => void; onDrill: () => void }) {
   const target = lastKnowledgeId ? snapshot.knowledge.find((item) => item.id === lastKnowledgeId) : snapshot.knowledge.find((item) => item.id === 'k-flood-crosswalk')
   const targetVerified = target ? isKnowledgeVerified(target) : false
   return (
@@ -289,7 +318,7 @@ function MemoryRow({ item }: { item: Knowledge }) {
 }
 
 interface DrillStageProps {
-  snapshot: ReturnType<typeof townStore.getSnapshot>
+  snapshot: TownSnapshot
   selectedHouseholdId: string
   selectedHousehold?: Household
   selectedRoute?: RouteResult
@@ -299,20 +328,21 @@ interface DrillStageProps {
   onCalculate: () => void
   onReplay: () => void
   onRunTool: (name: string, input: unknown) => Promise<unknown>
+  onRegisterHousehold: () => void
 }
 
-function DrillStage({ snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onRunTool }: DrillStageProps) {
+function DrillStage({ snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onRunTool, onRegisterHousehold }: DrillStageProps) {
   return (
     <section className="stage-panel">
       <div className="stage-panel__head"><div><span className="eyebrow">ACT II / DRILL</span><h2>制約に合わせて道を選ぶ</h2></div><span className="stage-panel__count">{snapshot.households.length}<small> households</small></span></div>
       <p className="stage-lead">家族の事情を、診断名や氏名ではなく制約enumだけで扱います。街の検証済み知識を重みに変え、理由のある経路を返します。</p>
 
-      <div className="household-strip">
+      {snapshot.households.length > 0 ? <div className="household-strip">
         {snapshot.households.map((household) => {
           const selected = household.id === selectedHouseholdId
           return <button key={household.id} className={`household-chip${selected ? ' household-chip--selected' : ''}`} onClick={() => onSelectHousehold(household.id)}><span className="household-chip__avatar">{household.constraints.includes('wheelchair') ? 'A' : household.constraints.includes('infant') ? 'B' : 'C'}</span><span><strong>{household.label ?? '匿名世帯'}</strong><small>{household.constraints.length ? household.constraints.map((item) => CONSTRAINT_LABEL[item]).join(' · ') : '制約なし'}</small></span></button>
         })}
-      </div>
+      </div> : <div className="empty-households"><div><strong>訓練世帯を登録してください</strong><p>共有モードでは世帯はAuth ownerにだけ紐づきます。診断名や住所ではなく、制約enumと一時的なデモ座標だけを登録します。</p></div><button className="secondary-button" onClick={onRegisterHousehold}>車椅子世帯を登録 <span>+</span></button></div>}
 
       <div className="route-controls">
         <div className="route-controls__title"><span className="eyebrow">SCENARIO INPUT</span><strong>{selectedHousehold?.label ?? '選択世帯'}の避難条件</strong></div>
@@ -337,7 +367,7 @@ function RouteResultPanel({ route, onReplay, onRunTool, selectedHouseholdId }: {
   )
 }
 
-function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, onRunTool, onSelectHousehold, onSelectKnowledge }: { snapshot: ReturnType<typeof townStore.getSnapshot>; selectedHouseholdId: string; selectedRoute?: RouteResult; onRunTool: (name: string, input: unknown) => Promise<unknown>; onSelectHousehold: (id: string) => void; onSelectKnowledge: (knowledgeId: string) => void }) {
+function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, onRunTool, onSelectHousehold, onSelectKnowledge }: { snapshot: TownSnapshot; selectedHouseholdId: string; selectedRoute?: RouteResult; onRunTool: (name: string, input: unknown) => Promise<unknown>; onSelectHousehold: (id: string) => void; onSelectKnowledge: (knowledgeId: string) => void }) {
   const [summaryRequested, setSummaryRequested] = useState(false)
   const selectedHousehold = snapshot.households.find((item) => item.id === selectedHouseholdId)
   const targetBottleneck = snapshot.bottlenecks[0]
@@ -360,7 +390,7 @@ function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, onRunTool, 
   )
 }
 
-function AdminStage({ registry, phase, onSelectPhase, onReset, snapshot, currentEvidence, evidenceByPhase, evidenceJson, onCopyEvidence, onDownloadEvidence }: { registry: RegistryStatus; phase: Phase; onSelectPhase: (phase: Phase) => void; onReset: () => void; snapshot: ReturnType<typeof townStore.getSnapshot>; currentEvidence: WebMcpEvidenceSnapshot; evidenceByPhase: Partial<Record<Phase, WebMcpEvidenceSnapshot>>; evidenceJson: string; onCopyEvidence: () => void; onDownloadEvidence: () => void }) {
+function AdminStage({ registry, phase, onSelectPhase, onReset, snapshot, currentEvidence, evidenceByPhase, evidenceJson, onCopyEvidence, onDownloadEvidence, repositoryStatus, onRetry, onFallbackToLocal }: { registry: RegistryStatus; phase: Phase; onSelectPhase: (phase: Phase) => void; onReset: () => void; snapshot: TownSnapshot; currentEvidence: WebMcpEvidenceSnapshot; evidenceByPhase: Partial<Record<Phase, WebMcpEvidenceSnapshot>>; evidenceJson: string; onCopyEvidence: () => void; onDownloadEvidence: () => void; repositoryStatus: ReturnType<typeof townRepository.getStatus>; onRetry: () => void; onFallbackToLocal: () => void }) {
   const checks = [
     ['フェーズでツール面が入れ替わる', registry.registeredToolNames.length > 0],
     ['世帯は制約enumのみを保持', snapshot.households.every((household) => household.constraints.every((constraint) => ['wheelchair', 'infant', 'elderly', 'pet'].includes(constraint)))],
@@ -373,6 +403,7 @@ function AdminStage({ registry, phase, onSelectPhase, onReset, snapshot, current
       <p className="stage-lead">WebMCP Challengeの評価軸に合わせ、プロダクトの成立条件をここで観測します。リセットして、デモを何度でも再現できます。</p>
       <div className="phase-observer"><span className="eyebrow">LIVE TOOL SURFACE</span><strong>現在のフェーズ: {phase.toUpperCase()}</strong><div className="phase-observer__buttons">{PHASE_META.map((item) => <button key={item.key} className={item.key === phase ? 'is-active' : ''} onClick={() => onSelectPhase(item.key)}>{item.short}</button>)}</div><small>Native WebMCP: {registry.nativeAvailable ? registry.nativeRegistered ? 'registered' : 'available / registration pending' : 'not exposed in this browser · local simulator active'}</small></div>
       <WebMcpDiagnostics current={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={onCopyEvidence} onDownloadEvidence={onDownloadEvidence} />
+      <DataDiagnostics status={repositoryStatus} onRetry={onRetry} onFallbackToLocal={onFallbackToLocal} />
       <div className="check-list">{checks.map(([label, pass]) => <div key={label} className="check-row"><span className={pass ? 'check-row__icon check-row__icon--pass' : 'check-row__icon'}>{pass ? '✓' : '—'}</span><span>{label}</span><span className="check-row__status">{pass ? 'PASS' : 'PENDING'}</span></div>)}</div>
       <div className="admin-actions"><button className="secondary-button" onClick={onReset}>デモデータをリセット <span>↻</span></button><span>リセットすると、投稿→2票検証→経路変更を再現できます。</span></div>
     </section>
@@ -418,8 +449,37 @@ function WebMcpDiagnostics({ current, evidenceByPhase, evidenceJson, onCopyEvide
   )
 }
 
+function DataDiagnostics({ status, onRetry, onFallbackToLocal }: { status: ReturnType<typeof townRepository.getStatus>; onRetry: () => void; onFallbackToLocal: () => void }) {
+  return (
+    <section className="data-diagnostics" aria-labelledby="data-diagnostics-title">
+      <div className="webmcp-diagnostics__head">
+        <div><span className="eyebrow">DATA / TRUST BOUNDARY</span><h3 id="data-diagnostics-title">Data diagnostics</h3></div>
+        <span className={`api-badge${status.connection === 'CONNECTED' || status.connection === 'LOCAL' ? ' api-badge--live' : ''}`}>{status.mode}</span>
+      </div>
+      <dl className="diagnostics-grid">
+        <div><dt>Data mode</dt><dd>{status.mode}</dd></div>
+        <div><dt>Supabase configured</dt><dd>{status.supabaseConfigured ? 'YES' : 'NO'}</dd></div>
+        <div><dt>Connection</dt><dd>{status.connection}</dd></div>
+        <div><dt>Realtime</dt><dd>{status.realtime}</dd></div>
+        <div><dt>Current user authenticated</dt><dd>{status.authenticated ? 'YES' : 'NO'}</dd></div>
+        <div><dt>Last sync</dt><dd>{status.lastSync ?? '—'}</dd></div>
+        <div><dt>Visible Knowledge count</dt><dd>{status.visibleKnowledgeCount}</dd></div>
+        <div><dt>Verification count</dt><dd>{status.verificationCount}</dd></div>
+      </dl>
+      {status.lastSyncError && <p className="data-diagnostics__error" role="alert">Last sync error: {status.lastSyncError}</p>}
+      {status.fallbackReason && <p className="data-diagnostics__fallback">{status.fallbackReason}</p>}
+      {status.mode === 'SUPABASE_SHARED' && status.connection === 'ERROR' && <p className="data-diagnostics__fallback">remote snapshotは保持しています。共有DBを使わず、このタブだけLOCAL_DEMOへ明示的に切り替えられます。</p>}
+      <div className="diagnostics-actions">
+        {status.mode === 'SUPABASE_SHARED' && <button className="secondary-button" onClick={onRetry}>再接続・再取得</button>}
+        {status.mode === 'SUPABASE_SHARED' && status.connection === 'ERROR' && <button className="secondary-button" onClick={onFallbackToLocal}>このタブをLOCAL_DEMOへ切替</button>}
+        <span>token、key、raw user id、verifier idは表示・出力しません。</span>
+      </div>
+    </section>
+  )
+}
+
 function ToolSurface({ phase, nativeAvailable, nativeRegistered }: { phase: Phase; nativeAvailable: boolean; nativeRegistered: boolean }) {
-  const tools = getToolDefinitions(phase, townStore)
+  const tools = getToolDefinitions(phase, townRepository)
   return (
     <section className="tool-surface">
       <div className="tool-surface__top"><div><span className="eyebrow">WEBMCP / TOOL SURFACE</span><h2>{phase} tools</h2></div><span className={`api-badge${nativeRegistered ? ' api-badge--live' : ''}`}><span className="status-dot" />{nativeRegistered ? 'NATIVE' : nativeAvailable ? 'READY' : 'SIMULATED'}</span></div>
@@ -430,7 +490,7 @@ function ToolSurface({ phase, nativeAvailable, nativeRegistered }: { phase: Phas
   )
 }
 
-function ActivityLog({ events }: { events: ReturnType<typeof townStore.getSnapshot>['events'] }) {
+function ActivityLog({ events }: { events: TownSnapshot['events'] }) {
   return (
     <section className="activity-log"><div className="section-rule"><span>ACTIVITY / LAST 12</span><span className="status-dot status-dot--live" /></div>{events.length === 0 ? <div className="activity-empty"><span>◌</span><p>ツールを実行すると<br />ここに反映されます。</p></div> : <div className="activity-list">{events.slice(0, 5).map((event) => <div key={event.id} className="activity-item"><span className={`activity-item__icon${event.status === 'error' ? ' activity-item__icon--error' : ''}`}>{event.status === 'error' ? '!' : '↗'}</span><div><strong>{event.tool}</strong><p>{event.summary}</p><small>{formatTime(event.created_at)}</small></div></div>)}</div>}</section>
   )
