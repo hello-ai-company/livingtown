@@ -183,6 +183,30 @@ describe('WebMCP lifecycle adapter', () => {
     expect(await registry.inspectNativeSurface()).toEqual([])
   })
 
+  it('cleans composed phase listeners after a tool completes normally', async () => {
+    const fake = createFakeModelContext()
+    const quickTool: ToolDefinition = {
+      name: 'quick_demo_tool',
+      title: 'quick demo tool',
+      description: 'A cleanup test tool.',
+      inputSchema: { type: 'object', properties: {} },
+      readOnlyHint: true,
+      run: (_input, { signal }) => ({ aborted: signal.aborted }),
+    }
+    const registry = createWebMcpRegistry(
+      () => fake.context,
+      (phase) => phase === 'map' ? [quickTool] : [],
+    )
+
+    await registry.setPhase('map', newStore())
+    const phaseSignal = registry.getPhaseSignal()
+    const removeAbortListener = vi.spyOn(phaseSignal, 'removeEventListener')
+    const registered = fake.allRegistered.get('quick_demo_tool')!
+
+    await expect(registered.execute({})).resolves.toBe(JSON.stringify({ aborted: false }))
+    expect(removeAbortListener).toHaveBeenCalledWith('abort', expect.any(Function))
+  })
+
   it('requires exact LivingTown native tools while allowing external host tools', async () => {
     const fake = createFakeModelContext()
     const registry = createWebMcpRegistry(() => fake.context)

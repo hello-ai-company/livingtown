@@ -3,7 +3,7 @@ import type { Phase } from '../sim/types'
 import { getToolDefinitions } from './tools'
 import type { ToolDefinition } from './types'
 
-const LIVING_TOWN_TOOL_NAMES = new Set([
+export const LIVING_TOWN_TOOL_NAMES = [
   'contribute_knowledge',
   'verify_knowledge',
   'query_area',
@@ -12,7 +12,9 @@ const LIVING_TOWN_TOOL_NAMES = new Set([
   'report_bottleneck',
   'control_replay',
   'get_debrief_summary',
-])
+] as const
+
+const livingTownToolNames = new Set<string>(LIVING_TOWN_TOOL_NAMES)
 
 export interface RegistryStatus {
   phase: Phase
@@ -74,23 +76,30 @@ function abortError() {
 
 /**
  * Small compatibility helper for browsers that do not expose
- * AbortSignal.any(). It intentionally returns one signal that aborts when
- * registration, phase, or caller execution cancellation occurs.
+ * AbortSignal.any(). It returns one signal that aborts when registration,
+ * phase, or caller execution cancellation occurs, plus a dispose hook so a
+ * normally completed tool does not retain source listeners.
  */
-export function composeAbortSignals(signals: readonly (AbortSignal | undefined)[]): AbortSignal {
+export interface ComposedAbortSignal {
+  signal: AbortSignal
+  dispose: () => void
+}
+
+export function composeAbortSignals(signals: readonly (AbortSignal | undefined)[]): ComposedAbortSignal {
   const controller = new AbortController()
   const sources = signals.filter((signal): signal is AbortSignal => Boolean(signal))
-  let finished = false
+  let disposed = false
 
-  let cleanup = () => {}
-  const abort = () => {
-    if (finished) return
-    finished = true
-    cleanup()
-    controller.abort()
-  }
-  cleanup = () => {
+  function dispose() {
+    if (disposed) return
+    disposed = true
     sources.forEach((source) => source.removeEventListener('abort', abort))
+  }
+
+  function abort() {
+    if (disposed) return
+    dispose()
+    controller.abort()
   }
 
   for (const source of sources) {
@@ -101,7 +110,7 @@ export function composeAbortSignals(signals: readonly (AbortSignal | undefined)[
     source.addEventListener('abort', abort, { once: true })
   }
 
-  return controller.signal
+  return { signal: controller.signal, dispose }
 }
 
 function toolNamesFromSurface(surface: unknown): string[] {
@@ -115,7 +124,7 @@ function toolNamesFromSurface(surface: unknown): string[] {
 
 function hasExactLivingTownSurface(expectedNames: Iterable<string>, actualNames: string[]) {
   const expected = new Set(expectedNames)
-  const actualLivingTown = new Set(actualNames.filter((name) => LIVING_TOWN_TOOL_NAMES.has(name)))
+  const actualLivingTown = new Set(actualNames.filter((name) => livingTownToolNames.has(name)))
   if (expected.size !== actualLivingTown.size) return false
   return [...expected].every((name) => actualLivingTown.has(name))
 }
@@ -258,11 +267,15 @@ export function createWebMcpRegistry(
             },
             execute: async (input: unknown, executionContext?: WebMcpToolContext) => {
               if (!isCurrent(run) || controller.signal.aborted || executionContext?.signal?.aborted) throw abortError()
-              const toolSignal = composeAbortSignals([run.phaseSignal, controller.signal, executionContext?.signal])
-              if (toolSignal.aborted) throw abortError()
-              const result = await definition.run(input, { signal: toolSignal })
-              if (!isCurrent(run) || toolSignal.aborted) throw abortError()
-              return JSON.stringify(result)
+              const composedSignal = composeAbortSignals([run.phaseSignal, controller.signal, executionContext?.signal])
+              try {
+                if (composedSignal.signal.aborted) throw abortError()
+                const result = await definition.run(input, { signal: composedSignal.signal })
+                if (!isCurrent(run) || composedSignal.signal.aborted) throw abortError()
+                return JSON.stringify(result)
+              } finally {
+                composedSignal.dispose()
+              }
             },
           },
           { signal: controller.signal },

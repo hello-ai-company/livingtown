@@ -283,6 +283,32 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
 .phase-observer__buttons button { border: 1px solid var(--line); padding: 7px 10px; color: var(--text-dim); background: transparent; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; }
 .phase-observer__buttons button:hover, .phase-observer__buttons button.is-active { border-color: var(--lime); color: var(--lime); }
 .phase-observer > small { color: var(--text-quiet); font-size: 9px; }
+.webmcp-diagnostics { margin: 18px 0; padding: 16px; border: 1px solid rgba(119,185,209,.3); background: rgba(119,185,209,.045); }
+.webmcp-diagnostics__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.webmcp-diagnostics h3 { margin: 6px 0 0; color: var(--paper); font-family: Georgia, serif; font-size: 21px; font-weight: 400; letter-spacing: -0.04em; }
+.webmcp-diagnostics__mode { display: flex; gap: 10px; align-items: baseline; margin: 14px 0; padding: 9px 10px; border-left: 2px solid var(--text-quiet); color: var(--text-dim); font-size: 10px; line-height: 1.5; }
+.webmcp-diagnostics__mode strong { color: var(--paper); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; letter-spacing: .12em; }
+.webmcp-diagnostics__mode--native { border-color: var(--lime); background: rgba(193,224,110,.06); }
+.webmcp-diagnostics__mode--simulated { border-color: var(--orange); background: rgba(246,160,100,.06); }
+.diagnostics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 0; border: 1px solid var(--line); background: var(--line); }
+.diagnostics-grid div { min-width: 0; padding: 9px 10px; background: rgba(13,24,33,.7); }
+.diagnostics-grid dt { color: var(--text-quiet); font-size: 8px; line-height: 1.4; }
+.diagnostics-grid dd { overflow: hidden; margin: 5px 0 0; color: var(--paper-soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.diagnostics-pass { color: var(--lime) !important; }
+.diagnostics-fail { color: var(--orange) !important; }
+.diagnostics-surfaces { display: grid; gap: 8px; margin-top: 12px; }
+.diagnostics-surfaces > div { display: grid; gap: 4px; }
+.diagnostics-surfaces span { color: var(--text-quiet); font-size: 8px; letter-spacing: .05em; }
+.diagnostics-surfaces code { overflow-wrap: anywhere; color: var(--paper-soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; line-height: 1.5; }
+.diagnostics-phase-history { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 13px; }
+.diagnostics-phase-history > div { display: grid; gap: 4px; padding: 8px; border-top: 1px solid var(--line); }
+.diagnostics-phase-history strong { color: var(--lime); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; }
+.diagnostics-phase-history span { color: var(--text-quiet); font-size: 8px; }
+.diagnostics-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 13px; }
+.diagnostics-actions .secondary-button { min-height: 32px; padding: 6px 10px; font-size: 9px; }
+.diagnostics-json { margin-top: 12px; border-top: 1px solid var(--line); color: var(--text-quiet); font-size: 9px; }
+.diagnostics-json summary { cursor: pointer; padding-top: 10px; }
+.diagnostics-json pre { max-height: 260px; overflow: auto; margin: 10px 0 0; padding: 10px; color: var(--text-dim); background: rgba(13,24,33,.65); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8px; line-height: 1.55; white-space: pre-wrap; }
 .check-list { border-top: 1px solid var(--line); }
 .check-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; min-height: 42px; border-bottom: 1px solid var(--line); color: var(--text-dim); font-size: 11px; }
 .check-row__icon { display: grid; place-items: center; width: 17px; height: 17px; border: 1px solid var(--line); color: var(--text-quiet); font-size: 10px; }
@@ -338,6 +364,8 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
   .route-result__actions button { width: 100%; }
   .replay3d-fallback { align-items: flex-start; }
   .replay3d-fallback__count { display: none; }
+  .diagnostics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .diagnostics-grid div:nth-child(9) { grid-column: 1 / -1; }
   .footer-bar { display: block; line-height: 1.8; }
   .footer-bar span { display: block; }
 }

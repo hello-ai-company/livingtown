@@ -1,5 +1,35 @@
-import { describe, expect, it } from 'vitest'
-import { LivingTownStore } from './supabase'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEMO_VERIFICATIONS } from './demoData'
+import { LIVING_TOWN_STORAGE_KEY, LivingTownStore } from './supabase'
+import type { TownSnapshot } from '../sim/types'
+
+function createMemoryStorage() {
+  let value: string | null = null
+  return {
+    getItem: () => value,
+    setItem: (_key: string, next: string) => { value = next },
+    removeItem: () => { value = null },
+  } as unknown as Storage
+}
+
+let memoryStorage: Storage
+
+beforeEach(() => {
+  memoryStorage = createMemoryStorage()
+  vi.stubGlobal('window', { localStorage: memoryStorage })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+function demoSnapshotForPersistence() {
+  return JSON.parse(JSON.stringify(new LivingTownStore({ persist: false }).getSnapshot())) as TownSnapshot
+}
+
+function persist(snapshot: TownSnapshot) {
+  memoryStorage.setItem(LIVING_TOWN_STORAGE_KEY, JSON.stringify(snapshot))
+}
 
 describe('LivingTownStore privacy boundary', () => {
   it('stores only enum constraints and anonymous location fields', () => {
@@ -83,5 +113,49 @@ describe('LivingTownStore privacy boundary', () => {
       confidence: 'heard',
     })
     expect(() => store.verifyKnowledge({ knowledge_id: knowledge.id, verifier_id: 'user@example.com', verdict: 'agree' })).toThrow('anon-')
+  })
+
+  it('loads persisted knowledge with counters derived from valid verification records', () => {
+    const snapshot = demoSnapshotForPersistence()
+    persist(snapshot)
+
+    const loaded = new LivingTownStore()
+    for (const knowledge of loaded.getSnapshot().knowledge) {
+      const records = loaded.getSnapshot().verifications.filter((item) => item.knowledge_id === knowledge.id)
+      expect(knowledge.agree_count).toBe(records.filter((item) => item.verdict === 'agree').length)
+      expect(knowledge.disagree_count).toBe(records.filter((item) => item.verdict === 'disagree').length)
+    }
+  })
+
+  it('corrects an inflated persisted agree counter from verification records', () => {
+    const snapshot = demoSnapshotForPersistence()
+    const knowledge = snapshot.knowledge[0]
+    knowledge.agree_count += 99
+    persist(snapshot)
+
+    const loaded = new LivingTownStore()
+    const records = loaded.getSnapshot().verifications.filter((item) => item.knowledge_id === knowledge.id)
+    expect(loaded.getSnapshot().knowledge[0].agree_count).toBe(records.filter((item) => item.verdict === 'agree').length)
+  })
+
+  it('corrects a persisted disagree counter mismatch from verification records', () => {
+    const snapshot = demoSnapshotForPersistence()
+    const knowledge = snapshot.knowledge[0]
+    knowledge.disagree_count += 99
+    persist(snapshot)
+
+    const loaded = new LivingTownStore()
+    const records = loaded.getSnapshot().verifications.filter((item) => item.knowledge_id === knowledge.id)
+    expect(loaded.getSnapshot().knowledge[0].disagree_count).toBe(records.filter((item) => item.verdict === 'disagree').length)
+  })
+
+  it('rejects a persisted duplicate verification instead of trusting its counters', () => {
+    const snapshot = demoSnapshotForPersistence()
+    snapshot.verifications.push({ ...snapshot.verifications[0], id: 'duplicate-verification-record' })
+    persist(snapshot)
+
+    const loaded = new LivingTownStore()
+    expect(loaded.getSnapshot().verifications).toHaveLength(DEMO_VERIFICATIONS.length)
+    expect(loaded.getSnapshot().knowledge).toEqual(new LivingTownStore({ persist: false }).getSnapshot().knowledge)
   })
 })

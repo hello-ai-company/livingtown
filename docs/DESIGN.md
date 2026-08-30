@@ -41,12 +41,24 @@
 1. 現在のregistration runをinactiveにし、全toolの登録controllerをabortする。
 2. 世代を進め、新phaseの定義だけを順番に `registerTool` する。
 3. `registerTool` のawait中に別phaseへ進んだ場合、戻ってきた古いrunはstaleとして登録完了扱いにしない。controllerも直ちにabortする。
-4. tool実行時はregistration signal、phase signal、caller execution signalを小さなcomposition helperで合成し、`ToolDefinition.run(input, { signal })` へ必ず渡す。実装はsignalを観測して非同期mutationのcommit前に中断できる。
+4. registration signalによるunregisterと、実行中toolへ渡るexecute用signalは別の責務として扱う。tool実行時はregistration signal、phase signal、caller execution signalを小さなcomposition helperで合成し、`ToolDefinition.run(input, { signal })` へ必ず渡す。実装はsignalを観測して非同期mutationのcommit前に中断できる。
 5. tool実行の前後でrunの世代と合成signalを確認し、phase変更後の実行結果を採用しない。
 6. 登録完了後に `getTools()` を呼び、外部toolは許容しつつ、既知のLivingTown tool集合だけは現在phaseの定義集合と完全一致することを確認する。
 7. `toolchange` listenerはcontextごとに1つだけ付け、再通知時にsurfaceを再取得する。context変更・dispose時にはlistenerを外す。statusはsubscription経由でReactへ反映する。
+8. 合成signalはtoolの成功・失敗・取消しのいずれでもfinallyでdisposeする。phaseが長時間変わらない正常終了でもsource signalのlistenerを残さない。
 
 WebMCP非対応ブラウザでは `document.modelContext` がないため、登録statusだけをSIMULATEDとして返す。UIとtool定義は同じものを使い、通常のVitest／Node環境でもadapterへfake contextを注入して検証できる。
+
+### 3.1 DiagnosticsとEvidence
+
+管理ビューの `WebMCP Diagnostics` は、adapterが保持するstatusだけを表示する。UIやEvidence exporterが `document.modelContext` を直接参照することはない。
+
+- `nativeAvailable` がブラウザAPIの存在、`mode` が `NATIVE` / `SIMULATED` を示す。SIMULATEDの `exactMatch` は実機証跡ではないため `false` とする。
+- `expectedLivingTownTools` は選択中phaseの定義集合、`actualLivingTownTools` は `getTools()` からknown LivingTown toolだけを抽出した集合、`externalTools` はそれ以外の集合である。
+- `exactMatch` は、実APIが利用可能で、expectedとactualのknown集合が完全一致した場合だけtrue。外部toolの存在は失敗条件にしない。
+- `transitionId`、`toolchangeCount`、`lastToolchangeAt`、phase AbortSignal状態を同じsnapshotへ記録する。MAP／DRILL／REPLAYを巡回した場合は `phases` にphase別snapshotをまとめる。
+- Evidence JSONはtool surfaceと状態メタデータだけを出力し、knowledge本文、household profile、verifierの値は含めない。`SIMULATED`、fake context、Vitestの結果を実機PASSへ昇格させない。
+- 対応Chromeでの人手確認は [`docs/WEBMCP_REAL_DEVICE.md`](./WEBMCP_REAL_DEVICE.md) に従う。未確認時の状態は `REAL_DEVICE_MANUAL_ACTION_REQUIRED` とする。
 
 ## 4. データモデル
 
@@ -65,6 +77,7 @@ verification(id, knowledge_id, verifier_id, verdict, comment, created_at,
 - 同じ `knowledge_id + verifier_id` の再投票はidempotentな重複として無視し、agree/disagreeカウンタを二重加算しない。
 - `comment` は任意200文字以内、`created_at` はstore／DB側で生成する。クライアントに時刻を委ねない。
 - デモfixtureにも既存のagree/disagree数と対応するverification recordを持たせ、カウンタとrecordの関係を説明可能にする。
+- LocalStorage snapshotの読込時はverification recordを先に検証し、`knowledge_id + verifier_id` の重複や存在しないknowledgeへの参照を拒否する。`agree_count` / `disagree_count` はrecordから再計算し、保存値を信頼しない。したがってrecordsがsource of truth、counterはderived cacheである。
 
 ### 4.2 Household
 
@@ -182,8 +195,8 @@ CesiumJS + PLATEAU 3D Tilesは遅延ロードする任意機能。`VITE_ENABLE_3
 ```text
 livingtown/
 ├── README.md
-├── docs/{DESIGN,EVALUATION,DEMO_SCRIPT}.md
-├── src/webmcp/{register.ts,register.test.ts,tools/}
+├── docs/{DESIGN,EVALUATION,DEMO_SCRIPT,WEBMCP_REAL_DEVICE}.md
+├── src/webmcp/{register.ts,register.test.ts,diagnostics.ts,diagnostics.test.ts,tools/}
 ├── src/sim/{types,graph,route,route.test}.ts
 ├── src/data/{demoData,supabase,store.test,useTownSnapshot}.ts
 ├── src/phases/PhaseContext.tsx
