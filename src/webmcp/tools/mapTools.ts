@@ -1,7 +1,8 @@
-import type { QueryAreaInput, ContributeKnowledgeInput, LivingTownStore, VerifyKnowledgeInput } from '../../data/supabase'
+import type { QueryAreaInput, ContributeKnowledgeInput, VerifyKnowledgeInput, TownRepository } from '../../data/repository'
 import type { ToolDefinition } from '../types'
 
-export function mapTools(store: LivingTownStore): ToolDefinition[] {
+export function mapTools(store: TownRepository): ToolDefinition[] {
+  const sharedMode = store.dataMode === 'SUPABASE_SHARED'
   return [
     {
       name: 'contribute_knowledge',
@@ -20,33 +21,35 @@ export function mapTools(store: LivingTownStore): ToolDefinition[] {
         required: ['category', 'lat', 'lng', 'condition', 'description', 'confidence'],
       },
       readOnlyHint: false,
-      run: (input: ContributeKnowledgeInput) => {
-        const result = store.contributeKnowledge(input)
-        store.recordActivity('contribute_knowledge', `新しい暗黙知「${result.description}」を登録`)
+      run: async (input: ContributeKnowledgeInput, context) => {
+        const result = await store.contributeKnowledge(input, { signal: context.signal })
+        await store.recordActivity('contribute_knowledge', `新しい暗黙知「${result.description}」を登録`)
         return { id: result.id, status: 'pending_verification', verifiedThreshold: 2 }
       },
     },
     {
       name: 'verify_knowledge',
       title: '暗黙知を追認・反証',
-      description: '既存の暗黙知への追認または反証。閲覧者本人の知見に基づく場合に使う。verifier_id はpseudonymous identifierとして anon- 接頭辞の形式を指定する（形式だけではPII非保持や本人性を保証しない）。同じ暗黙知への同一識別子の重複投票は無視する。',
+      description: sharedMode
+        ? '既存の暗黙知への追認または反証。共有モードでは認証済みSupabase identityからserver-sideでopaque pseudonymous verifier idを割り当てるため、verifier_idは入力しない。同じknowledgeへの同一identityの重複投票は無視する。'
+        : '既存の暗黙知への追認または反証。ローカルデモではpseudonymous identifierを入力する。同じ暗黙知への同一識別子の重複投票は無視する。形式だけではPII非保持や本人性を保証しない。',
       inputSchema: {
         type: 'object',
         properties: {
           knowledge_id: { type: 'string' },
-          verifier_id: { type: 'string', pattern: '^anon-[A-Za-z0-9][A-Za-z0-9_-]{2,63}$' },
+          ...(sharedMode ? {} : { verifier_id: { type: 'string', pattern: '^anon-[A-Za-z0-9][A-Za-z0-9_-]{2,63}$' } }),
           verdict: { type: 'string', enum: ['agree', 'disagree'] },
           comment: { type: 'string', maxLength: 200 },
         },
-        required: ['knowledge_id', 'verifier_id', 'verdict'],
+        required: sharedMode ? ['knowledge_id', 'verdict'] : ['knowledge_id', 'verifier_id', 'verdict'],
       },
       readOnlyHint: false,
-      run: (input: VerifyKnowledgeInput) => {
-        const result = store.verifyKnowledge(input)
-        store.recordActivity(
+      run: async (input: VerifyKnowledgeInput, context) => {
+        const result = await store.verifyKnowledge(input, { signal: context.signal })
+        await store.recordActivity(
           'verify_knowledge',
           result.duplicate
-            ? `同じpseudonymous identifierの重複投票を無視。現在の追認${result.agree_count}件`
+            ? `同じidentityの重複投票を無視。現在の追認${result.agree_count}件`
             : `${input.verdict === 'agree' ? '追認' : '反証'}を記録。現在の追認${result.agree_count}件`,
         )
         return result
@@ -68,9 +71,9 @@ export function mapTools(store: LivingTownStore): ToolDefinition[] {
         required: ['lat', 'lng', 'radius_m'],
       },
       readOnlyHint: true,
-      run: (input: QueryAreaInput) => {
-        const result = store.queryArea(input)
-        store.recordActivity('query_area', `${result.length}件の暗黙知を周辺検索`)
+      run: async (input: QueryAreaInput, context) => {
+        const result = await store.queryArea(input, { signal: context.signal })
+        await store.recordActivity('query_area', `${result.length}件の暗黙知を周辺検索`)
         return { items: result }
       },
     },

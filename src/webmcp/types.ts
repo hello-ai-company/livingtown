@@ -1,4 +1,4 @@
-import type { LivingTownStore } from '../data/supabase'
+import type { TownRepository } from '../data/repository'
 
 export type JsonSchema = Record<string, unknown>
 
@@ -22,4 +22,4 @@ export interface ToolDefinition<TInput = unknown, TResult = unknown> {
 
 export type ToolsetPhase = 'map' | 'drill' | 'replay'
 
-export type StoreBackedToolDefinition = ToolDefinition & { store: LivingTownStore }
+export type StoreBackedToolDefinition = ToolDefinition & { store: TownRepository }

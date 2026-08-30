@@ -13,6 +13,7 @@
     "seed": "tsx seed/seed.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
     "maplibre-gl": "^5.6.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

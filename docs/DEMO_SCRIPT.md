@@ -8,6 +8,8 @@
 4. ブラウザで表示し、右上の `管理ビュー` から `デモデータをリセット` を実行する。
 5. 実機確認をする場合は [WEBMCP_REAL_DEVICE.md](./WEBMCP_REAL_DEVICE.md) のflagとDiagnostics手順も準備する。
 
+既定の `LOCAL_DEMO` はこの3分デモ用です。複数ブラウザで共有を見せる場合は、[SUPABASE_SHARED_STATE.md](./SUPABASE_SHARED_STATE.md) のmigrationを実DBへ適用し、`VITE_LIVINGTOWN_DATA_MODE=shared`、`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`を設定して起動します。shared modeではデモリセットでremote dataを消せないため、使い捨てprojectまたはsessionを用意してください。
+
 実機WebMCPを検証できるChromeでは、開発者ツールで `document.modelContext.getTools()` を実行し、phaseごとの一覧を記録する。通常ブラウザではWebMCPがないため、画面の `SIMULATED` 表示とVitestのfake adapterを使う。この2つを混同して実機PASSとは言わない。
 
 ## 0:00 — 問題提起
@@ -18,9 +20,9 @@
 
 1. `街の記憶` を表示し、右側の `map tools` が3本だけであることを見せる。
 2. 投稿の自由文には氏名・住所・電話番号・診断名などを含めないことを先に示す。「登録する」をクリックすると、`contribute_knowledge` がActivityに出て、該当座標へ水面／波紋のPENDING visualがsoft appearする。visualをクリックしてdetail cardの `未検証`、条件、確度、カウンタを見せる。
-3. 同じカードの「追認する」を1回クリックする。内部では `verifier_id: anon-demo-neighbor-a` というpseudonymous identifierが使われ、visualはまだPENDINGのまま。
-4. もう1回クリックする。内部では `verifier_id: anon-demo-neighbor-b` が使われ、threshold到達の短いtransitionと `Community verified` feedbackの後、visualがVERIFIEDへ変わる。
-5. 「同じknowledgeに同じidentifierが投票しても、`knowledge_id + verifier_id` が一意なので二重加算されません。これはsame identifier duplicate preventionの仕組みで、pseudonymous identifierの形式だけではPII非保持・本人性・Sybil耐性を保証せず、追認−反証が2以上になった時だけrouteに影響します」と説明する。
+3. 同じカードの「追認する」を1回クリックする。LOCAL_DEMOではfixtureのpseudonymous identifierが使われ、shared modeでは入力schemaにverifier_idがなく、Auth identityからserver-sideでopaqueなpseudonymous identifierが導出される。visualはまだPENDINGのまま。
+4. もう1回クリックする。LOCAL_DEMOでは別fixtureを使う。shared modeでは同じAuth identityの再送はduplicateになり、threshold到達には別Auth identityが必要になる。2つのidentityでthresholdへ到達したら、短いtransitionと `Community verified` feedbackの後、visualがVERIFIEDへ変わる。
+5. 「同じknowledgeに同じidentity／identifierが投票しても、`knowledge_id + verifier_id` が一意なので二重加算されません。これはsame identifier duplicate preventionの仕組みで、pseudonymous identifierはdistinct humanやSybil耐性を保証せず、追認−反証が2以上になった時だけrouteに影響します」と説明する。
 6. LegendでPENDING／VERIFIED／AFFECTING current routeと、barrier／floodなどcategory別shapeを確認する。`Verified only` filterは表示だけを変え、domain dataを変更しない。
 
 ## 1:15 — 幕2：一つの知識が道を変える
@@ -52,6 +54,18 @@
 - WebMCP非対応ブラウザでは `SIMULATED` fallbackとして同じ縦切りを実行できる。
 
 「LivingTownは、エージェントに長い手順を暗記させません。今できることだけがtoolとして存在し、街の状態そのものがプロトコルになります。」
+
+## Shared stateの短い確認（追加デモ）
+
+1. Browser AとBrowser Bで同じshared projectを開き、両方の管理ビューに `Data mode: SUPABASE_SHARED`、`Connection: CONNECTED`、`Realtime: CONNECTED` が表示されることを確認する。
+2. Browser AでKnowledgeを投稿し、Browser Bのmapへ同じKnowledgeが現れることを確認する。
+3. Browser Bで追認し、DB内部のVerification→counter trigger→Knowledge Realtimeを経由してBrowser Aのcounterが更新されることを確認する。shared modeでは同一Auth identityの再送はduplicateであり、別のAuth identityから2票目を入れる。raw Verification recordはどちらのbrowserにも公開しない。
+4. Browser AのvisualがPENDINGからVERIFIEDへ変化したら、wheelchair householdを同じowner sessionで登録してrouteを計算する。
+5. `AFFECTING_ROUTE`、avoided reason、edge IDs、ReplayのKnowledge → Routeを確認する。
+6. 接続を切ってrefreshまたはretryを実行し、最後のsnapshotを保持したままERRORが表示されることを確認する。失敗したremote writeがlocal成功として表示されないことを説明する。
+7. 共有DBを続けられない場合だけ、管理ビューの「このタブをLOCAL_DEMOへ切替」を明示操作する。これはremote dataをlocalへコピーする機能ではなく、demo用の別modeへ再読み込みする操作である。
+
+このsharedシナリオは実Supabaseのmigration適用・Auth設定・Realtimeが揃った場合だけ実施します。fake adapter／Vitest／通常ブラウザのLOCAL_DEMOはBrowser A/Bの実証ではありません。
 
 ## 評価者向け注意
 

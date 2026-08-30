@@ -1,4 +1,4 @@
-import type { LivingTownStore } from '../data/supabase'
+import type { TownRepository } from '../data/repository'
 import type { Phase } from '../sim/types'
 import { getToolDefinitions } from './tools'
 import type { ToolDefinition } from './types'
@@ -29,7 +29,7 @@ export interface RegistryStatus {
 
 type ModelContext = WebMcpModelContext
 type ModelContextResolver = () => ModelContext | undefined
-type ToolDefinitionResolver = (phase: Phase, store: LivingTownStore) => ToolDefinition[]
+type ToolDefinitionResolver = (phase: Phase, store: TownRepository) => ToolDefinition[]
 
 interface RegistrationRun {
   id: number
@@ -41,7 +41,7 @@ interface RegistrationRun {
 }
 
 export interface WebMcpRegistry {
-  setPhase: (phase: Phase, store: LivingTownStore) => Promise<RegistryStatus>
+  setPhase: (phase: Phase, store: TownRepository) => Promise<RegistryStatus>
   getStatus: () => RegistryStatus
   getSnapshot: () => RegistryStatus
   subscribe: (listener: () => void) => () => void
@@ -216,7 +216,7 @@ export function createWebMcpRegistry(
     run.registeredToolNames.clear()
   }
 
-  const setPhase = async (phase: Phase, store: LivingTownStore): Promise<RegistryStatus> => {
+  const setPhase = async (phase: Phase, store: TownRepository): Promise<RegistryStatus> => {
     transitionId += 1
     const id = transitionId
     phaseController.abort()

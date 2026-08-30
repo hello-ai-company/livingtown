@@ -20,7 +20,7 @@
 - Frontend: Vite + React + TypeScript
 - 2D map: deterministic local walking graphを描くSVGフォールバック。MapLibre styleは任意の表示アダプター。
 - 3D: CesiumJS + PLATEAU 3D Tilesは未設定時にロードしない。
-- Data: 現在はLocalStorageの決定的デモストア。`src/data/supabase.ts` を将来の共有adapterの境界として固定する。
+- Data: `TownRepository`を境界とし、`LocalTownRepository`（LocalStorageの決定的デモ）と`SupabaseTownRepository`（Database + Auth + Realtime）を明示的に切り替える。route engineはどちらのadapterから渡されたsnapshotにも同じdeterministic graphを適用する。
 - WebMCP: Imperative APIの直接呼び出しは `src/webmcp/register.ts` だけに隔離する。ツール定義はAPI objectを知らない純粋な定義層とする。
 - Deployment target: Vercel / Netlify想定。実機WebMCPの確認は対応Chromeで別途行う。
 
@@ -48,6 +48,30 @@
 8. 合成signalはtoolの成功・失敗・取消しのいずれでもfinallyでdisposeする。phaseが長時間変わらない正常終了でもsource signalのlistenerを残さない。
 
 WebMCP非対応ブラウザでは `document.modelContext` がないため、登録statusだけをSIMULATEDとして返す。UIとtool定義は同じものを使い、通常のVitest／Node環境でもadapterへfake contextを注入して検証できる。
+
+## 3.3 Shared state architecture
+
+`src/data/repository.ts` がUI、WebMCP tool、route/replay操作の共通契約を定義する。Supabase SDKをimportするのは `src/data/supabaseRepository.ts` だけである。
+
+```text
+App / WebMCP tools / useTownSnapshot
+                 │
+                 ▼
+          TownRepository
+          ┌───────────────┐
+          │               │
+          ▼               ▼
+ LocalTownRepository  SupabaseTownRepository
+ LocalStorage          Database/Auth/Realtime
+          └────── snapshot ──────┘
+                    │
+                    ▼
+          deterministic route engine
+```
+
+`VITE_LIVINGTOWN_DATA_MODE=local`（既定）では `LOCAL_DEMO` を選び、`shared` とSupabase URL/keyが揃った場合だけ `SUPABASE_SHARED` を選ぶ。設定不足は明示的なlocal fallbackであり、remote writeの失敗をlocal成功へ変換しない。shared snapshotではKnowledgeとDB-maintained derived counterだけをremoteから読み、raw Verification recordsはbrowserへhydrateしない。Auth ownerが必要なHousehold／BottleneckはRPCで登録し、`owner_id`をUIのdomain shapeへ戻さない。接続障害では最後のtrusted snapshotを保持してERROR／retryを表示し、管理ビューの明示操作でこのタブだけLOCAL_DEMOへ切り替えられる。
+
+Data diagnosticsはmode、configured、connection、Realtime、authenticated、last sync/error、公開Knowledge／Verification件数だけを表示する。key、token、raw user id、verifier idは表示もEvidence出力もしない。
 
 ## 3.2 Living Knowledge Visual World
 
@@ -108,9 +132,10 @@ verification(id, knowledge_id, verifier_id, verdict, comment, created_at,
              unique(knowledge_id, verifier_id))
 ```
 
-- `verifier_id` はpseudonymous identifierの形式として `anon-...` を受け付ける。prefixやregexだけではPII非保持・本人性・Sybil耐性を保証しない。
+- local demoの`verifier_id`はpseudonymous identifierのfixtureとして扱う。prefixやregexだけではPII非保持・本人性・Sybil耐性を保証しない。shared modeではclientのverifier_idを受け付けず、Supabase Auth identityをRPC内でhashしたopaqueなpseudonymous identifierをDB内部で使う。shared browserはVerification tableをSELECTせず、Knowledge counterだけを受け取る。同じAuth identityのduplicate preventionはできるが、anonymous Authやagentによる複数identity作成を防ぐものではない。
 - 同じ `knowledge_id + verifier_id` の再投票はidempotentな重複として無視し、agree/disagreeカウンタを二重加算しない。
 - `comment` は任意200文字以内、`created_at` はstore／DB側で生成する。クライアントに時刻を委ねない。
+- shared modeのraw VerificationはDB-privateであり、browser snapshotには含めない。Verification RPCの戻り値は`verification_id`、counter、verified、duplicate、created_atだけで、verifier_idやcommentは返さない。
 - デモfixtureにも既存のagree/disagree数と対応するverification recordを持たせ、カウンタとrecordの関係を説明可能にする。
 - LocalStorage snapshotの読込時はverification recordを先に検証し、`knowledge_id + verifier_id` の重複や存在しないknowledgeへの参照を拒否する。`agree_count` / `disagree_count` はrecordから再計算し、保存値を信頼しない。したがってrecordsがsource of truth、counterはderived cacheである。
 
@@ -119,13 +144,15 @@ verification(id, knowledge_id, verifier_id, verdict, comment, created_at,
 ```sql
 household(
   id, label, constraints, start_lat, start_lng,
-  location_scope, expires_at, created_at
+  location_scope, expires_at, owner_id, created_at
 )
 ```
 
 `constraints` は `wheelchair | infant | elderly | pet` の集合だけ。保存可能なlabelはUI表示用の `世帯A` 形式に限定する。氏名、メール、電話、診断名、自由入力の医療情報、正確な住所、それらを表すフィールドは入力時に拒否し、オブジェクトのunknown fieldも再帰的に検査する。
 
 `start_lat/start_lng` は住所入力ではない。コードはLivingTownデモエリア内だけを受け付け、6つの静的グラフノードのいずれかへスナップして保存する。値は `demo` または一時的な `temporary_drill` sessionの座標であることを `location_scope` で明示する。新規世帯は `location_scope = temporary_drill` と24時間の `expires_at` を持つ。seed世帯だけが `demo` である。
+
+shared modeの`owner_id`はSupabase Auth ownerのscope用で、公開community Knowledgeとは別のRLS boundaryである。ブラウザから直接owner_idを指定するINSERTは許可せず、`register_household` RPCがAuth identityとserver-side snapを設定する。Bottleneckも同じowner boundaryを使う。
 
 ### 4.3 その他
 
@@ -146,7 +173,7 @@ drill_run(id, scenario, weather, routes, created_at)
 
 #### `verify_knowledge`
 
-引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagree`）, 任意の `comment`（200文字以内）。`verifier_id` は `anon-[A-Za-z0-9_-]+` のpseudonymous identifier形式で必須。同じ識別子の重複投票は無視するが、distinct-human verificationやSybil resistanceは保証しない。戻り値は `{ id, verification_id, verifier_id, agree_count, disagree_count, verified, duplicate, created_at }`。
+local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagree`）, 任意の `comment`（200文字以内）。`verifier_id` はpseudonymous fixtureであり、形式だけではPII非保持やdistinct-humanを保証しない。shared modeの引数は `knowledge_id`, `verdict`, `comment` だけで、server-side RPCがAuth identityからopaque identifierを導出する。両modeとも同じ`knowledge_id + verifier_id`に対する重複を無視する。戻り値にはshared modeでverifier idを含めない。
 
 #### `query_area`
 
@@ -197,15 +224,15 @@ drill_run(id, scenario, weather, routes, created_at)
 
 - LocalStorageキーはv2。新しいschemaに適合しない旧・不正snapshotは読み込まない。
 - household入力は禁則fieldの再帰検査、anonymous label検証、constraint enum検証、デモエリア検証、ノードスナップを通過しない限り保存しない。
-- Supabase migration `0002_verification_privacy_rls.sql` はverificationのunique制約、householdのscope／expiry／label制約、全テーブルのRLSを追加する。後続の `0003_knowledge_counter_privileges.sql` はknowledge INSERTのcolumn privilegeを入力列だけに絞り、counterを0へ初期化するtriggerを追加する。
-- `anon` roleにはread-onlyのknowledge以外のwriteを与えない。authenticated roleにもknowledgeのcounter列へのINSERT／UPDATE権限を与えず、verification INSERT後のsecurity-definer triggerだけがcounterを変更する。
+- Supabase migration `0002_verification_privacy_rls.sql` はverificationのunique制約、householdのscope／expiry／label制約、全テーブルのRLSを追加する。後続の `0003_knowledge_counter_privileges.sql` はknowledge INSERTのcolumn privilegeを入力列だけに絞り、counterを0へ初期化するtriggerを追加する。`0004_shared_state_trust_boundary.sql` はowner scope、RPC-only verification／household／bottleneck writes、Auth-derived verifier id、Realtime publicationを追加する。適用済みmigrationは書き換えず、新migrationとして追加する。
+- `anon` roleにはread-onlyのKnowledge以外のwriteを与えない。authenticated roleにもKnowledgeのcounter列へのINSERT／UPDATE権限を与えず、Verification INSERT後のsecurity-definer triggerだけがcounterを変更する。Verificationはanon／authenticatedのSELECTと直接INSERTをrevokeし、`submit_verification` RPCだけがserver-derived verifier idでinsertする。RealtimeもKnowledgeだけを公開し、household／bottleneckの直接writeをrevokeしてownerをAuth identityから導出するRPCだけをgrantする。
 - `knowledge.description` はcommunity free textで、knowledgeの座標もPIIを投稿・推測できる余地がある。投稿UI／tool descriptionでは注意を促すが、free-textのmoderation、retention、削除・再識別評価はPENDINGである。
 - household profileではdirect PIIを保持しない。これはLivingTown全体がPIIを保持しないことや、共有環境で完全に匿名であることを意味しない。認証主体の運用、監査、削除、鍵管理、DB上の既存データ検査は別途必要である。
-- 将来は `authenticated identity → server-side trusted boundary → opaque pseudonymous verifier_id` とし、クライアント／WebMCP agentが任意のverifier_idを切り替えられない構成にする。現状はagentが複数のidentifierを装えるため、Sybil resistance／distinct-human verificationはPENDING。
+- `authenticated identity → server-side trusted boundary → opaque pseudonymous verifier_id` をshared RPCで実装した。ただしanonymous Auth identity自体はdistinct humanではなく、WebMCP agentが複数identityを作る可能性があるため、Sybil resistance／distinct-human verificationはPENDING。
 
 ### Supabase migration verification
 
-`0002` の後に `0003` を適用した共有Supabaseで、authenticatedロールとして次を検証する。前者は成功し、返る `agree_count` と `disagree_count` は必ず `0, 0` になる。後者はcounter列のcolumn privilege不足で失敗することが期待値である。anonロールのINSERTはRLS／権限で失敗する。
+`0002` の後に `0003`、`0004`を適用した共有Supabaseで、authenticatedロールとして次を検証する。前者は成功し、返る `agree_count` と `disagree_count` は必ず `0, 0` になる。後者はcounter列のcolumn privilege不足で失敗することが期待値である。anonロールのINSERT、verificationの直接INSERT、ownerを指定したhouseholdの直接INSERTも失敗し、authenticated Auth identityからのRPCだけが成功する。
 
 ```sql
 insert into public.knowledge
@@ -221,6 +248,8 @@ values
 -- Expected for authenticated: permission denied for the counter column.
 ```
 
+After `0004`, also expect `has_table_privilege('authenticated', 'public.verification', 'INSERT')` to be false and `has_function_privilege('authenticated', 'public.submit_verification(uuid,text,text)', 'EXECUTE')` to be true. The browser calls that RPC with `knowledge_id`, `verdict`, and optional `comment`; it never supplies `verifier_id`. Use the complete role/privilege checks in [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md), and run them against a disposable project rather than treating a SQL-editor owner session as browser evidence.
+
 ## 8. 3Dリプレイ方針
 
 CesiumJS + PLATEAU 3D Tilesは遅延ロードする任意機能。`VITE_ENABLE_3D` 未設定時はCesiumをロードせず、2D上で同じリプレイ操作を提供する。次フェーズで対象都市とtilesetの利用条件を固定する。
@@ -234,10 +263,11 @@ livingtown/
 ├── src/webmcp/{register.ts,register.test.ts,diagnostics.ts,diagnostics.test.ts,tools/}
 ├── src/map/{Map2D,KnowledgeVisual,KnowledgeDetailCard,ReplayKnowledgePanel,knowledgeVisuals}.tsx
 ├── src/sim/{types,graph,route,route.test}.ts
-├── src/data/{demoData,supabase,store.test,useTownSnapshot}.ts
+├── src/data/{demoData,repository,townRepository,supabase,supabaseRepository,validation,useTownSnapshot}.ts
 ├── src/phases/PhaseContext.tsx
 ├── seed/{seed,extract-graph}.ts
-└── supabase/migrations/{0001_init,0002_verification_privacy_rls,0003_knowledge_counter_privileges}.sql
+├── supabase/migrations/{0001_init,0002_verification_privacy_rls,0003_knowledge_counter_privileges,0004_shared_state_trust_boundary}.sql
+└── supabase/tests/0004_shared_state_trust_boundary.sql
 ```
 
 ## 10. 受け入れ基準
@@ -252,6 +282,10 @@ livingtown/
 - [x] `npm run seed` 一回でグラフ、暗黙知10件、pseudonymous verification record、世帯3件を生成できる。
 - [x] KnowledgeがPENDING／VERIFIED／AFFECTING_ROUTEの3状態でカテゴリ別に描画され、selected routeの実際の `avoided` recordとdetail／Replayが連動する。
 - [x] filter、Legend、keyboard focus、aria-label、reduced-motion、狭いviewport向けdetail cardを提供する。
+- [x] LOCAL_DEMOとSUPABASE_SHAREDをrepository factoryで分離し、設定不足時に安全なlocal fallbackを表示する。
+- [x] shared adapterはKnowledgeとDB-maintained counterだけをremoteから読み、raw Verificationをbrowser snapshotへhydrateせず、UI/WebMCPと同じrepositoryを通す。
+- [x] shared verificationはcaller-supplied verifier_idを信用せず、Auth-derived RPCとDB unique制約でsame-identity duplicateを防ぐ。
+- [ ] 実Supabase projectへのmigration適用、Auth insert／counter bypass denial／duplicate verification／Browser A/B Realtimeの実証。
 
 ## 11. Devpost用要約
 

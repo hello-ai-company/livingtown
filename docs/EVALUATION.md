@@ -1,8 +1,8 @@
 # LivingTown 実装評価
 
 評価日: 2026-08-30
-対象: `feat/living-knowledge-visual-world`
-Base SHA: `cca5c9dda8291998a9ffb4a30515871eb4f72f37`（PR #2 merge後のmain）
+対象: `feat/supabase-shared-livingtown`
+Base SHA: `79dd9f2376e57886a752854912ec0ff6a1d59e20`（PR #3 merge後のmain）
 
 ## 判定ルール
 
@@ -53,7 +53,7 @@ Base SHA: `cca5c9dda8291998a9ffb4a30515871eb4f72f37`（PR #2 merge後のmain）
 - WebMCPオブジェクトがない通常Node/Vitest環境でも、同じtool definitionをfake adapterで検証できる。
 - 2Dフォールバックでmap → drill → replayの縦切りが成立する。
 - `npm run seed` は外部APIなしで決定的なdemo dataを生成する。
-- 既存31 testsを維持し、Phase 5で13 testsを追加した。現在は6 files / 44 tests。
+- 既存57 testsを維持し、Phase 6のtrust-boundary／Realtime testsを2件追加した。現在は9 files / 59 tests。
 
 ### Living Knowledge Visual World
 
@@ -66,6 +66,13 @@ Base SHA: `cca5c9dda8291998a9ffb4a30515871eb4f72f37`（PR #2 merge後のmain）
 - `src/map/knowledgeVisuals.test.ts` でvisual state、registry、unknown fallback、safe spot、route linkage、複数filter、privacy境界を確認する。
 
 ## PARTIAL
+
+### Repository abstraction and local/shared adapter
+
+- `TownRepository`をUI／WebMCP／route engineとの共通境界にし、`LocalTownRepository`と`SupabaseTownRepository`を分離した。local demoの同期APIとLocalStorage consistencyは維持している。
+- `VITE_LIVINGTOWN_DATA_MODE=shared` とSupabase URL/keyが揃った場合だけshared adapterを選択し、設定不足時は `LOCAL_DEMO` と理由を管理ビューに表示する。
+- fake Supabase clientで、remote Knowledge／DB-derived counter、Verification tableをSELECTしない境界、server-derived verifier入力、owner_idのdomain漏洩防止、Knowledge Realtime callback、retry、failed writeのno-commitを確認した。
+- 実Supabase projectへ適用した証跡はまだないため、adapter実装の自動テストだけをreal DB PASSとは扱わない。
 
 ### Visual UX manual verification
 
@@ -88,36 +95,37 @@ Base SHA: `cca5c9dda8291998a9ffb4a30515871eb4f72f37`（PR #2 merge後のmain）
 
 ### Supabase security design
 
-`0002_verification_privacy_rls.sql` と `0003_knowledge_counter_privileges.sql` は、verification unique制約、RLS、anon roleのwrite禁止、knowledge counterのcolumn privilege、counter初期化triggerを設計している。counter列を省略したauthenticated INSERTが `0, 0` から始まり、明示的なcounter INSERTとanon writeが拒否される確認SQLも [`docs/DESIGN.md`](./DESIGN.md) にある。
+`0002_verification_privacy_rls.sql`、`0003_knowledge_counter_privileges.sql`、`0004_shared_state_trust_boundary.sql` は、verification unique制約、RLS、Verification tableのbrowser SELECT/write禁止、anon roleのwrite禁止、Knowledge counterのcolumn privilege、counter初期化trigger、Auth-derived verifier、RPC-only private writes、Knowledge-only Realtimeを設計している。実DBでの確認SQLと期待値は [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md) にある。
 
-共有Supabase projectへのmigration適用、実DBでのauthenticated／anon結果、server-mediated mutation、監査ログはまだ確認していない。
+共有Supabase projectへのmigration適用、実DBでのauthenticated／anon結果、server-mediated mutation、Realtime Browser A/B、監査ログはまだ確認していない。
 
 ### GitHub Actions
 
 `CI_INFRA_BLOCKED`: PR #1の指定run `33295537735` はGitHub API上で `conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。Phase 4AのPR #2 run `33302362702` / job `99232743694` も、`conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。checkout／Node／npmのstep開始証跡がないため、いずれもコードのtest failureとは判定していない。
+Phase 6のPR #4 run `33310283020` / job `99253976986` も同じ状態（`conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found`）である。checkout／Node／npmのstep開始証跡がないため、今回もコードfailureとは判定せず `CI_INFRA_BLOCKED` と記録する。
 
 ## PENDING
 
 - 対応Chrome／WebMCP実機でのMAP、DRILL、REPLAYの `getTools()` exact surface、`toolchange`、registration／execute AbortSignal、実行中phase変更の証跡。
 - 実機 `contribute_knowledge` のtool発見、input schema認識、execute成功、Activity反映。
 - community knowledge free textとknowledge座標に含まれ得るPIIの投稿防止、moderation、retention、削除、再識別リスク評価。
-- authenticated identityからserver-side opaque pseudonymous verifier idを発行する仕組み。現状のWebMCP agentは任意のverifier_idを切り替えられるため、Sybil resistance／distinct-human verificationは未達。
+- shared RPC内でauthenticated identityからopaque pseudonymous verifier idを発行する仕組みはコード化した。ただしanonymous AuthやWebMCP agentが複数identityを作る可能性があるため、Sybil resistance／distinct-human verificationは未達。
 - **共有環境で完全に匿名であること。** 認証主体、アクセスログ、バックアップ、削除、鍵管理、再識別評価を含む運用がないため、Privacyの匿名性はPASSにしない。
-- 共有Supabaseへの適用と実DB検証、temporary drill sessionの削除ジョブ。
+- 共有Supabaseへのmigration適用と実DB検証（authenticated insert、anon denial、counter protection、duplicate verification、Browser A/B Realtime）、temporary drill sessionの削除ジョブ。
 - Cesium／PLATEAUの本格実装と対象都市・tilesetの固定。
 
-## Phase 5 quality gate
+## Phase 6 quality gate
 
-最終commitで次を実行し、結果をPR本文とこの表へ記録する。既存31 testsを削除・弱体化しない。
+最終commitで次を実行し、結果をPR本文とこの表へ記録する。既存57 testsを削除・弱体化しない。
 
 | Command | Result |
 |---|---|
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 6 files / 44 tests（既存31件 + 追加13件） |
+| `npm test` | PASS — 9 files / 59 tests（既存57件 + 追加2件） |
 | `npm run build` | PASS — Vite production build succeeded |
 | `npm run seed` | PASS — 6 nodes / 7 edges / 10 knowledge / 13 pseudonymous votes / 3 households |
 | `git diff --check` | PASS |
 
 ## 現時点の結論
 
-Phase 5は、KnowledgeをPENDING／VERIFIED／AFFECTING_ROUTEとして地図・route explanation・Replayへつなぐ2Dの縦切りを提供する。実機WebMCP、共有DB、完全匿名運用、moderation、Cesium／PLATEAUは未確認・未完了なので、LivingTown全体を最終PASSとは扱わない。
+Phase 6は、Phase 5のvisual worldを維持したまま、local deterministic demoとSupabase shared stateをrepository boundaryで分離する。実Supabase migration／Browser A/B、実機WebMCP、共有環境で完全匿名の運用、moderation、Cesium／PLATEAUは未確認・未完了なので、LivingTown全体を最終PASSとは扱わない。

@@ -1,178 +1,59 @@
 import { DEMO_HOUSEHOLDS, DEMO_KNOWLEDGE, DEMO_VERIFICATIONS } from './demoData'
-import { DEMO_AREA, DEMO_GRAPH_NODES } from '../sim/graph'
+import { DEMO_GRAPH_NODES } from '../sim/graph'
 import type {
   Bottleneck,
   DebriefSummary,
   Household,
-  HouseholdConstraint,
   HouseholdLocationScope,
   Knowledge,
-  KnowledgeCategory,
-  KnowledgeCondition,
-  KnowledgeConfidence,
   RouteResult,
-  Scenario,
-  TimeOfDay,
   TownSnapshot,
   Verification,
-  Weather,
 } from '../sim/types'
 import { calculateEvacuationRoute } from '../sim/route'
+import type {
+  ContributeKnowledgeInput,
+  EvacuationRouteInput,
+  QueryAreaInput,
+  RegisterHouseholdInput,
+  ReplayControlInput,
+  ReportBottleneckInput,
+  RepositoryCallOptions,
+  StoreListener,
+  TownRepository,
+  VerifyKnowledgeInput,
+} from './repository'
+export type {
+  ContributeKnowledgeInput,
+  EvacuationRouteInput,
+  QueryAreaInput,
+  RegisterHouseholdInput,
+  ReplayControlInput,
+  ReportBottleneckInput,
+  RepositoryCallOptions,
+  StoreListener,
+  VerifyKnowledgeInput,
+} from './repository'
+import type { RepositoryStatus } from './repository'
+import {
+  assertFiniteNumber,
+  assertNoForbiddenHouseholdFields,
+  assertPseudonymousVerifierId,
+  isAllowedHouseholdConstraint,
+  isValidHouseholdLabel,
+  isValidVerifierId,
+  validateBottleneckInput,
+  validateContributeKnowledgeInput,
+  validateRegisterHouseholdInput,
+  validateVerificationInput,
+} from './validation'
+export { HOUSEHOLD_FORBIDDEN_FIELDS } from './validation'
 
 export const LIVING_TOWN_STORAGE_KEY = 'livingtown-state-v2'
 const TEMPORARY_DRILL_TTL_MS = 24 * 60 * 60 * 1000
 
-export const HOUSEHOLD_FORBIDDEN_FIELDS = [
-  'name',
-  'full_name',
-  'email',
-  'phone',
-  'phone_number',
-  'diagnosis',
-  'diagnosis_name',
-  'medical_info',
-  'medical_history',
-  'address',
-  'exact_address',
-  'street_address',
-  'postal_code',
-  'location',
-  'exact_location',
-  '氏名',
-  'メール',
-  '電話',
-  '診断名',
-  '医療情報',
-  '住所',
-  '正確な住所',
-] as const
-
-const forbiddenHouseholdFields = new Set<string>(HOUSEHOLD_FORBIDDEN_FIELDS)
-const allowedConstraints = new Set<HouseholdConstraint>(['wheelchair', 'infant', 'elderly', 'pet'])
-const verifierIdPattern = /^anon-[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/
-const householdLabelPattern = /^世帯[A-Z0-9]{1,3}$/
-
-export interface ContributeKnowledgeInput {
-  category: KnowledgeCategory
-  lat: number
-  lng: number
-  condition: KnowledgeCondition
-  description: string
-  confidence: KnowledgeConfidence
-}
-
-export interface VerifyKnowledgeInput {
-  knowledge_id: string
-  verifier_id: string
-  verdict: 'agree' | 'disagree'
-  comment?: string
-}
-
-export interface QueryAreaInput {
-  lat: number
-  lng: number
-  radius_m: number
-  category?: KnowledgeCategory
-  condition?: KnowledgeCondition
-}
-
-export interface RegisterHouseholdInput {
-  label?: string
-  constraints: HouseholdConstraint[]
-  start_lat: number
-  start_lng: number
-  location_scope?: 'temporary_drill'
-}
-
-export interface EvacuationRouteInput {
-  household_id: string
-  scenario: Scenario
-  weather: Weather
-  time_of_day: TimeOfDay
-}
-
-export interface ReportBottleneckInput {
-  lat: number
-  lng: number
-  severity: 1 | 2 | 3
-  description?: string
-  household_id?: string
-}
-
-export interface ReplayControlInput {
-  action: 'overview' | 'focus_household' | 'replay_route' | 'highlight_bottleneck' | 'pause' | 'resume'
-  target_id?: string
-}
-
-export type StoreListener = () => void
-
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
-}
-
-function assertFiniteNumber(name: string, value: unknown) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${name} は有効な数値で指定してください。`)
-}
-
-function assertString(name: string, value: unknown, maxLength?: number) {
-  if (typeof value !== 'string' || value.trim().length === 0) throw new Error(`${name} は空にできません。`)
-  if (maxLength && value.length > maxLength) throw new Error(`${name} は${maxLength}文字以内で指定してください。`)
-}
-
-function assertNoForbiddenHouseholdFields(value: unknown): void {
-  if (!value || typeof value !== 'object') return
-  if (Array.isArray(value)) {
-    value.forEach((item) => assertNoForbiddenHouseholdFields(item))
-    return
-  }
-  for (const [key, nestedValue] of Object.entries(value)) {
-    if (forbiddenHouseholdFields.has(key.toLowerCase())) {
-      throw new Error(`household は ${key} を保存できません。匿名の制約enumだけを指定してください。`)
-    }
-    assertNoForbiddenHouseholdFields(nestedValue)
-  }
-}
-
-function assertPseudonymousVerifierId(value: unknown) {
-  assertString('verifier_id', value, 64)
-  const verifierId = (value as string).trim()
-  if (!verifierIdPattern.test(verifierId)) {
-    throw new Error('verifier_id はpseudonymous identifierとして anon- 接頭辞の形式で指定してください。形式だけではPII非保持や本人性は保証されません。')
-  }
-  return verifierId
-}
-
-function assertAnonymousHouseholdLabel(value: unknown) {
-  assertString('label', value, 20)
-  const label = (value as string).trim()
-  if (!householdLabelPattern.test(label)) {
-    throw new Error('label は匿名表示用の「世帯A」のような値だけを指定できます。')
-  }
-  return label
-}
-
-const EARTH_RADIUS_M = 6_371_000
-
-function distanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
-  const toRadians = (value: number) => (value * Math.PI) / 180
-  const latDelta = toRadians(b.lat - a.lat)
-  const lngDelta = toRadians(b.lng - a.lng)
-  const lat1 = toRadians(a.lat)
-  const lat2 = toRadians(b.lat)
-  const h = Math.sin(latDelta / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(lngDelta / 2) ** 2
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h))
-}
-
-function snapToDemoCoordinate(lat: number, lng: number) {
-  const input = { lat, lng }
-  if (distanceMeters(input, DEMO_AREA.center) > DEMO_AREA.radius_m) {
-    throw new Error('start_lat/start_lng はLivingTownデモエリア内の座標だけを指定できます。')
-  }
-  const nearest = DEMO_GRAPH_NODES.reduce((current, node) => {
-    if (!current) return node
-    return distanceMeters(input, node) < distanceMeters(input, current) ? node : current
-  }, DEMO_GRAPH_NODES[0])
-  return { start_lat: nearest.lat, start_lng: nearest.lng }
 }
 
 function isSafePersistedHousehold(value: unknown): value is Household {
@@ -184,8 +65,8 @@ function isSafePersistedHousehold(value: unknown): value is Household {
   }
   const household = value as Partial<Household>
   return typeof household.id === 'string' &&
-    (household.label === undefined || householdLabelPattern.test(household.label)) &&
-    Array.isArray(household.constraints) && household.constraints.every((constraint) => allowedConstraints.has(constraint)) &&
+    isValidHouseholdLabel(household.label) &&
+    Array.isArray(household.constraints) && household.constraints.every((constraint) => isAllowedHouseholdConstraint(constraint)) &&
     typeof household.start_lat === 'number' && Number.isFinite(household.start_lat) &&
     typeof household.start_lng === 'number' && Number.isFinite(household.start_lng) &&
     DEMO_GRAPH_NODES.some((node) => node.lat === household.start_lat && node.lng === household.start_lng) &&
@@ -199,7 +80,7 @@ function isSafePersistedVerification(value: unknown): value is Verification {
   const verification = value as Partial<Verification>
   return typeof verification.id === 'string' &&
     typeof verification.knowledge_id === 'string' &&
-    typeof verification.verifier_id === 'string' && verifierIdPattern.test(verification.verifier_id) &&
+    typeof verification.verifier_id === 'string' && isValidVerifierId(verification.verifier_id) &&
     (verification.verdict === 'agree' || verification.verdict === 'disagree') &&
     (verification.comment === undefined || (typeof verification.comment === 'string' && verification.comment.length <= 200)) &&
     typeof verification.created_at === 'string'
@@ -241,14 +122,35 @@ function initialSnapshot(): TownSnapshot {
   }
 }
 
-export class LivingTownStore {
+export class LocalTownRepository implements TownRepository {
+  readonly dataMode = 'LOCAL_DEMO' as const
   private snapshot: TownSnapshot
   private readonly listeners = new Set<StoreListener>()
+  private readonly statusListeners = new Set<StoreListener>()
   private readonly persist: boolean
+  private readonly fallbackReason?: string
+  private readonly supabaseConfigured: boolean
+  private status: RepositoryStatus
 
-  constructor(options: { persist?: boolean } = {}) {
+  constructor(options: { persist?: boolean; fallbackReason?: string; supabaseConfigured?: boolean } = {}) {
     this.persist = options.persist ?? true
+    this.fallbackReason = options.fallbackReason
+    this.supabaseConfigured = options.supabaseConfigured ?? false
     this.snapshot = this.readPersisted() ?? initialSnapshot()
+    this.status = this.buildStatus()
+  }
+
+  private buildStatus(): RepositoryStatus {
+    return {
+      mode: this.dataMode,
+      supabaseConfigured: this.supabaseConfigured,
+      connection: 'LOCAL',
+      realtime: 'DISABLED',
+      authenticated: false,
+      visibleKnowledgeCount: this.snapshot.knowledge.length,
+      verificationCount: this.snapshot.verifications.length,
+      ...(this.fallbackReason ? { fallbackReason: this.fallbackReason } : {}),
+    }
   }
 
   private readPersisted(): TownSnapshot | null {
@@ -294,7 +196,13 @@ export class LivingTownStore {
   private commit(next: TownSnapshot) {
     this.snapshot = next
     if (this.persist && typeof window !== 'undefined') window.localStorage.setItem(LIVING_TOWN_STORAGE_KEY, JSON.stringify(next))
+    this.status = {
+      ...this.status,
+      visibleKnowledgeCount: next.knowledge.length,
+      verificationCount: next.verifications.length,
+    }
     this.listeners.forEach((listener) => listener())
+    this.statusListeners.forEach((listener) => listener())
   }
 
   private withSnapshot(mutator: (next: TownSnapshot) => void) {
@@ -312,6 +220,15 @@ export class LivingTownStore {
     return () => this.listeners.delete(listener)
   }
 
+  getStatus(): RepositoryStatus {
+    return this.status
+  }
+
+  subscribeStatus(listener: StoreListener) {
+    this.statusListeners.add(listener)
+    return () => this.statusListeners.delete(listener)
+  }
+
   recordActivity(tool: string, summary: string, status: 'success' | 'error' = 'success') {
     this.withSnapshot((next) => {
       next.events.unshift({
@@ -325,13 +242,8 @@ export class LivingTownStore {
     })
   }
 
-  contributeKnowledge(input: ContributeKnowledgeInput): Knowledge {
-    if (!['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'].includes(input.category)) throw new Error('カテゴリが不正です。')
-    if (!['always', 'rain', 'night', 'crowded'].includes(input.condition)) throw new Error('条件が不正です。')
-    if (!['experienced', 'heard', 'guess'].includes(input.confidence)) throw new Error('確度が不正です。')
-    assertFiniteNumber('lat', input.lat)
-    assertFiniteNumber('lng', input.lng)
-    assertString('description', input.description, 200)
+  contributeKnowledge(input: ContributeKnowledgeInput, _options?: RepositoryCallOptions): Knowledge {
+    validateContributeKnowledgeInput(input)
     const item: Knowledge = {
       id: `k-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       category: input.category,
@@ -348,12 +260,11 @@ export class LivingTownStore {
     return item
   }
 
-  verifyKnowledge(input: VerifyKnowledgeInput) {
+  verifyKnowledge(input: VerifyKnowledgeInput, _options?: RepositoryCallOptions) {
     const current = this.snapshot.knowledge.find((item) => item.id === input.knowledge_id)
     if (!current) throw new Error('指定された暗黙知が見つかりません。')
-    if (input.verdict !== 'agree' && input.verdict !== 'disagree') throw new Error('判定が不正です。')
+    validateVerificationInput(input)
     const verifierId = assertPseudonymousVerifierId(input.verifier_id)
-    if (input.comment !== undefined) assertString('comment', input.comment, 200)
     const existing = this.snapshot.verifications.find((verification) =>
       verification.knowledge_id === input.knowledge_id && verification.verifier_id === verifierId,
     )
@@ -398,7 +309,7 @@ export class LivingTownStore {
     }
   }
 
-  queryArea(input: QueryAreaInput) {
+  queryArea(input: QueryAreaInput, _options?: RepositoryCallOptions) {
     assertFiniteNumber('lat', input.lat)
     assertFiniteNumber('lng', input.lng)
     if (input.radius_m < 0 || input.radius_m > 2000) throw new Error('radius_m は0〜2000で指定してください。')
@@ -410,21 +321,15 @@ export class LivingTownStore {
     }).map((item) => ({ ...clone(item), verified: item.agree_count - item.disagree_count >= 2 }))
   }
 
-  registerHousehold(input: RegisterHouseholdInput): Household {
-    assertNoForbiddenHouseholdFields(input)
-    if (!Array.isArray(input.constraints) || input.constraints.some((item) => !allowedConstraints.has(item))) throw new Error('constraints には指定されたenumだけを設定できます。')
-    assertFiniteNumber('start_lat', input.start_lat)
-    assertFiniteNumber('start_lng', input.start_lng)
-    const label = input.label === undefined ? undefined : assertAnonymousHouseholdLabel(input.label)
-    const location = snapToDemoCoordinate(input.start_lat, input.start_lng)
-    if (input.location_scope !== undefined && input.location_scope !== 'temporary_drill') {
-      throw new Error('location_scope は temporary_drill だけを指定できます。')
-    }
-    const locationScope: HouseholdLocationScope = input.location_scope ?? 'temporary_drill'
+  registerHousehold(input: RegisterHouseholdInput, _options?: RepositoryCallOptions): Household {
+    const validated = validateRegisterHouseholdInput(input)
+    const label = validated.label
+    const location = { start_lat: validated.start_lat, start_lng: validated.start_lng }
+    const locationScope: HouseholdLocationScope = validated.location_scope
     const household: Household = {
       id: `h-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       ...(label ? { label } : {}),
-      constraints: [...new Set(input.constraints)],
+      constraints: validated.constraints,
       ...location,
       location_scope: locationScope,
       ...(locationScope === 'temporary_drill' ? { expires_at: new Date(Date.now() + TEMPORARY_DRILL_TTL_MS).toISOString() } : {}),
@@ -434,7 +339,7 @@ export class LivingTownStore {
     return household
   }
 
-  getEvacuationRoute(input: EvacuationRouteInput): RouteResult {
+  getEvacuationRoute(input: EvacuationRouteInput, _options?: RepositoryCallOptions): RouteResult {
     const household = this.snapshot.households.find((item) => item.id === input.household_id)
     if (!household) throw new Error('指定された世帯が見つかりません。')
     if (!['earthquake', 'flood'].includes(input.scenario)) throw new Error('scenario が不正です。')
@@ -454,11 +359,8 @@ export class LivingTownStore {
     return route
   }
 
-  reportBottleneck(input: ReportBottleneckInput): Bottleneck {
-    assertFiniteNumber('lat', input.lat)
-    assertFiniteNumber('lng', input.lng)
-    if (![1, 2, 3].includes(input.severity)) throw new Error('severity は1〜3で指定してください。')
-    if (input.description) assertString('description', input.description, 200)
+  reportBottleneck(input: ReportBottleneckInput, _options?: RepositoryCallOptions): Bottleneck {
+    validateBottleneckInput(input)
     if (input.household_id && !this.snapshot.households.some((item) => item.id === input.household_id)) throw new Error('世帯が見つかりません。')
     const bottleneck: Bottleneck = {
       id: `b-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -473,7 +375,7 @@ export class LivingTownStore {
     return bottleneck
   }
 
-  controlReplay(input: ReplayControlInput) {
+  controlReplay(input: ReplayControlInput, _options?: RepositoryCallOptions) {
     if (input.action === 'focus_household' || input.action === 'replay_route') {
       if (!input.target_id || !this.snapshot.households.some((item) => item.id === input.target_id)) throw new Error('対象世帯が見つかりません。')
     }
@@ -489,7 +391,7 @@ export class LivingTownStore {
       if (input.action === 'resume') next.replay = { ...next.replay, is_playing: true }
     })
     return {
-      camera: 'applied',
+      camera: 'applied' as const,
       now_showing: this.snapshot.replay.selected_household_id
         ? this.snapshot.households.find((item) => item.id === this.snapshot.replay.selected_household_id)?.label ?? '選択世帯'
         : this.snapshot.replay.camera === 'bottleneck'
@@ -499,7 +401,7 @@ export class LivingTownStore {
     }
   }
 
-  getDebriefSummary(): DebriefSummary {
+  getDebriefSummary(_options?: RepositoryCallOptions): DebriefSummary {
     const influentialIds = new Set(Object.values(this.snapshot.routes).flatMap((route) => route.avoided.map((item) => item.knowledge_id)))
     return {
       households: this.snapshot.households.map((household) => ({
@@ -518,6 +420,17 @@ export class LivingTownStore {
   resetDemo() {
     this.commit(initialSnapshot())
   }
+
+  async retry() {
+    // LOCAL_DEMO has no remote connection to retry. Keeping this method on
+    // the common contract makes the admin action safe in either data mode.
+  }
+
+  dispose() {
+    // Local storage has no external subscription to release.
+  }
 }
 
-export const townStore = new LivingTownStore()
+export { LocalTownRepository as LivingTownStore }
+
+export const townStore = new LocalTownRepository()
