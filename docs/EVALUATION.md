@@ -72,7 +72,7 @@ WebMCPの実機未確認をPASSに繰り上げない。特に、通常Vitestのf
 
 ### GitHub Actions
 
-`CI_INFRA_BLOCKED`: run `33295537735`（HEAD `12705543...`）はworkflow定義上の `verify` jobとして作成されたが、GitHub API上で `conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]` で、`gh run view --log-failed` も `log not found` となった。checkout／Node／npmのいずれのstepも開始した証跡がないため、コードのtest failureとは判定せず、Actions／runner／billing側のjob起動失敗としてPRに記録する。修正後のローカルquality gateは別途再実行する。
+`CI_INFRA_BLOCKED`: requested run `33295537735`（HEAD `12705543...`）はworkflow定義上の `verify` jobとして作成されたが、GitHub API上で `conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]` で、`gh run view --log-failed` も `log not found` となった。修正をpushした現HEAD `834eafc...` のrun `33298315125` も同じ `steps=[]`／runner未割当／ログなしで即時failureになった。checkout／Node／npmのいずれのstepも開始した証跡がないため、コードのtest failureとは判定せず、Actions／runner／billing側のjob起動失敗としてPRに記録する。ローカルquality gateは別途PASSを確認済みである。
 
 ## PENDING
 
