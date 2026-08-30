@@ -79,8 +79,8 @@ function KnowledgeShape({ view }: { view: KnowledgeVisualView }) {
 export function KnowledgeVisual({ view, x, y, selected, isNew, isTransitioning, onSelect }: KnowledgeVisualProps) {
   const statusLabel = KNOWLEDGE_STATUS_LABEL[view.state]
   const accessibleLabel = `${view.config.label}。${statusLabel}。${view.item.description}`
-  const className = [
-    'knowledge-visual',
+  const motionClassName = [
+    'knowledge-visual__motion',
     `knowledge-visual--${view.state}`,
     `knowledge-visual--${view.config.visualType}`,
     selected ? 'knowledge-visual--selected' : '',
@@ -89,8 +89,9 @@ export function KnowledgeVisual({ view, x, y, selected, isNew, isTransitioning, 
   ].filter(Boolean).join(' ')
 
   return (
+    // The outer group owns map placement; the inner group is the only animated element.
     <g
-      className={className}
+      className="knowledge-visual"
       transform={`translate(${x} ${y})`}
       role="button"
       tabIndex={0}
@@ -102,11 +103,13 @@ export function KnowledgeVisual({ view, x, y, selected, isNew, isTransitioning, 
       onKeyDown={(event) => handleActivation(event, () => onSelect(view.item.id))}
     >
       <title>{accessibleLabel}</title>
-      <circle className="knowledge-visual__hit" r="27" aria-hidden="true" />
-      <circle className="knowledge-visual__halo" r={view.affectsCurrentRoute ? 28 : view.verified ? 22 : 18} aria-hidden="true" />
-      <KnowledgeShape view={view} />
-      <text className="knowledge-visual__state-label" x="24" y="4" aria-hidden="true">{statusLabel}</text>
-      {selected && <text className="knowledge-visual__category-label" x="24" y="-9" aria-hidden="true">{view.config.label}</text>}
+      <g className={motionClassName}>
+        <circle className="knowledge-visual__hit" r="27" aria-hidden="true" />
+        <circle className="knowledge-visual__halo" r={view.affectsCurrentRoute ? 28 : view.verified ? 22 : 18} aria-hidden="true" />
+        <KnowledgeShape view={view} />
+        <text className="knowledge-visual__state-label" x="24" y="4" aria-hidden="true">{statusLabel}</text>
+        {selected && <text className="knowledge-visual__category-label" x="24" y="-9" aria-hidden="true">{view.config.label}</text>}
+      </g>
     </g>
   )
 }

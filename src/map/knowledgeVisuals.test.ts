@@ -7,6 +7,7 @@ import {
   getKnowledgeVisualConfig,
   getKnowledgeVisualState,
   getKnowledgeVisualView,
+  isKnowledgeSelectionVisible,
   KNOWLEDGE_VISUAL_REGISTRY,
 } from './knowledgeVisuals'
 
@@ -144,5 +145,12 @@ describe('knowledge visual route linkage and filters', () => {
     expect(filterKnowledgeVisuals(views, { status: 'verified', category: 'all' }).map((view) => view.item.id)).toEqual(['k-dark-park', 'k-barrier-community'])
     expect(filterKnowledgeVisuals(views, { status: 'affecting_route', category: 'all' }).map((view) => view.item.id)).toEqual(['k-barrier-community'])
     expect(filterKnowledgeVisuals(views, { status: 'all', category: 'barrier' }).map((view) => view.item.id)).toEqual(['k-barrier-community'])
+  })
+
+  it('does not keep a detail selection when its visual is filtered out', () => {
+    const views = deriveKnowledgeVisuals([knowledge('k-flood-crosswalk'), knowledge('k-dark-park', { agree_count: 2, disagree_count: 0 })])
+    expect(isKnowledgeSelectionVisible('k-dark-park', views)).toBe(true)
+    expect(isKnowledgeSelectionVisible('k-dark-park', views.filter((view) => view.item.category === 'flood'))).toBe(false)
+    expect(isKnowledgeSelectionVisible(undefined, [])).toBe(true)
   })
 })

@@ -193,6 +193,10 @@ export function filterKnowledgeVisuals(views: KnowledgeVisualView[], filters: Kn
   })
 }
 
+export function isKnowledgeSelectionVisible(selectedKnowledgeId: string | undefined, visibleViews: KnowledgeVisualView[]) {
+  return selectedKnowledgeId === undefined || visibleViews.some((view) => view.item.id === selectedKnowledgeId)
+}
+
 export function getBottleneckLabel(item: Bottleneck) {
   return `${BOTTLENECK_VISUAL_CONFIG.label} · severity ${item.severity}`
 }

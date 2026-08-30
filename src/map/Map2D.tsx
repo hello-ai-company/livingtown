@@ -7,6 +7,7 @@ import {
   deriveKnowledgeVisuals,
   filterKnowledgeVisuals,
   getBottleneckLabel,
+  isKnowledgeSelectionVisible,
   MAP_CATEGORY_ORDER,
   KNOWLEDGE_CATEGORY_ORDER,
   type KnowledgeCategoryFilter,
@@ -87,6 +88,7 @@ export function Map2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlig
   const [internalSelectedKnowledgeId, setInternalSelectedKnowledgeId] = useState<string>()
   const previousStates = useRef(new Map<string, KnowledgeVisualState>())
   const [transitioningKnowledgeIds, setTransitioningKnowledgeIds] = useState<Set<string>>(new Set())
+  const [newKnowledgeIds, setNewKnowledgeIds] = useState<Set<string>>(new Set())
 
   const bounds = useMemo(() => {
     const latitudes = [...DEMO_GRAPH_NODES.map((node) => node.lat), ...snapshot.knowledge.map((item) => item.lat), ...snapshot.bottlenecks.map((item) => item.lat)]
@@ -115,7 +117,8 @@ export function Map2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlig
     [filters.category, filters.status, snapshot.bottlenecks],
   )
   const selectedId = selectedKnowledgeId ?? internalSelectedKnowledgeId
-  const selectedView = visualViews.find((view) => view.item.id === selectedId)
+  const selectedKnowledgeVisible = isKnowledgeSelectionVisible(selectedId, visibleKnowledge)
+  const selectedView = selectedKnowledgeVisible ? visualViews.find((view) => view.item.id === selectedId) : undefined
   const selectedRouteEdges = useMemo(() => routeEdgeIds(selectedRoute), [selectedRoute])
   const avoidedEdgeIds = useMemo(() => new Set(selectedRoute?.avoided.flatMap((item) => item.edge_ids) ?? []), [selectedRoute])
   const visibleAffectingViews = visibleKnowledge.filter((view) => view.affectsCurrentRoute)
@@ -134,6 +137,33 @@ export function Map2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlig
     const timeout = window.setTimeout(() => setTransitioningKnowledgeIds(new Set()), 720)
     return () => window.clearTimeout(timeout)
   }, [visualViews])
+
+  useEffect(() => {
+    if (!highlightKnowledgeId) return
+    const id = highlightKnowledgeId
+    setNewKnowledgeIds((current) => new Set(current).add(id))
+    const timeout = window.setTimeout(() => {
+      setNewKnowledgeIds((current) => {
+        const next = new Set(current)
+        next.delete(id)
+        return next
+      })
+    }, 460)
+    return () => {
+      window.clearTimeout(timeout)
+      setNewKnowledgeIds((current) => {
+        const next = new Set(current)
+        next.delete(id)
+        return next
+      })
+    }
+  }, [highlightKnowledgeId])
+
+  useEffect(() => {
+    if (!selectedId || selectedKnowledgeVisible) return
+    if (onClearKnowledge) onClearKnowledge()
+    else setInternalSelectedKnowledgeId(undefined)
+  }, [onClearKnowledge, selectedId, selectedKnowledgeVisible])
 
   const selectKnowledge = (knowledgeId: string) => {
     if (onSelectKnowledge) onSelectKnowledge(knowledgeId)
@@ -224,7 +254,7 @@ export function Map2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlig
         {visibleKnowledge.map((view) => {
           const point = MapPoint({ lat: view.item.lat, lng: view.item.lng, bounds })
           const offset = overlapOffset(view, visibleKnowledge)
-          return <KnowledgeVisual key={view.item.id} view={view} x={point.x + offset.x} y={point.y + offset.y} selected={view.item.id === selectedId} isNew={view.item.id === highlightKnowledgeId} isTransitioning={transitioningKnowledgeIds.has(view.item.id)} onSelect={selectKnowledge} />
+          return <KnowledgeVisual key={view.item.id} view={view} x={point.x + offset.x} y={point.y + offset.y} selected={view.item.id === selectedId} isNew={newKnowledgeIds.has(view.item.id)} isTransitioning={transitioningKnowledgeIds.has(view.item.id)} onSelect={selectKnowledge} />
         })}
 
         {visibleBottlenecks.map((item) => {
