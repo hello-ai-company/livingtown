@@ -1,8 +1,8 @@
 # LivingTown 実装評価
 
-評価日: 2026-08-30
-対象: `feat/supabase-shared-livingtown`
-Base SHA: `79dd9f2376e57886a752854912ec0ff6a1d59e20`（PR #3 merge後のmain）
+評価日: 2026-08-31
+対象: `chore/supabase-real-evidence`
+Base SHA: `df8850ef2aef1a74caa21504cf0edaa1d2d4c742`（PR #4 merge後のmain）
 
 ## 判定ルール
 
@@ -72,7 +72,7 @@ Base SHA: `79dd9f2376e57886a752854912ec0ff6a1d59e20`（PR #3 merge後のmain）
 - `TownRepository`をUI／WebMCP／route engineとの共通境界にし、`LocalTownRepository`と`SupabaseTownRepository`を分離した。local demoの同期APIとLocalStorage consistencyは維持している。
 - `VITE_LIVINGTOWN_DATA_MODE=shared` とSupabase URL/keyが揃った場合だけshared adapterを選択し、設定不足時は `LOCAL_DEMO` と理由を管理ビューに表示する。
 - fake Supabase clientで、remote Knowledge／DB-derived counter、Verification tableをSELECTしない境界、server-derived verifier入力、owner_idのdomain漏洩防止、Knowledge Realtime callback、retry、failed writeのno-commitを確認した。
-- 実Supabase projectへ適用した証跡はまだないため、adapter実装の自動テストだけをreal DB PASSとは扱わない。
+- 初期4 migrationとfunction EXECUTE hardeningの実Livingtown projectへのapply、5 table、全table RLS、Knowledge-only Realtime、主要なbrowser privilege境界、Security Advisor再確認は [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) に記録した。Hosted DB Security GateはPASSである。一方、LOCAL_PGTAPとBrowser A/B/Cによるreal client検証は未実行であり、full end-to-end Supabase PASSとは扱わない。
 
 ### Visual UX manual verification
 
@@ -95,9 +95,9 @@ Base SHA: `79dd9f2376e57886a752854912ec0ff6a1d59e20`（PR #3 merge後のmain）
 
 ### Supabase security design
 
-`0002_verification_privacy_rls.sql`、`0003_knowledge_counter_privileges.sql`、`0004_shared_state_trust_boundary.sql` は、verification unique制約、RLS、Verification tableのbrowser SELECT/write禁止、anon roleのwrite禁止、Knowledge counterのcolumn privilege、counter初期化trigger、Auth-derived verifier、RPC-only private writes、Knowledge-only Realtimeを設計している。実DBでの確認SQLと期待値は [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md) にある。
+`20260830143556_verification_privacy_rls.sql`、`20260830143717_knowledge_counter_privileges.sql`、`20260830143808_shared_state_trust_boundary.sql` は、verification unique制約、RLS、Verification tableのbrowser SELECT/write禁止、anon roleのwrite禁止、Knowledge counterのcolumn privilege、counter初期化trigger、Auth-derived verifier、RPC-only private writes、Knowledge-only Realtimeを設計している。`20260830162803_function_execute_boundary.sql` はpublic schemaのdefault EXECUTE grantをhardeningし、内部helperをbrowser roleから隠し、authenticated向け公開RPCだけを残す。実DBでのapplyとSecurity Advisor再確認はPASSだが、pgTAPとBrowser A/B/Cは未実行である。実DBでの確認SQLと期待値は [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md) にある。
 
-共有Supabase projectへのmigration適用、実DBでのauthenticated／anon結果、server-mediated mutation、Realtime Browser A/B、監査ログはまだ確認していない。
+初期4 migrationと `20260830162803_function_execute_boundary.sql` の実Livingtown projectへのapply、schema／RLS／基本権限／Knowledge-only Realtime、Security Advisor再確認は [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) のとおり確認済みで、`HOSTED_DB_SECURITY_GATE: PASS` とする。pgTAPはローカル環境のDocker／CLI不足で未実行、Browser A/B/Cは未実行であり、full end-to-end gateはまだ完了していない。
 
 ### GitHub Actions
 
@@ -111,7 +111,7 @@ Phase 6のPR #4 run `33310283020` / job `99253976986` も同じ状態（`conclus
 - community knowledge free textとknowledge座標に含まれ得るPIIの投稿防止、moderation、retention、削除、再識別リスク評価。
 - shared RPC内でauthenticated identityからopaque pseudonymous verifier idを発行する仕組みはコード化した。ただしanonymous AuthやWebMCP agentが複数identityを作る可能性があるため、Sybil resistance／distinct-human verificationは未達。
 - **共有環境で完全に匿名であること。** 認証主体、アクセスログ、バックアップ、削除、鍵管理、再識別評価を含む運用がないため、Privacyの匿名性はPASSにしない。
-- 共有Supabaseへのmigration適用と実DB検証（authenticated insert、anon denial、counter protection、duplicate verification、Browser A/B Realtime）、temporary drill sessionの削除ジョブ。
+- function EXECUTE hardening migrationの実適用、pgTAP、Security Advisor再確認、authenticated insert／anon denial／counter protection／duplicate verification、Browser A/B Realtime、temporary drill sessionの削除ジョブ。
 - Cesium／PLATEAUの本格実装と対象都市・tilesetの固定。
 
 ## Phase 6 quality gate
@@ -128,4 +128,4 @@ Phase 6のPR #4 run `33310283020` / job `99253976986` も同じ状態（`conclus
 
 ## 現時点の結論
 
-Phase 6は、Phase 5のvisual worldを維持したまま、local deterministic demoとSupabase shared stateをrepository boundaryで分離する。実Supabase migration／Browser A/B、実機WebMCP、共有環境で完全匿名の運用、moderation、Cesium／PLATEAUは未確認・未完了なので、LivingTown全体を最終PASSとは扱わない。
+Phase 6は、Phase 5のvisual worldを維持したまま、local deterministic demoとSupabase shared stateをrepository boundaryで分離する。初期4 migrationの実DB applyは確認済みだが、function EXECUTE hardening、pgTAP、Security Advisor再確認、Browser A/B、実機WebMCP、共有環境で完全匿名の運用、moderation、Cesium／PLATEAUは未確認・未完了なので、LivingTown全体を最終PASSとは扱わない。

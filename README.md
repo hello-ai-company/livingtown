@@ -84,7 +84,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 - 検証判定は `agree_count - disagree_count >= 2` を維持します。
 - `verification` レコードは `knowledge_id + verifier_id` を一意とし、local demoではpseudonymous identifierをfixtureとして受け付けます。形式だけではPII非保持や本人性を保証しません。shared modeではcallerのverifier_idを信用せず、認証identityからserver-sideでopaqueな値を導出します。Verification recordはDB内に保存されますが、shared browserへraw recordを公開せず、Knowledgeのderived counterだけをhydrateします。
 - household profileに保存できるのは、安全な匿名ラベル、`wheelchair | infant | elderly | pet` の制約enum、デモエリア内でグラフノードへスナップした `start_lat/start_lng`、`demo | temporary_drill` のスコープだけです。氏名・メール・電話・診断名・自由入力医療情報・正確な住所フィールドは保存できません。
-- `start_lat/start_lng` は共有住所ではなく、`demo` または一時的な `temporary_drill` sessionの座標として扱います。新しい訓練世帯は24時間の有効期限を持ちます。共有Supabase向けには [`0002_verification_privacy_rls.sql`](./supabase/migrations/0002_verification_privacy_rls.sql) でRLS、[`0003_knowledge_counter_privileges.sql`](./supabase/migrations/0003_knowledge_counter_privileges.sql) でcounter列のcolumn privilege、[`0004_shared_state_trust_boundary.sql`](./supabase/migrations/0004_shared_state_trust_boundary.sql) でAuth owner／RPC boundaryを設定し、匿名キーからのwriteを許可しません。
+- `start_lat/start_lng` は共有住所ではなく、`demo` または一時的な `temporary_drill` sessionの座標として扱います。新しい訓練世帯は24時間の有効期限を持ちます。共有Supabase向けには [`20260830143556_verification_privacy_rls.sql`](./supabase/migrations/20260830143556_verification_privacy_rls.sql) でRLS、[`20260830143717_knowledge_counter_privileges.sql`](./supabase/migrations/20260830143717_knowledge_counter_privileges.sql) でcounter列のcolumn privilege、[`20260830143808_shared_state_trust_boundary.sql`](./supabase/migrations/20260830143808_shared_state_trust_boundary.sql) でAuth owner／RPC boundary、[`20260830162803_function_execute_boundary.sql`](./supabase/migrations/20260830162803_function_execute_boundary.sql) でfunction EXECUTE boundaryを設定し、匿名キーからのwriteを許可しません。
 - `knowledge.description` はcommunity free textで、座標も含めてPIIを投稿・推測できる余地があります。投稿時に氏名・住所・電話番号・診断名などを含めないよう表示しますが、moderation・retention・再識別評価は未実装です。
 
 これは「household profileでdirect PIIを保持しない」ためのアプリ境界であり、knowledge全体がPIIを含まないことや、共有環境で完全匿名になること、認証・監査・削除運用まで完了したことを意味しません。匿名Authもdistinct humanの証明ではなく、複数identityを作るSybil resistanceは未達です。評価状態は [docs/EVALUATION.md](./docs/EVALUATION.md) に明示しています。
@@ -93,7 +93,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 - `VITE_ENABLE_3D=1` と `VITE_PLATEAU_TILESET` を設定すると、Replayの3D境界を有効化します。未設定でも全編2Dで動作します。
 - `VITE_MAPLIBRE_STYLE_URL` を設定する場合は、MapLibre向けのスタイルURLと利用規約を確認してください。決定的なローカル地図はネットワーク障害時のフォールバックです。
-- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。実環境のmigration適用とBrowser A/B検証は別途必要です。
+- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。初期4 migrationとfunction EXECUTE hardeningのLivingtown projectへの実apply、およびSecurity Advisor再確認は [`SUPABASE_REAL_DB_GATE_2026-08-30.md`](./docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) に記録しています。LOCAL_PGTAPとBrowser A/B/Cによるreal client検証は別のgateであり、未実行です。
 
 ## Repository contract
 
