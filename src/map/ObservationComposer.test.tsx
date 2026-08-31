@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { ContributeKnowledgeInput } from '../data/repository'
-import { ObservationComposer } from './ObservationComposer'
+import { buildObservationPreview, isVoiceInputSupported, ObservationComposer } from './ObservationComposer'
 
 const location = { lat: 35.6813, lng: 139.7611 }
 const noopSubmit = async (_input: ContributeKnowledgeInput): Promise<void> => undefined
@@ -21,6 +21,37 @@ function renderComposer(overrides: Partial<Parameters<typeof ObservationComposer
 }
 
 describe('ObservationComposer', () => {
+  it('builds a reviewable normal preview without posting it', () => {
+    const preview = buildObservationPreview('雨の日は歩道に水がたまります。', location, 'ja', new Date('2026-09-01T12:00:00.000Z'))
+
+    expect(preview.category).toBe('flood')
+    expect(preview.safeDescription).toBe('雨の日は歩道に水がたまります。')
+    expect(preview.sensitive).toBe(false)
+    expect(preview.input.description).toBe('雨の日は歩道に水がたまります。')
+  })
+
+  it('builds a sensitive preview with a safe summary and coarse-location precision', () => {
+    const preview = buildObservationPreview('A bicycle was stolen yesterday.', location, 'en', new Date('2026-09-01T12:00:00.000Z'))
+
+    expect(preview.category).toBe('theft')
+    expect(preview.safeDescription).toBe('A community report mentions possible theft nearby.')
+    expect(preview.sensitive).toBe(true)
+    expect(preview.precisionMeters).toBe(150)
+    expect(preview.input.description).toContain('stolen')
+  })
+
+  it('keeps relative incident time in the review payload', () => {
+    const preview = buildObservationPreview('昨日、駅前で盗難がありました。', location, 'ja', new Date('2026-09-01T12:00:00.000Z'))
+
+    expect(preview.input.observed_at).toBe('2026-08-31T12:00:00.000Z')
+    expect(preview.input.report_type).toBe('incident')
+  })
+
+  it('does not show voice controls in a non-browser test environment', () => {
+    expect(isVoiceInputSupported()).toBe(false)
+    expect(renderComposer()).not.toContain('音声入力')
+  })
+
   it('renders the Japanese one-line composer and map-center label', () => {
     const markup = renderComposer()
 

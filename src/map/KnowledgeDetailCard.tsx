@@ -29,6 +29,9 @@ export function KnowledgeDetailCard({ view, selectedHousehold, onClose, locale =
     ? t('mapDetail.precisionMeters', { meters: item.location_precision_m })
     : t('mapDetail.precisionGeneral')
   const sourceLabel = item.source_kind === 'official' ? t('trust.official') : t('trust.communityReport')
+  const verificationLabels = item.report_type === 'incident'
+    ? { agree: t('mapDetail.incidentAgree'), disagree: t('mapDetail.incidentDisagree') }
+    : { agree: t('mapDetail.persistentAgree'), disagree: t('mapDetail.persistentDisagree') }
   const formatDate = (value?: string) => value ? new Intl.DateTimeFormat(locale === 'ja' ? 'ja-JP' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : t('common.noRecord')
 
   return (
@@ -54,8 +57,8 @@ export function KnowledgeDetailCard({ view, selectedHousehold, onClose, locale =
       <dl className="knowledge-detail-card__facts">
         <div><dt>{t('mapDetail.condition')}</dt><dd>{t(`condition.${item.condition}`)}</dd></div>
         <div><dt>{t('mapDetail.confidence')}</dt><dd>{t(`confidence.${item.confidence}`)}</dd></div>
-        <div><dt>{mode === 'simple' ? t('mapDetail.simpleAgree') : t('mapDetail.agree')}</dt><dd>{item.agree_count}</dd></div>
-        <div><dt>{mode === 'simple' ? t('mapDetail.simpleDisagree') : t('mapDetail.disagree')}</dt><dd>{item.disagree_count}</dd></div>
+        <div><dt>{verificationLabels.agree}</dt><dd>{item.agree_count}</dd></div>
+        <div><dt>{verificationLabels.disagree}</dt><dd>{item.disagree_count}</dd></div>
         {mode === 'advanced' && <div><dt>{t('mapDetail.netScore')}</dt><dd>{view.netScore}</dd></div>}
         <div><dt>{t('mapDetail.state')}</dt><dd>{statusLabel}</dd></div>
         {mode === 'advanced' && <>

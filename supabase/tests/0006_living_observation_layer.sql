@@ -3,7 +3,7 @@
 -- disposable database. This file never runs against the project's real data.
 begin;
 
-select plan(54);
+select plan(64);
 
 select ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'knowledge' and column_name = 'report_type'), 'report_type column exists');
 select ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'knowledge' and column_name = 'observed_at'), 'observed_at column exists');
@@ -16,12 +16,15 @@ select ok((select pg_get_constraintdef(oid) from pg_constraint where conrelid = 
 select has_function('public', 'create_knowledge', array['text', 'double precision', 'double precision', 'text', 'text', 'text', 'text', 'timestamp with time zone'], 'create_knowledge RPC exists');
 select ok(has_function_privilege('authenticated', 'public.create_knowledge(text,double precision,double precision,text,text,text,text,timestamptz)', 'EXECUTE'), 'authenticated can call create RPC');
 select ok(not has_function_privilege('anon', 'public.create_knowledge(text,double precision,double precision,text,text,text,text,timestamptz)', 'EXECUTE'), 'anon cannot call create RPC');
-select ok(not has_table_privilege('authenticated', 'public.knowledge', 'INSERT'), 'authenticated cannot insert Knowledge directly');
+select ok(has_column_privilege('authenticated', 'public.knowledge', 'description', 'INSERT'), 'authenticated retains the legacy description INSERT during expand');
 select ok(not has_table_privilege('authenticated', 'public.knowledge', 'UPDATE'), 'authenticated cannot update Knowledge directly');
 select ok(not has_table_privilege('authenticated', 'public.knowledge', 'DELETE'), 'authenticated cannot delete Knowledge directly');
 select ok(not has_column_privilege('authenticated', 'public.knowledge', 'agree_count', 'INSERT'), 'authenticated cannot submit counters');
 select ok(not has_column_privilege('authenticated', 'public.knowledge', 'source_kind', 'INSERT'), 'authenticated cannot spoof source kind');
 select ok(not has_column_privilege('authenticated', 'public.knowledge', 'location_precision_m', 'INSERT'), 'authenticated cannot choose precision');
+select ok((select prosecdef from pg_proc where oid = 'public.normalize_knowledge_public_write()'::regprocedure), 'public write trigger is security definer');
+select ok((select coalesce(proconfig, '{}'::text[]) = '{}'::text[] from pg_proc where oid = 'public.normalize_knowledge_public_write()'::regprocedure), 'public write trigger uses empty search_path');
+select ok(exists (select 1 from pg_trigger where tgrelid = 'public.knowledge'::regclass and tgname = 'knowledge_normalize_public_write'), 'public write normalization trigger exists');
 select ok((select prosecdef from pg_proc where oid = 'public.create_knowledge(text,double precision,double precision,text,text,text,text,timestamptz)'::regprocedure), 'create RPC is security definer');
 select ok((select coalesce(proconfig, '{}'::text[]) = '{}'::text[] from pg_proc where oid = 'public.create_knowledge(text,double precision,double precision,text,text,text,text,timestamptz)'::regprocedure), 'create RPC uses empty search_path');
 select ok(has_function_privilege('authenticated', 'public.update_knowledge(uuid,text,double precision,double precision,text,text,text,boolean,text,timestamptz)', 'EXECUTE'), 'authenticated can call extended update RPC');
@@ -61,6 +64,24 @@ select is((select description from public.knowledge where id = (select id from p
 select is((select location_precision_m from public.knowledge where id = (select id from phase10_fixture_knowledge where label = 'ambiguous-sensitive')), 2000::double precision, 'ambiguous sensitive text receives the coarse fallback precision');
 select ok(exists (select 1 from public.knowledge where id = (select id from phase10_fixture_knowledge where label = 'ambiguous-sensitive') and (lat <> 35.681234 or lng <> 139.761234)), 'ambiguous sensitive coordinates are coarsened before storage');
 select is((select source_kind from public.knowledge where id = (select id from phase10_fixture_knowledge where label = 'ambiguous-sensitive')), 'community', 'browser RPC cannot create an official source row');
+
+with inserted as (
+  insert into public.knowledge (category, lat, lng, condition, description, confidence)
+  values ('theft', 35.681234, 139.761234, 'always', 'A bicycle was stolen near the station.', 'heard')
+  returning id
+)
+insert into phase10_fixture_knowledge (label, id)
+select 'legacy-sensitive', id from inserted;
+select is((select description from public.knowledge where id = (select id from phase10_fixture_knowledge where label = 'legacy-sensitive')), 'Community report: possible theft reported nearby.', 'legacy direct insert stores only a safe sensitive summary');
+select is((select location_precision_m from public.knowledge where id = (select id from phase10_fixture_knowledge where label = 'legacy-sensitive')), 150::double precision, 'legacy direct insert receives category privacy precision');
+select ok(exists (select 1 from public.knowledge where id = (select id from phase10_fixture_knowledge where label = 'legacy-sensitive') and (lat <> 35.681234 or lng <> 139.761234)), 'legacy direct insert coarsens sensitive coordinates');
+select is((select report_type from public.knowledge where id = (select id from phase10_fixture_knowledge where label = 'legacy-sensitive')), 'incident', 'legacy direct insert derives incident metadata');
+select ok(exists (select 1 from public.knowledge where id = (select id from phase10_fixture_knowledge where label = 'legacy-sensitive') and observed_at is not null and expires_at > observed_at), 'legacy direct insert derives incident time and expiry');
+select is((select source_kind from public.knowledge where id = (select id from phase10_fixture_knowledge where label = 'legacy-sensitive')), 'community', 'legacy direct insert cannot spoof an official source');
+select ok(exists (select 1 from public.knowledge_owner where knowledge_id = (select id from phase10_fixture_knowledge where label = 'legacy-sensitive') and owner_id = (select id from phase10_fixture_users where label = 'owner-a')), 'legacy direct insert still attaches private ownership');
+set local role authenticated;
+select throws_ok($$update public.knowledge set description = 'direct update attempt' where id = (select id from phase10_fixture_knowledge where label = 'legacy-sensitive')$$, '42501', 'permission denied for table knowledge', 'direct update remains denied during expand');
+reset role;
 
 select set_config('request.jwt.claims', json_build_object('sub', (select id::text from phase10_fixture_users where label = 'other-b'), 'role', 'authenticated')::text, true);
 select ok(not exists (select 1 from public.get_my_knowledge_ids() where knowledge_id = (select id from phase10_fixture_knowledge where label = 'ambiguous-sensitive')), 'owner B cannot see owner A ids');

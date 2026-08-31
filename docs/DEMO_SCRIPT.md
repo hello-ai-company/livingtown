@@ -19,7 +19,7 @@
 ## 0:30 — 幕1：会話を地図にする
 
 1. `街の記憶` を表示し、右側のMAP toolが5本（`contribute_knowledge` / `delete_knowledge` / `query_area` / `update_knowledge` / `verify_knowledge`）であることを見せる。Simpleではtool名ではなく、利用者向けの操作名が表示される。Advancedのbasemap selectorで `Auto`／`Japan (GSI)`／`Worldwide (OpenFreeMap)` を示し、海外へ移動するとOpenFreeMapへ切り替わることを見せる。
-2. 地図の `気づいたことを投稿` を押し、地図をタップする。投稿の自由文には氏名・住所・電話番号・診断名などを含めないことを先に示し、位置→カテゴリ→条件→確度→説明・確認の5段階を進める。説明は200文字以内で、個人情報を含めない確認が必須。保存すると`contribute_knowledge`がActivityに出て、該当座標へPENDING visualが現れる。visualをクリックしてdetail cardの `未検証`、条件、確度、カウンタを見せる。
+2. SimpleのAround You Nowで周辺の地域報告を確認し、表示されている一行composerへ雨天の横断歩道を入力する。Enterでpreviewを開き、カテゴリ・時刻・安全な公開要約・位置の扱いを確認してから明示的に `投稿` を押す。Advancedでは必要に応じて位置→カテゴリ→条件→確度→説明・確認の5段階フォームを使える。説明は200文字以内で、個人情報を含めない確認が必須。保存すると`contribute_knowledge`がActivityに出て、該当座標へPENDING visualが現れる。visualをクリックしてdetail cardの `未検証`、条件、確度、カウンタを見せる。
 3. 同じカードの「追認する」を1回クリックする。LOCAL_DEMOではfixtureのpseudonymous identifierが使われ、shared modeでは入力schemaにverifier_idがなく、Auth identityからserver-sideでopaqueなpseudonymous identifierが導出される。visualはまだPENDINGのまま。
 4. もう1回クリックする。LOCAL_DEMOでは別fixtureを使う。shared modeでは同じAuth identityの再送はduplicateになり、threshold到達には別Auth identityが必要になる。2つのidentityでthresholdへ到達したら、短いtransitionと `Community verified` feedbackの後、visualがVERIFIEDへ変わる。
 5. 「同じknowledgeに同じidentity／identifierが投票しても、`knowledge_id + verifier_id` が一意なので二重加算されません。これはsame identifier duplicate preventionの仕組みで、pseudonymous identifierはdistinct humanやSybil耐性を保証せず、追認−反証が2以上になった時だけrouteに影響します」と説明する。
@@ -83,7 +83,7 @@
 
 ## Phase 10 — 一行の地域報告（ローカル確認のみ）
 
-1. MAPをSimple／日本語で開き、常時表示される「この場所で何がありましたか？」へ「この駅の近くで自転車が盗まれたみたい」と入力してEnterで送信する。カテゴリが盗難、種別がincident、表示が「地域からの報告」、公開本文が安全な要約、位置が粗化された中立マーカーになり、routeが変わらないことを確認する。
+1. MAPをSimple／日本語で開き、Around You Nowと常時表示される「この場所で何がありましたか？」を確認する。「この駅の近くで自転車が盗まれたみたい」と入力してEnterを押し、previewで盗難・incident・安全な公開要約・粗化位置を確認してから明示的に投稿する。表示が「地域からの報告」、位置が粗化された中立マーカーになり、routeが変わらないことを確認する。
 2. 「駅の東口で痴漢があったみたい」を投稿し、ハラスメント・痴漢の地域報告として表示され、個人や容疑者を特定する文言がなく、避難routeへ影響しないことを確認する。
 3. 「この道は雨の日に水がたまる」を投稿し、浸水のpersistent conditionとして表示されることを確認する。投稿直後は「地域からの報告」で、確認が2票に届くまではrouteへ影響しない。
 4. Englishへ切り替え、「An explosion was reported in this area.」を投稿する。爆発のincident、Community report、safe public summary、粗化位置、neutral markerを確認する。天候やfire simulationは開始しない。軍人・部隊・装備・作戦の精密位置を含む入力は投稿せず、機能として拒否されることだけを説明する。

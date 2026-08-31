@@ -329,9 +329,11 @@ Phase 10は既存Knowledgeをcommunity observation / local knowledgeとして拡
 
 ### 12.1 One-line input and interpretation
 
-MAPの一行composerは「この場所で何がありましたか？」／「What's happening here?」を表示し、EnterまたはSendで投稿する。JA/ENのキーワードを使うRuleBasedObservationInterpreterがcategory、report_type、condition、confidence、observed_atを決定的に導出し、曖昧な入力はotherへ送る。これはAI理解の主張ではなく、画面には必要に応じて「LivingTownが投稿内容を整理しました」と表示できる単純な構造化処理である。既存の5段階フォームはAdvancedの補正とowner editに残す。
+MAPの一行composerは「この場所で何がありましたか？」／「What's happening here?」を表示する。EnterまたはSendは即時保存ではなく、category、時刻、公開要約、位置の扱いを確認するpreviewを開き、利用者がEditまたはPostを明示的に選んだ時だけ投稿する。JA/ENのキーワードを使うRuleBasedObservationInterpreterがcategory、report_type、condition、confidence、observed_atを決定的に導出し、曖昧な入力はotherへ送る。これはAI理解の主張ではなく、画面には必要に応じて「LivingTownが投稿内容を整理しました」と表示できる単純な構造化処理である。既存の5段階フォームはAdvancedの補正とowner editに残す。
 
 位置は明示的な地図選択、明示取得した現在地、地図中心の順で解決する。ブラウザのgeolocation permissionは自動要求しない。incidentはobserved_atをnowへ補完し、policyでroad_block 12h、fire/explosion/conflict 24h、crowding 6h、theft/harassment 30d、violence 7dのexpires_atを決める。期限切れはcurrent layerから隠すだけで、履歴の否定ではない。
+
+Simpleの初回導線は、地図周辺の「Around You Now」、一行投稿、本人の「My Reports」の3つを主操作にする。Around You Nowは画面専用の別検索を持たず、Human UI／WebMCPと同じTownRepositoryの`queryArea`を使う。My Reportsは`can_edit === true`の行だけを表示し、公開用安全要約、相対時刻、active／expired、地域確認状態、編集／削除を示す。音声入力は対応ブラウザでのみ表示し、認識結果を本文へ入れるだけで自動投稿しない。Advancedでは診断情報、詳細メタデータ、既存の補正フォームを段階的に開ける。
 
 ### 12.2 Trust, privacy, and route policy
 
@@ -343,9 +345,11 @@ routeImpactPolicyはnone、safety、blockingのpure policyで、callerが値を�
 
 ### 12.3 Trusted persistence and rendering
 
-shared modeではHuman UIとWebMCPが同じTownRepositoryを通り、authenticated-only create_knowledge RPCがowner、source、timestamps、counters、expiry、precision、sensitive public descriptionをserver-sideで導出する。direct Knowledge INSERT/UPDATE/DELETEはPhase 10 migration draftでrevokeする。update RPCはcategory変更時にreport typeとobserved timeの既存値を盲目的に引き継がず、category、location、description、confidence、condition、report_type、observed_atの変更時にgeoprivacyとexpiryを再計算し、票があれば明示確認後にreverification resetを行う。新しいmigrationはレビュー用で、既存migrationをrewriteせず、適用しない。
+shared modeではHuman UIとWebMCPが同じTownRepositoryを通り、authenticated-only create_knowledge RPCがowner、source、timestamps、counters、expiry、precision、sensitive public descriptionをserver-sideで導出する。Phase 10のexpand migrationは旧クライアントの6列domain INSERTを短い互換期間だけ残し、SECURITY DEFINERのBEFORE triggerで認証、PII、safe summary、coarsening、incident metadataを再適用する。direct UPDATE/DELETEは閉じ、RPC-onlyの最終contractは新アプリと共有ブラウザゲートが確認できた後に`docs/sql/POST_DEPLOY_RPC_ONLY_KNOWLEDGE_WRITE.sql`から適用する。update RPCはcategory変更時にreport typeとobserved timeの既存値を盲目的に引き継がず、category、location、description、confidence、condition、report_type、observed_atの変更時にgeoprivacyとexpiryを再計算し、票があれば明示確認後にreverification resetを行う。新しいmigrationはレビュー用で、既存migrationをrewriteせず、適用しない。
 
-MapLibre 2DとNavara 3Dは同じsnapshotを描画し、pendingは半透明、2 community confirmationsは強い表示、expired incidentはcurrent overlayから除外する。conflictは2kmのneutral alert marker、未対応categoryはgeneric community markerへfallbackする。MAP toolはcontribute_knowledge、delete_knowledge、query_area、update_knowledge、verify_knowledgeの5本で固定し、report_observationは追加しない。
+MapLibre 2DとNavara 3Dは同じsnapshotを描画し、pendingは半透明、2 community confirmationsは強い表示、expired incidentはcurrent overlayから除外する。MapLibreのKnowledge GeoJSONはnative clusteringを使い、Simpleではcluster count bubbleを押して周辺点へ展開する。conflictは2kmのneutral alert marker、未対応categoryはgeneric community markerへfallbackする。MAP toolはcontribute_knowledge、delete_knowledge、query_area、update_knowledge、verify_knowledgeの5本で固定し、report_observationは追加しない。
+
+写真アップロードはPhase 10.2では提供しない。顔、ナンバープレート、EXIF位置情報の混入を投稿者が制御しにくく、moderation、redaction、retention、Storage権限、保存コスト、bot／abuse対策まで必要になるためである。将来検討する場合も、明示的な同意、client／server redaction、短期retention、moderation、削除運用を先に設計する。
 
 ### 12.4 Phase 10 verification boundary
 

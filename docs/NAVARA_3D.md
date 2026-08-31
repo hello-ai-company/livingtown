@@ -63,6 +63,13 @@ is a green `SmoothLine`, and avoided roads are red dashed `SmoothLine` meshes.
 Clicking a knowledge or avoided-road marker selects the existing detail model,
 not a 3D-only copy of the record.
 
+Phase 10.2 keeps marker aggregation deliberately 2D-first. MapLibre's native
+GeoJSON source clustering provides count bubbles and click-to-expand behavior
+for dense Knowledge points in the Simple map. Navara consumes the same
+individual snapshot records and does not add a second complex 3D clustering
+system; its existing distance/visibility throttling remains the fallback for
+immersive rendering.
+
 `GeoCamera` is the shared camera contract. It carries longitude, latitude, zoom,
 height, heading, and pitch. The bridge keeps Tokyo and San Francisco camera
 round-trips stable between MapLibre and Navara, with a small pitch convention
@@ -155,7 +162,8 @@ the 3D action.
 Pure tests cover the loader success/failure boundary, required capabilities,
 Tokyo/San Francisco camera round-trip, all tour stops, visual-weather policy,
 shared snapshot projection, and localization. The full local suite retains all
-Phase 8 tests and currently runs 19 files / 99 tests.
+Phase 8 tests and currently runs 23 files / 147 tests; the Phase 10.2 clustering
+assertion covers the native GeoJSON source configuration.
 
 The browser checklist and result are kept separately in
 [docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md](./evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md).

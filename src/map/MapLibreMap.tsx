@@ -32,6 +32,7 @@ import {
   createHouseholdFeatureCollection,
   createKnowledgeFeatureCollection,
   createRouteFeatureCollection,
+  KNOWLEDGE_CLUSTER_SOURCE_OPTIONS,
 } from './mapGeoJson'
 
 type MapLibreMapProps = Map2DProps & {
@@ -98,15 +99,20 @@ function createOverlayData(
 }
 
 function addOverlayLayers(map: MapLibreInstance, overlayData: ReturnType<typeof createOverlayData>) {
-  map.addSource('knowledge-overlay', { type: 'geojson', data: overlayData.knowledge })
+  // Keep clustering inside MapLibre's GeoJSON source. The renderer owns the
+  // visual aggregation; the repository and WebMCP query contract still expose
+  // individual Knowledge rows.
+  map.addSource('knowledge-overlay', { type: 'geojson', data: overlayData.knowledge, ...KNOWLEDGE_CLUSTER_SOURCE_OPTIONS })
   map.addSource('route-overlay', { type: 'geojson', data: overlayData.route })
   map.addSource('avoided-overlay', { type: 'geojson', data: overlayData.avoided })
   map.addSource('household-overlay', { type: 'geojson', data: overlayData.households })
   map.addSource('bottleneck-overlay', { type: 'geojson', data: overlayData.bottlenecks })
   map.addLayer({ id: 'route-line', type: 'line', source: 'route-overlay', paint: { 'line-color': '#c1e06e', 'line-width': 4, 'line-opacity': 0.9 } })
   map.addLayer({ id: 'avoided-lines', type: 'line', source: 'avoided-overlay', paint: { 'line-color': '#ef7772', 'line-width': 5, 'line-opacity': 0.84, 'line-dasharray': [1, 1.4] } })
-  map.addLayer({ id: 'knowledge-halo', type: 'circle', source: 'knowledge-overlay', paint: { 'circle-color': 'transparent', 'circle-radius': ['match', ['get', 'state'], 'affecting_route', 18, 'verified', 14, 11], 'circle-stroke-color': ['match', ['get', 'state'], 'affecting_route', '#f6a064', 'verified', '#c1e06e', '#9fb4a6'], 'circle-stroke-width': ['match', ['get', 'state'], 'affecting_route', 3, 1], 'circle-opacity': 0, 'circle-stroke-opacity': 0.75 } })
-  map.addLayer({ id: 'knowledge-points', type: 'circle', source: 'knowledge-overlay', paint: { 'circle-color': ['match', ['get', 'category'], 'flood', '#5fb9d2', 'fire', '#e87963', 'explosion', '#d5ad71', 'road_block', '#e28e62', 'darkness', '#8e86c9', 'narrow_path', '#d6b266', 'barrier', '#d6a16a', 'safe_spot', '#86c79b', 'theft', '#9c9bc8', 'harassment', '#9c9bc8', 'violence', '#b6a0a0', 'conflict', '#a4a9b0', 'accessibility', '#8fc1ca', 'crowding', '#c3a96c', 'infrastructure', '#9eb39c', '#77b9d1'], 'circle-radius': ['case', ['boolean', ['get', 'selected'], false], 10, 7], 'circle-opacity': ['case', ['boolean', ['get', 'expired'], false], 0.24, ['match', ['get', 'state'], 'pending', 0.66, 0.96]], 'circle-stroke-color': ['match', ['get', 'state'], 'affecting_route', '#ffe1bc', 'verified', '#e9f8a5', '#dcebe3'], 'circle-stroke-width': ['case', ['boolean', ['get', 'selected'], false], 3, 1.5] } })
+  map.addLayer({ id: 'knowledge-clusters', type: 'circle', source: 'knowledge-overlay', filter: ['has', 'point_count'], paint: { 'circle-color': '#c1e06e', 'circle-radius': ['step', ['get', 'point_count'], 18, 5, 22, 10, 27], 'circle-opacity': 0.92, 'circle-stroke-color': '#0d1821', 'circle-stroke-width': 2 } })
+  map.addLayer({ id: 'knowledge-cluster-count', type: 'symbol', source: 'knowledge-overlay', filter: ['has', 'point_count'], layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-size': 11, 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'] }, paint: { 'text-color': '#0d1821' } })
+  map.addLayer({ id: 'knowledge-halo', type: 'circle', source: 'knowledge-overlay', filter: ['!', ['has', 'point_count']], paint: { 'circle-color': 'transparent', 'circle-radius': ['match', ['get', 'state'], 'affecting_route', 18, 'verified', 14, 11], 'circle-stroke-color': ['match', ['get', 'state'], 'affecting_route', '#f6a064', 'verified', '#c1e06e', '#9fb4a6'], 'circle-stroke-width': ['match', ['get', 'state'], 'affecting_route', 3, 1], 'circle-opacity': 0, 'circle-stroke-opacity': 0.75 } })
+  map.addLayer({ id: 'knowledge-points', type: 'circle', source: 'knowledge-overlay', filter: ['!', ['has', 'point_count']], paint: { 'circle-color': ['match', ['get', 'category'], 'flood', '#5fb9d2', 'fire', '#e87963', 'explosion', '#d5ad71', 'road_block', '#e28e62', 'darkness', '#8e86c9', 'narrow_path', '#d6b266', 'barrier', '#d6a16a', 'safe_spot', '#86c79b', 'theft', '#9c9bc8', 'harassment', '#9c9bc8', 'violence', '#b6a0a0', 'conflict', '#a4a9b0', 'accessibility', '#8fc1ca', 'crowding', '#c3a96c', 'infrastructure', '#9eb39c', '#77b9d1'], 'circle-radius': ['case', ['boolean', ['get', 'selected'], false], 10, 7], 'circle-opacity': ['case', ['boolean', ['get', 'expired'], false], 0.24, ['match', ['get', 'state'], 'pending', 0.66, 0.96]], 'circle-stroke-color': ['match', ['get', 'state'], 'affecting_route', '#ffe1bc', 'verified', '#e9f8a5', '#dcebe3'], 'circle-stroke-width': ['case', ['boolean', ['get', 'selected'], false], 3, 1.5] } })
   map.addLayer({ id: 'household-points', type: 'circle', source: 'household-overlay', paint: { 'circle-color': ['case', ['boolean', ['get', 'selected'], false], '#edf0e7', '#f6a064'], 'circle-radius': ['case', ['boolean', ['get', 'selected'], false], 10, 7], 'circle-stroke-color': '#c1e06e', 'circle-stroke-width': 2 } })
   map.addLayer({ id: 'bottleneck-points', type: 'circle', source: 'bottleneck-overlay', paint: { 'circle-color': '#f6a064', 'circle-radius': 8, 'circle-stroke-color': '#ffe1bc', 'circle-stroke-width': 2 } })
 }
@@ -221,6 +227,16 @@ export function MapLibreMap({
       addOverlayLayers(map, overlayData)
       map.on('mouseenter', 'knowledge-points', () => { map.getCanvas().style.cursor = 'pointer' })
       map.on('mouseleave', 'knowledge-points', () => { map.getCanvas().style.cursor = '' })
+      map.on('mouseenter', 'knowledge-clusters', () => { map.getCanvas().style.cursor = 'pointer' })
+      map.on('mouseleave', 'knowledge-clusters', () => { map.getCanvas().style.cursor = '' })
+      map.on('click', 'knowledge-clusters', (event) => {
+        const clusterId = Number(event.features?.[0]?.properties?.cluster_id)
+        const clusterSource = source(map, 'knowledge-overlay')
+        if (!clusterSource || !Number.isFinite(clusterId)) return
+        void clusterSource.getClusterExpansionZoom(clusterId).then((zoom) => {
+          map.easeTo({ center: [event.lngLat.lng, event.lngLat.lat], zoom, duration: 350 })
+        }).catch(() => setMapNotice(t('map.clusterExpandError')))
+      })
       map.on('click', 'knowledge-points', (event) => {
         if (postingModeRef.current || locationPickerRef.current) return
         const id = event.features?.[0]?.properties?.id
@@ -422,6 +438,7 @@ export function MapLibreMap({
           <span><i className="legend-state legend-state--verified" />{t('map.legendVerified')}</span>
           <span><i className="legend-state legend-state--affecting" />{t('map.legendAffecting')}</span>
           <span><i className="legend-category legend-category--bottleneck" />{t('map.legendBottleneck')}</span>
+          {mode === 'simple' && <span><i className="legend-cluster" />{t('map.clusterHint')}</span>}
         </div>
         {mode === 'advanced' && <div className="knowledge-legend__row knowledge-legend__categories">
           {KNOWLEDGE_CATEGORY_ORDER.map((category) => <span key={category}><i className={`legend-category legend-category--${category}`} />{categoryLabel(category, t)}</span>)}

@@ -6,6 +6,14 @@ import type { Feature, FeatureCollection, Geometry, GeoJsonProperties } from 'ge
 export type MapFeature = Feature<Geometry, GeoJsonProperties>
 export type MapFeatureCollection = FeatureCollection<Geometry, GeoJsonProperties>
 
+/** MapLibre-native aggregation settings for the Simple map surface. */
+export const KNOWLEDGE_CLUSTER_SOURCE_OPTIONS = {
+  cluster: true,
+  clusterMaxZoom: 14,
+  clusterRadius: 48,
+  clusterMinPoints: 2,
+} as const
+
 export function featureCollection(features: MapFeature[]): MapFeatureCollection {
   return { type: 'FeatureCollection', features }
 }

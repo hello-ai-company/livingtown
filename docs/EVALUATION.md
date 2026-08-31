@@ -38,9 +38,9 @@ Previous HEAD: `5fc9ad7221d8d120ce76c34d0f38ca6db70e6d45`
 
 - `?lang=ja|en`、saved locale、navigator fallback、`html[lang]`、`?mode=simple|advanced`、saved display mode、translated system UI、Simple/Advanced information boundary are implemented in `src/i18n.ts` and `src/app/App.tsx`.
 - MapLibre is the primary map renderer with Auto provider selection (GSI in Japan and OpenFreeMap worldwide), explicit GSI/OpenFreeMap attribution, minZoom 2, maxZoom 18, explicit one-shot geolocation control, and GeoJSON overlays for Knowledge, route, avoided edges, households, and bottlenecks. The existing SVG renderer remains the fallback.
-- Map tap/FAB opens the five-step contribution flow: location → category → condition → confidence → description/review/privacy. The form enforces a 200-character description, explicit privacy confirmation, Escape, focus trap, and focus return.
+- Simple MAP leads with Around You Now, a one-line composer, and My Reports. Enter/Send opens a derived-observation preview and only an explicit Post action calls the repository; sensitive previews show safe-summary and coarse-location warnings. Advanced retains the five-step contribution flow: location → category → condition → confidence → description/review/privacy. The form enforces a 200-character description, explicit privacy confirmation, Escape, focus trap, and focus return.
 - Local and shared repository contracts include owner-only update/delete, vote reset confirmation, route invalidation, fail-closed owned-ID hydration, and public Knowledge-only Realtime handlers. Shared browser state never receives raw owner IDs or Verification records.
-- MAP now exposes exactly `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, and `verify_knowledge`. The draft SQL and 74-assertion pgTAP file are present, but neither the migration nor the Phase 8 shared/native gates has been run.
+- MAP now exposes exactly `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, and `verify_knowledge`. The draft SQL and 64-assertion pgTAP file are present, but neither the migration nor the Phase 8 shared/native gates has been run.
 
 ### Phase 9 immersive Navara map
 
@@ -51,7 +51,7 @@ Previous HEAD: `5fc9ad7221d8d120ce76c34d0f38ca6db70e6d45`
 - Tokyo uses GSI raster and GSI DEM terrain with the installed official `JAPAN_GSI_ELEVATION_DECODER()` export. Chiyoda PLATEAU 3D Tiles is reachability-checked and optional; a failed probe or layer add marks it `BLOCKED` without failing the scene. The global path uses API-key-free OpenStreetMap raster and ellipsoid terrain.
 - Visual weather is `clear`, `rain`, `heavy_rain`, or `night`, bound to the existing route conditions by default and explicitly labeled `Simulation / Visual only`. No current-weather API or water-depth measurement is used. Rain, RainDrop, and optional cloud effects are quality/device gated.
 - Guided camera is a pure six-stop route tour with pause/resume/overview/exit. 2D↔3D camera state uses the shared `GeoCamera` bridge for Tokyo and San Francisco. Resource/event disposal covers normal dimension changes, quality changes, unmount, partial initialization, and context loss fallback.
-- Automated Phase 9 coverage adds loader success/failure, capabilities, camera, weather, shared dataset projection, guided tour, and i18n assertions. Phase 10 adds interpreter, relative-time/confidence, public-summary privacy fallback, expiry, route-policy, new-category, tool-schema, current-overlay, and one-line composer assertions. The local suite currently passes with 21 files / 133 tests. `LOCAL_3D_GATE` is recorded separately and does not imply Native WebMCP.
+- Automated Phase 9 coverage adds loader success/failure, capabilities, camera, weather, shared dataset projection, guided tour, and i18n assertions. Phase 10.2 adds interpreter, relative-time/confidence, public-summary privacy fallback, expiry, route-policy, new-category, tool-schema, current-overlay, preview, Around You Now, My Reports, voice fallback, and clustering assertions. The local suite currently passes with 23 files / 147 tests. `LOCAL_3D_GATE` is recorded separately and does not imply Native WebMCP.
 - `LOCAL_3D_GATE: PASS` on the local Codex in-app browser: Tokyo WebGL2 Navara scene, GSI terrain, reachable Chiyoda PLATEAU, visual weather presets, route/household projection, three 2D↔3D cycles, guided camera controls, JA/EN, and reduced-motion behavior were observed. Full details are in [docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md](./evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md).
 - `PHASE9_NATIVE_WEBMCP_GATE: NOT RUN`. WebMCP tool names, schemas, `control_replay`, and `get_debrief_summary` are unchanged.
 
@@ -94,7 +94,7 @@ Previous HEAD: `5fc9ad7221d8d120ce76c34d0f38ca6db70e6d45`
 - WebMCPオブジェクトがない通常Node/Vitest環境でも、同じtool definitionをfake adapterで検証できる。
 - MapLibre primary renderer and the existing SVG fallback both preserve the map → drill → replay vertical slice.
 - `npm run seed` は外部APIなしで決定的なdemo dataを生成する。
-- 既存テストを維持し、trust-boundary／Realtime／GeoJSON projection／i18n／CRUD／worldwide basemap／geolocation／living observation testsを追加した。現在は21 files / 133 tests。sensitive public-summary、分類漏れfallback、relative time、future timestamp、category-change metadataも実装テストで確認する。
+- 既存テストを維持し、trust-boundary／Realtime／GeoJSON projection／i18n／CRUD／worldwide basemap／geolocation／living observation／first-use UX testsを追加した。現在は23 files / 147 tests。sensitive public-summary、分類漏れfallback、relative time、future timestamp、category-change metadata、preview、My Reports、native clusteringも実装テストで確認する。
 
 ### Living Knowledge Visual World
 
@@ -149,9 +149,9 @@ this native result.
 
 ## Phase 10 current feature-branch evaluation
 
-Phase 10のfeature branchは `feat/living-observation-layer` で、`feat/navara-immersive-disaster-map` のHEADから派生している。既存PR #10／#11、本番Netlify、Supabase real data、Devpost、動画は変更していない。
+Phase 10.2のfeature branchは `feat/living-observation-layer` で、`feat/navara-immersive-disaster-map` のHEADから派生している。既存PR #10／#11、本番Netlify、Supabase real data、Devpost、動画は変更していない。
 
-The local suite passes with 21 test files and 133 tests. Coverage includes the bilingual one-line composer, interpreter, relative time and conservative incident confidence, safe public summaries, ambiguous-to-other sensitive fallback, future timestamp rejection, incident lifecycle and expiry, sensitive-coordinate coarsening, localized PII/tactical guards, theft/harassment/conflict route isolation, fire/road_block/explosion blocking candidates, expanded visual groups/time filters, Navara current-overlay projection, and the exact five-tool MAP schema.
+The local suite passes with 23 test files and 147 tests. Coverage includes the bilingual one-line composer and explicit preview, Around You Now's repository query path, My Reports ownership filtering and safe rendering, progressive voice fallback, native Knowledge clustering, interpreter, relative time and conservative incident confidence, safe public summaries, ambiguous-to-other sensitive fallback, future timestamp rejection, incident lifecycle and expiry, sensitive-coordinate coarsening, localized PII/tactical guards, theft/harassment/conflict route isolation, fire/road_block/explosion blocking candidates, expanded visual groups/time filters, Navara current-overlay projection, and the exact five-tool MAP schema.
 
 The Phase 10 migration `supabase/migrations/20260831142006_living_observation_layer.sql` and pgTAP draft `supabase/tests/0006_living_observation_layer.sql` are present for review only. Neither has been applied or executed. `PHASE10_NATIVE_WEBMCP_GATE: NOT RUN`; existing Native WebMCP evidence is not reused for the changed schema.
 
@@ -171,7 +171,7 @@ PR #12のlatest run `33412529760` / job `99555280799` は `conclusion=success`�
 - shared RPC内でauthenticated identityからopaque pseudonymous verifier idを発行する仕組みはコード化した。ただしanonymous AuthやWebMCP agentが複数identityを作る可能性があるため、Sybil resistance／distinct-human verificationは未達。
 - **共有環境で完全に匿名であること。** 認証主体、アクセスログ、バックアップ、削除、鍵管理、再識別評価を含む運用がないため、Privacyの匿名性はPASSにしない。
 - pgTAP、A/B/Cの再実行、network failure injection、temporary drill sessionの削除ジョブ。function EXECUTE hardeningの実適用、Security Advisor再確認、authenticated insert／anon denial／counter protection／duplicate verification、記録済みBrowser A/B Realtimeは完了済みだが、運用上の再検証は別途必要。
-- Phase 8 draft migration `20260831075455_real_map_knowledge_ownership_crud.sql` の実DB適用、74 assertionsのpgTAP実行、二つ以上のAuth identityによるCRUD／再検証／削除／Realtime gate。
+- Phase 8 draft migration `20260831075455_real_map_knowledge_ownership_crud.sql` の実DB適用、Phase 10の64 assertionsのpgTAP実行、二つ以上のAuth identityによるCRUD／再検証／削除／Realtime gate。
 - Phase 8 feature branchを公開Netlifyへ反映した後の、5本MAP surfaceに対するNative WebMCP `getTools()`／schema／toolchange／実行証跡。既存Phase 7のNative PASSはこの5本surfaceへ継承しない。
 
 ## Quality gate
@@ -181,7 +181,7 @@ PR #12のlatest run `33412529760` / job `99555280799` は `conclusion=success`�
 | Command | Result |
 |---|---|
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 21 files / 133 tests |
+| `npm test` | PASS — 23 files / 147 tests |
 | `npm run build` | PASS — Vite production build succeeded |
 | `npm run seed` | PASS — 6 nodes / 7 edges / 10 knowledge / 13 pseudonymous votes / 3 households |
 | `git diff --check` | PASS |

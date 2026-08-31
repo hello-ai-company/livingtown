@@ -1,7 +1,7 @@
 import { isKnowledgeVerified } from '../sim/route'
 import type { Bottleneck, Knowledge, KnowledgeCategory, RouteResult } from '../sim/types'
 import { deriveRouteImpactPolicy, type RouteImpactType } from '../observations/routeImpactPolicy'
-import { isObservationExpired, isObservationVisible } from '../observations/observationPolicy'
+import { detectPotentiallySensitiveText, isObservationExpired, isObservationVisible } from '../observations/observationPolicy'
 
 export type KnowledgeVisualState = 'pending' | 'verified' | 'affecting_route'
 export type KnowledgeVisualType = 'obstruction' | 'water_area' | 'dark_halo' | 'narrow_segment' | 'safe_zone' | 'flow_warning'
@@ -373,12 +373,16 @@ export function getBottleneckLabel(item: Bottleneck) {
   return `${BOTTLENECK_VISUAL_CONFIG.label} · severity ${item.severity}`
 }
 
+export function getLocalizedSafeObservationDescription(category: KnowledgeCategory, description: string, locale: 'ja' | 'en') {
+  if (category === 'theft') return locale === 'ja' ? 'この付近で盗難の可能性に関する地域報告があります。' : 'A community report mentions possible theft nearby.'
+  if (category === 'harassment') return locale === 'ja' ? 'この付近でハラスメント・痴漢の可能性に関する地域報告があります。' : 'A community report mentions possible harassment nearby.'
+  if (category === 'violence') return locale === 'ja' ? 'この付近で暴力・トラブルの可能性に関する地域報告があります。' : 'A community report mentions a possible violence-related event nearby.'
+  if (category === 'conflict') return locale === 'ja' ? 'この付近で紛争関連の出来事の可能性に関する地域報告があります。' : 'A community report mentions a possible conflict-related event nearby.'
+  if (category === 'explosion') return locale === 'ja' ? 'この付近で爆発・大きな衝撃の可能性に関する地域報告があります。' : 'A community report mentions a possible explosion or impact nearby.'
+  if (description === 'Community report: a sensitive safety concern was reported nearby.' || detectPotentiallySensitiveText(description)) return locale === 'ja' ? 'この付近に安全上の懸念に関する地域報告があります。' : 'A community report mentions a sensitive safety concern nearby.'
+  return description
+}
+
 export function getKnowledgeSafeDescription(item: Knowledge, locale: 'ja' | 'en') {
-  if (item.category === 'theft') return locale === 'ja' ? 'この付近で盗難の可能性に関する地域報告があります。' : 'A community report mentions possible theft nearby.'
-  if (item.category === 'harassment') return locale === 'ja' ? 'この付近でハラスメント・痴漢の可能性に関する地域報告があります。' : 'A community report mentions possible harassment nearby.'
-  if (item.category === 'violence') return locale === 'ja' ? 'この付近で暴力・トラブルの可能性に関する地域報告があります。' : 'A community report mentions a possible violence-related event nearby.'
-  if (item.category === 'conflict') return locale === 'ja' ? 'この付近で紛争関連の出来事の可能性に関する地域報告があります。' : 'A community report mentions a possible conflict-related event nearby.'
-  if (item.category === 'explosion') return locale === 'ja' ? 'この付近で爆発・大きな衝撃の可能性に関する地域報告があります。' : 'A community report mentions a possible explosion or impact nearby.'
-  if (item.description === 'Community report: a sensitive safety concern was reported nearby.') return locale === 'ja' ? 'この付近に安全上の懸念に関する地域報告があります。' : 'A community report mentions a sensitive safety concern nearby.'
-  return item.description
+  return getLocalizedSafeObservationDescription(item.category, item.description, locale)
 }

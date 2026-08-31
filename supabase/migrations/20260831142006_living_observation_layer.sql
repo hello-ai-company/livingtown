@@ -121,6 +121,103 @@ set description = normalized.public_description,
 from normalized
 where k.id = normalized.id;
 
+-- Expand-phase compatibility boundary. Phase 8 clients can still INSERT the
+-- six legacy domain columns for a short window, but no raw sensitive wording
+-- or caller-controlled metadata may reach the public row. The trigger is a
+-- SECURITY DEFINER helper with an empty search_path and is not a browser API.
+create or replace function public.normalize_knowledge_public_write()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  raw_description text := trim(new.description);
+  potentially_sensitive boolean;
+  resolved_precision double precision;
+  legacy_insert boolean;
+  resolved_report_type text;
+  resolved_observed_at timestamptz;
+begin
+  if auth.uid() is null then
+    raise exception 'authenticated identity is required';
+  end if;
+  if raw_description is null or char_length(raw_description) not between 1 and 200 then
+    raise exception 'knowledge description must be 1-200 characters';
+  end if;
+  if raw_description ~* '[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}'
+    or raw_description ~* 'https?://'
+    or raw_description ~ '[0-9][0-9 ()-]{7,}[0-9]' then
+    raise exception 'report may contain identifying information';
+  end if;
+  if raw_description ~* '(\m(military|soldier|troop|unit|weapon|tank|artillery|base|operation)\M|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備)'
+    and raw_description ~* '(coordinate|coordinates|latitude|longitude|\blat\b|\blng\b|exact|precise|location|at[[:space:]]+[0-9]|座標|緯度|経度|正確|位置|地点|番地|丁目|東口|西口|南口|北口|[0-9]{2,})' then
+    raise exception 'precise tactical information is not publishable';
+  end if;
+
+  potentially_sensitive := raw_description ~* '(\m(stole|stolen|theft|robbed|harassment|molest|stalking|assault|attacked|attack|violence|hit|punched|conflict|war|fighting|shelling|battle|military|soldier|troop|unit|weapon|tank|artillery|base|operation|explosion|blast)\M|\mgrop(e|ed|ing)\M|unwanted[[:space:]]+(touch|touching|contact)|sexual[[:space:]]+(harassment|contact|assault)|盗まれ|盗難|窃盗|痴漢|触られ|触った|性的接触|嫌がらせ|つきまとい|暴力|殴ら|襲わ|トラブル|紛争|戦闘|衝突|武力|砲撃|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備|爆発|爆発音|大きな衝撃)';
+  resolved_precision := case
+    when new.category in ('theft','harassment') then 150
+    when new.category = 'violence' then 200
+    when new.category = 'explosion' then 500
+    when new.category = 'conflict' then 2000
+    when potentially_sensitive then 2000
+    else greatest(coalesce(new.location_precision_m, 0), 0)
+  end;
+  legacy_insert := tg_op = 'INSERT'
+    and new.observed_at is null
+    and new.expires_at is null
+    and coalesce(new.location_precision_m, 0) = 0;
+
+  new.description := case
+    when new.category = 'theft' then 'Community report: possible theft reported nearby.'
+    when new.category = 'harassment' then 'Community report: possible harassment reported nearby.'
+    when new.category = 'violence' then 'Community report: a possible violence-related event was reported nearby.'
+    when new.category = 'conflict' then 'Community report: a possible conflict-related event was reported nearby.'
+    when new.category = 'explosion' then 'Community report: a possible explosion or impact was reported nearby.'
+    when potentially_sensitive then 'Community report: a sensitive safety concern was reported nearby.'
+    else raw_description
+  end;
+  new.location_precision_m := resolved_precision;
+  new.source_kind := 'community';
+
+  -- Legacy INSERTs arrive with only the six Phase 8 domain columns. New
+  -- RPC writes carry observation metadata, so preserve their explicit report
+  -- type while deriving a safe default for the old path.
+  resolved_report_type := case
+    when legacy_insert and new.category in ('road_block','crowding','fire','explosion','theft','harassment','violence','conflict') then 'incident'
+    when legacy_insert then 'persistent_condition'
+    else coalesce(new.report_type, case when new.category in ('road_block','crowding','fire','explosion','theft','harassment','violence','conflict') then 'incident' else 'persistent_condition' end)
+  end;
+  new.report_type := resolved_report_type;
+  resolved_observed_at := case when resolved_report_type = 'incident' then coalesce(new.observed_at, pg_catalog.now()) else new.observed_at end;
+  if resolved_observed_at is not null and resolved_observed_at > pg_catalog.now() + interval '5 minutes' then
+    raise exception 'observed_at cannot be materially in the future';
+  end if;
+  new.observed_at := resolved_observed_at;
+  new.expires_at := case
+    when resolved_report_type <> 'incident' then null
+    when new.category = 'road_block' then coalesce(resolved_observed_at, pg_catalog.now()) + interval '12 hours'
+    when new.category in ('fire','explosion','conflict') then coalesce(resolved_observed_at, pg_catalog.now()) + interval '24 hours'
+    when new.category = 'crowding' then coalesce(resolved_observed_at, pg_catalog.now()) + interval '6 hours'
+    when new.category in ('theft','harassment') then coalesce(resolved_observed_at, pg_catalog.now()) + interval '30 days'
+    when new.category = 'violence' then coalesce(resolved_observed_at, pg_catalog.now()) + interval '7 days'
+    else null
+  end;
+  if resolved_precision > 0 then
+    new.lat := pg_catalog.round(new.lat / (resolved_precision / 110540.0)) * (resolved_precision / 110540.0);
+    new.lng := pg_catalog.round(new.lng / (resolved_precision / (111320.0 * pg_catalog.greatest(pg_catalog.abs(pg_catalog.cos(pg_catalog.radians(new.lat))), 0.01)))) * (resolved_precision / (111320.0 * pg_catalog.greatest(pg_catalog.abs(pg_catalog.cos(pg_catalog.radians(new.lat))), 0.01)));
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.normalize_knowledge_public_write() from public, anon, authenticated;
+drop trigger if exists knowledge_normalize_public_write on public.knowledge;
+create trigger knowledge_normalize_public_write
+  before insert or update on public.knowledge
+  for each row execute function public.normalize_knowledge_public_write();
+
 -- This is a minimum database-side guard. The client has a richer localized
 -- guard, but the trusted RPC repeats the check so a hand-written RPC caller
 -- cannot bypass the publish boundary.
@@ -273,9 +370,15 @@ $$;
 revoke all on function public.create_knowledge(text, double precision, double precision, text, text, text, text, timestamptz) from public, anon, authenticated;
 grant execute on function public.create_knowledge(text, double precision, double precision, text, text, text, text, timestamptz) to authenticated;
 
--- Phase 8 temporarily granted authenticated INSERT on domain columns. Phase
--- 10 closes that path so the RPC is the only authenticated write boundary.
+-- TEMPORARY LEGACY INSERT COMPATIBILITY WINDOW
+-- Phase 8 temporarily granted authenticated INSERT on domain columns. Keep
+-- those six columns during expand so an old client is not cut off before the
+-- new app is deployed; the BEFORE trigger above is the safety boundary. The
+-- post-deploy contract in docs/sql/POST_DEPLOY_RPC_ONLY_KNOWLEDGE_WRITE.sql
+-- revokes this grant after the new RPC path is proven in production.
 revoke insert, update, delete on table public.knowledge from anon, authenticated;
+grant insert (category, lat, lng, condition, description, confidence)
+  on table public.knowledge to authenticated;
 
 drop function if exists public.update_knowledge(uuid, text, double precision, double precision, text, text, text, boolean);
 
@@ -413,6 +516,7 @@ comment on column public.knowledge.source_kind is 'Trusted source label. Browser
 comment on column public.knowledge.location_precision_m is 'Approximate precision applied before storing sensitive community coordinates.';
 comment on function public.create_knowledge(text, double precision, double precision, text, text, text, text, timestamptz) is 'Authenticated-only community observation write boundary. Derives ownership, source, privacy precision, counters, timestamps, and expiry.';
 comment on function public.update_knowledge(uuid, text, double precision, double precision, text, text, text, boolean, text, timestamptz) is 'Owner-only observation update. Reapplies geoprivacy and resets verification only with explicit confirmation.';
+comment on function public.normalize_knowledge_public_write() is 'Expand-phase trigger boundary. Sanitizes legacy direct inserts and RPC writes before a public Knowledge row is stored; not executable by browser roles.';
 
 -- Realtime remains limited to public Knowledge rows. No new table or channel
 -- is introduced for observations; the existing adapter refetches Knowledge.

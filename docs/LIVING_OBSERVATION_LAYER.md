@@ -12,12 +12,22 @@ The MAP screen keeps a visible one-line composer:
 - JA: この場所で何がありましたか？
 - EN: What's happening here?
 
-The user writes one sentence and presses Enter or Send. The local
+The user writes one sentence and presses Enter or Send to open a review
+preview; saving requires an explicit Post action. The preview shows the
+derived category, time, safe public summary, and whether the location will be
+coarsened. Sensitive previews warn that raw text is not published. The local
 RuleBasedObservationInterpreter deterministically extracts a category, report
 type, condition, confidence, and incident observation time. Ambiguous text
 becomes other; no external LLM or paid AI API is required. Advanced mode shows
 the derived fields and the existing five-step form remains available for
 correction and owner edits.
+
+Simple mode leads with Around You Now, the one-line composer, and My Reports.
+Around You Now calls the same TownRepository `queryArea` path as the rest of
+the app. My Reports exposes only `can_edit === true` rows, with safe public
+descriptions, relative times, active/expired state, community status, and
+owner actions. Voice input is progressive enhancement: when supported it
+fills the composer and never submits automatically.
 
 The location shown by the composer is explicit and visible. Priority is:
 
@@ -116,14 +126,21 @@ cannot start rain, fire, or another simulation effect.
 ## Trusted write boundary
 
 Both the Human UI and WebMCP call the same TownRepository methods. Shared mode
-calls the authenticated-only create_knowledge RPC; direct browser
-INSERT/UPDATE/DELETE privileges are revoked by the Phase 10 migration draft.
-The RPC derives ownership via the existing owner trigger, fixes the source to
-community, validates the observation time, applies coordinate coarsening,
-normalizes sensitive public descriptions, creates timestamps, initializes
-counters, and derives incident expiry. The extended owner-only update RPC
-re-derives the default report type when the category changes, reapplies
-metadata and geoprivacy, and resets votes when a meaningful edit is confirmed.
+calls the authenticated-only create_knowledge RPC. During expand, the Phase 8
+legacy six-column INSERT grant remains only for a short
+`TEMPORARY LEGACY INSERT COMPATIBILITY WINDOW`; a SECURITY DEFINER
+normalization trigger rejects unauthenticated/PII/tactical text, writes safe
+summaries, coarsens sensitive coordinates, and derives observation metadata.
+Direct UPDATE/DELETE remain denied. The final RPC-only contract is kept in
+`docs/sql/POST_DEPLOY_RPC_ONLY_KNOWLEDGE_WRITE.sql` and is intentionally
+separate from migrations so it can be applied only after the new app and
+shared browser gate are proven. The RPC derives ownership via the existing
+owner trigger, fixes the source to community, validates the observation time,
+applies coordinate coarsening, normalizes sensitive public descriptions,
+creates timestamps, initializes counters, and derives incident expiry. The
+extended owner-only update RPC re-derives the default report type when the
+category changes, reapplies metadata and geoprivacy, and resets votes when a
+meaningful edit is confirmed.
 
 The migration is intentionally a draft. It has not been applied to Supabase,
 and the pgTAP file has not been executed.
@@ -159,3 +176,8 @@ rate limiting, delayed/aggregated conflict publication, historical search,
 retention/deletion operations, official ingestion, and operational conflict
 intelligence remain out of scope. Phase 10 local quality checks do not prove
 Supabase migration safety, production deployment, or Native WebMCP behavior.
+
+Photo upload is intentionally out of scope for Phase 10.2. Faces, license
+plates, EXIF location, moderation/redaction, retention, Storage permissions,
+cost, and abuse controls would need a separate safety design before media is
+accepted.

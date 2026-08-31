@@ -8,6 +8,7 @@ import {
   getKnowledgeVisualConfig,
   getKnowledgeVisualState,
   getKnowledgeVisualView,
+  getKnowledgeSafeDescription,
   isKnowledgeSelectionVisible,
   KNOWLEDGE_VISUAL_REGISTRY,
   matchesKnowledgeTime,
@@ -65,6 +66,14 @@ describe('knowledge visual registry', () => {
     expect(config.visualType).toBe('safe_zone')
     expect(config.severityStyle).toContain('positive')
     expect(config.routeImpactStyle).toContain('green')
+  })
+
+  it('masks potentially sensitive text even when a row is classified as other', () => {
+    expect(getKnowledgeSafeDescription({
+      ...knowledge('k-flood-crosswalk'),
+      category: 'other',
+      description: 'Someone groped me near the station.',
+    }, 'en')).toBe('A community report mentions a sensitive safety concern nearby.')
   })
 })
 

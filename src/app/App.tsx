@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { MapExperience } from '../map/MapExperience'
 import { KnowledgeContributionForm } from '../map/KnowledgeContributionForm'
 import { ObservationComposer } from '../map/ObservationComposer'
+import { AroundYouNow } from '../map/AroundYouNow'
+import { MyReportsPanel } from '../map/MyReportsPanel'
 import { Replay3D } from '../map/Replay3D'
 import { ReplayKnowledgePanel } from '../map/ReplayKnowledgePanel'
 import { townRepository } from '../data/townRepository'
@@ -54,7 +56,7 @@ function AppShell() {
   const { locale, mode, setLocale, setMode } = useUiPreferences()
   const t = useTranslator(locale)
   const phaseMeta = useMemo(() => getPhaseMeta(t), [t])
-  const [panel, setPanel] = useState<Phase | 'admin'>('map')
+  const [panel, setPanel] = useState<Phase | 'reports' | 'admin'>('map')
   const [selectedHouseholdId, setSelectedHouseholdId] = useState('h-wheelchair')
   const [selectedKnowledgeId, setSelectedKnowledgeId] = useState<string>()
   const [lastKnowledgeId, setLastKnowledgeId] = useState<string | undefined>()
@@ -129,9 +131,9 @@ function AppShell() {
     if (firstHousehold) setSelectedHouseholdId(firstHousehold.id)
   }, [selectedHousehold, snapshot.households])
 
-  const transitionTo = useCallback((nextPanel: Phase | 'admin') => {
+  const transitionTo = useCallback((nextPanel: Phase | 'reports' | 'admin') => {
     setPanel(nextPanel)
-    if (nextPanel !== 'admin') selectPhase(nextPanel)
+    if (nextPanel !== 'admin' && nextPanel !== 'reports') selectPhase(nextPanel)
   }, [selectPhase])
 
   const selectPhaseFromAdmin = useCallback((nextPhase: Phase) => {
@@ -282,6 +284,15 @@ function AppShell() {
     }
   }
 
+  const editKnowledge = (knowledge: Knowledge) => {
+    setPanel('map')
+    selectPhase('map')
+    setEditingKnowledge(knowledge)
+    setEditingLocation({ lat: knowledge.lat, lng: knowledge.lng })
+    setContributionLocation(undefined)
+    setObservationComposerOpen(false)
+  }
+
   const resetDemo = async () => {
     try {
       await townRepository.resetDemo()
@@ -345,28 +356,36 @@ function AppShell() {
               </button>
             )
           })}
+          <button type="button" className={`phase-tab phase-tab--reports${panel === 'reports' ? ' phase-tab--active' : ''}`} onClick={() => transitionTo('reports')} aria-current={panel === 'reports' ? 'page' : undefined}>
+            <span className="phase-tab__index">04</span>
+            <span className="phase-tab__copy"><strong>{t('nav.myReports')}</strong><small>{t('nav.myReportsHint')}</small></span>
+            {mode === 'advanced' && <span className="phase-tab__code">MINE</span>}
+          </button>
         </nav>
 
         {notice && <div className="notice" role="status"><span className="notice__signal">↗</span><span>{notice}</span><button onClick={() => setNotice(undefined)} aria-label={t('notice.close')}>×</button></div>}
 
-        <div className="main-grid">
+        <div className={`main-grid${mode === 'simple' ? ' main-grid--simple' : ''}`}>
           <section className="map-column">
-            {panel === 'map' && observationComposerOpen && <ObservationComposer locale={locale} mode={mode} location={observationMapLocation ?? observationCurrentLocation ?? { lat: mapCamera.lat, lng: mapCamera.lng }} locationSource={observationMapLocation ? 'map' : observationCurrentLocation ? 'current' : observationLocationSource} onRequestLocationChange={() => { setObservationMapLocation(undefined); setObservationLocationSource(observationCurrentLocation ? 'current' : 'center'); setLocationPickerActive(true) }} onSubmit={submitKnowledge} lastPostedKnowledgeId={lastKnowledgeId} onUndo={() => void undoLastObservation()} />}
-            <MapExperience snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} dimension={mapDimension} camera={mapCamera} onDimensionChange={setMapDimension} onCameraChange={setMapCamera} onNotice={setNotice} weatherMode={weatherVisualMode} onWeatherModeChange={setWeatherVisualMode} locationPickerActive={locationPickerActive} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onRequestContribution={(location, source = 'map') => { if (source === 'current') setObservationCurrentLocation(location); if (source === 'map') setObservationMapLocation(location); setObservationLocationSource(source); setObservationComposerOpen(true) }} onLocationPicked={(location) => { setLocationPickerActive(false); if (editingKnowledge) setEditingLocation(location); else setObservationMapLocation(location); setObservationLocationSource('map'); setObservationComposerOpen(true); setNotice(t('notice.locationSelected')) }} onEditKnowledge={(knowledge) => { setEditingKnowledge(knowledge); setEditingLocation({ lat: knowledge.lat, lng: knowledge.lng }); setContributionLocation(undefined); setObservationComposerOpen(false) }} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />
-            {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
-            {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
-            {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} onView3D={open3D} />}
-            {panel === 'admin' && <AdminStage registry={registry} phase={phase} phaseMeta={phaseMeta} locale={locale} mode={mode} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} repositoryStatus={repositoryStatus} onRetry={() => { void townRepository.retry().catch((error) => setNotice(error instanceof Error ? error.message : (locale === 'ja' ? 'Supabaseの再接続に失敗しました。' : 'Supabase reconnect failed.'))) }} onFallbackToLocal={switchToLocalDemo} />}
+            {panel === 'reports' ? <MyReportsPanel knowledge={snapshot.knowledge} locale={locale} onEdit={editKnowledge} onDelete={(knowledge) => void deleteKnowledge(knowledge)} onPost={() => { transitionTo('map'); setObservationComposerOpen(true) }} /> : <>
+              {panel === 'map' && mode === 'simple' && <AroundYouNow repository={townRepository} camera={mapCamera} locale={locale} mode={mode} refreshKey={snapshot.knowledge.map((item) => `${item.id}:${item.updated_at ?? item.created_at}:${item.agree_count}:${item.disagree_count}`).join('|')} onSelectKnowledge={(knowledgeId) => { setSelectedKnowledgeId(knowledgeId); transitionTo('map') }} />}
+              {panel === 'map' && observationComposerOpen && <ObservationComposer locale={locale} mode={mode} location={observationMapLocation ?? observationCurrentLocation ?? { lat: mapCamera.lat, lng: mapCamera.lng }} locationSource={observationMapLocation ? 'map' : observationCurrentLocation ? 'current' : observationLocationSource} onRequestLocationChange={() => { setObservationMapLocation(undefined); setObservationLocationSource(observationCurrentLocation ? 'current' : 'center'); setLocationPickerActive(true) }} onSubmit={submitKnowledge} lastPostedKnowledgeId={lastKnowledgeId} onUndo={() => void undoLastObservation()} />}
+              <MapExperience snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} dimension={mapDimension} camera={mapCamera} onDimensionChange={setMapDimension} onCameraChange={setMapCamera} onNotice={setNotice} weatherMode={weatherVisualMode} onWeatherModeChange={setWeatherVisualMode} locationPickerActive={locationPickerActive} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onRequestContribution={(location, source = 'map') => { if (source === 'current') setObservationCurrentLocation(location); if (source === 'map') setObservationMapLocation(location); setObservationLocationSource(source); setObservationComposerOpen(true) }} onLocationPicked={(location) => { setLocationPickerActive(false); if (editingKnowledge) setEditingLocation(location); else setObservationMapLocation(location); setObservationLocationSource('map'); setObservationComposerOpen(true); setNotice(t('notice.locationSelected')) }} onEditKnowledge={editKnowledge} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />
+              {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
+              {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
+              {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} onView3D={open3D} />}
+              {panel === 'admin' && <AdminStage registry={registry} phase={phase} phaseMeta={phaseMeta} locale={locale} mode={mode} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} repositoryStatus={repositoryStatus} onRetry={() => { void townRepository.retry().catch((error) => setNotice(error instanceof Error ? error.message : (locale === 'ja' ? 'Supabaseの再接続に失敗しました。' : 'Supabase reconnect failed.'))) }} onFallbackToLocal={switchToLocalDemo} />}
+            </>}
           </section>
 
-          <aside className="inspector-column">
+          {mode === 'advanced' && <aside className="inspector-column">
             <ToolSurface phase={phase} locale={locale} mode={mode} nativeAvailable={registry.nativeAvailable} nativeRegistered={registry.nativeRegistered} />
             <ActivityLog events={snapshot.events} locale={locale} mode={mode} />
             <div className="inspector-note">
               <span className="inspector-note__icon">⌁</span>
-              <div><strong>{t('privacy.title')}</strong><p>{t(mode === 'simple' ? 'privacy.simpleBody' : 'privacy.body')}</p></div>
+              <div><strong>{t('privacy.title')}</strong><p>{t('privacy.body')}</p></div>
             </div>
-          </aside>
+          </aside>}
         </div>
       </main>
 

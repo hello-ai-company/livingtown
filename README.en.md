@@ -30,7 +30,7 @@ The static output is written to `dist/`. The primary verified free public produc
 
 The full English runbook is [docs/DEMO_SCRIPT.en.md](./docs/DEMO_SCRIPT.en.md). The core sequence is:
 
-1. Confirm the five MAP tools (`contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, and `verify_knowledge`), then tap the map and use the five-step form to report a rainy crosswalk.
+1. Confirm the five MAP tools (`contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, and `verify_knowledge`), then use the Simple one-line composer to report a rainy crosswalk and explicitly Post from the review preview. Advanced mode still provides the five-step correction form.
 2. Use `verify_knowledge` twice with the local demo's pseudonymous fixtures.
 3. Use `get_evacuation_route` for the wheelchair household under flood/rain conditions.
 4. Explain the actual avoided graph edges through `avoided[].reason` and `avoided[].edge_ids`.
@@ -91,7 +91,7 @@ npm run seed
 git diff --check
 ```
 
-The current Phase 10 local gate passes with 21 test files and 133 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
+The current Phase 10.2 local gate passes with 23 test files and 147 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
 
 ## Challenge submission readiness
 
@@ -113,10 +113,12 @@ The status and exact evidence requirements are tracked in [docs/SUBMISSION_CHECK
 
 ## Phase 10: Living Observation Layer
 
-The MAP screen now keeps a one-line composer visible: “What's happening here?” (JA: “この場所で何がありましたか？”). A user can press Enter or Send after writing one short sentence. A deterministic rule-based interpreter derives category, persistent condition or incident, condition, confidence, and incident observation time. No external LLM or new paid AI API is required. The location priority is explicit map selection, the last explicitly obtained current location, then map center; geolocation is never requested automatically.
+The MAP screen now keeps a one-line composer visible: “What's happening here?” (JA: “この場所で何がありましたか？”). Enter or Send opens a review preview; an explicit Post action is required. The preview shows the derived category, time, safe public summary, and coarse-location warning for sensitive reports. Simple mode leads with Around You Now, the one-line composer, and My Reports; My Reports exposes only rows the current user can edit. Supported browsers may add speech recognition to the text field, but voice input never posts automatically. A deterministic rule-based interpreter derives category, persistent condition or incident, condition, confidence, and incident observation time. No external LLM or new paid AI API is required. The location priority is explicit map selection, the last explicitly obtained current location, then map center; geolocation is never requested automatically.
 
 The implementation reuses the existing Knowledge verification, ownership, Realtime, route, WebMCP, MapLibre, and Navara paths. Reports remain Community report until the net verification score reaches two, then show 2 community confirmations; neither state is Official information, and the UI carries a Not official confirmation disclaimer. Theft and harassment are never allowed to alter evacuation routes. Sensitive categories store safe public summaries, suspicious unclassified text takes a coarse fallback, relative times such as yesterday / last night are interpreted, and third-person incidents are conservatively marked heard. Violence and conflict use cautious non-accusatory wording, conflict is map-only at regional precision with a neutral marker, and precise military/tactical details are blocked. General flood, barrier, and accessibility points remain usable.
 
 The MAP WebMCP surface remains exactly five tools: contribute_knowledge, delete_knowledge, query_area, update_knowledge, and verify_knowledge. There is no report_observation tool. The existing contribute contract remains valid while the category enum and optional report_type / observed_at fields are extended. See [the Phase 10 design](./docs/LIVING_OBSERVATION_LAYER.md) and [local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) for the full safety and gate status.
 
 The Phase 10 Supabase migration and pgTAP file are review-only drafts and have not been applied or executed. This feature branch is not deployed to Netlify, and the Phase 10 Native WebMCP gate is explicitly not run.
+
+Photo upload is intentionally out of scope for Phase 10.2. Faces, license plates, EXIF location, moderation/redaction, retention, Storage permissions, cost, and bot/abuse controls require a separate safety design before media is accepted.

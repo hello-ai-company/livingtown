@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { DEMO_HOUSEHOLDS, DEMO_KNOWLEDGE } from '../data/demoData'
 import { calculateEvacuationRoute } from '../sim/route'
-import { createAvoidedEdgeFeatureCollection, createBottleneckFeatureCollection, createHouseholdFeatureCollection, createKnowledgeFeatureCollection, createRouteFeatureCollection } from './mapGeoJson'
+import { createAvoidedEdgeFeatureCollection, createBottleneckFeatureCollection, createHouseholdFeatureCollection, createKnowledgeFeatureCollection, createRouteFeatureCollection, KNOWLEDGE_CLUSTER_SOURCE_OPTIONS } from './mapGeoJson'
 import { deriveKnowledgeVisuals } from './knowledgeVisuals'
 
 describe('MapLibre GeoJSON projection', () => {
+  it('keeps aggregation native to the MapLibre GeoJSON source', () => {
+    expect(KNOWLEDGE_CLUSTER_SOURCE_OPTIONS).toEqual({ cluster: true, clusterMaxZoom: 14, clusterRadius: 48, clusterMinPoints: 2 })
+  })
+
   it('projects visible knowledge and selection state without private fields', () => {
     const views = deriveKnowledgeVisuals(DEMO_KNOWLEDGE, undefined)
     const collection = createKnowledgeFeatureCollection(views, 'k-flood-crosswalk', (category) => category)
