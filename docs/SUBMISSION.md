@@ -10,7 +10,7 @@ under-three-minute video exists.
 - **Tagline:** Turn neighborhood memory into verifiable evacuation routes with WebMCP.
 - **Built with:** React, TypeScript, Vite, WebMCP, Supabase
 - **Public repository:** https://github.com/hello-ai-company/livingtown
-- **Live URL:** [TODO — verified public HTTPS deployment]
+- **Live URL:** https://hello-ai-company.github.io/livingtown/
 - **Video URL:** [TODO — public YouTube video under 3 minutes with audio]
 
 ## What is LivingTown?
@@ -104,8 +104,8 @@ and [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./evidence/WEBMCP_NATIVE_GA
 
 ## Remaining external gates
 
-Before final submission, replace the live URL placeholder with a verified free
-public HTTPS deployment, run the native WebMCP gate on a supported Chrome
+Before final submission, run the native WebMCP gate on a supported Chrome
 surface, publish the required YouTube demo with audio, confirm the GitHub
-repository is public and shows the MIT license, and re-check the Devpost form.
+repository's judge-visible default branch shows the MIT license and readiness
+documentation, and re-check the Devpost form.
 This task deliberately does not publish a video or perform the final submit.

@@ -24,7 +24,7 @@ For a production build:
 npm run build
 ```
 
-The static output is written to `dist/`. The challenge requires a publicly reachable deployed URL; this repository does not claim a live deployment URL until one has been created and verified.
+The static output is written to `dist/`. A verified free public deployment is available at [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/). It currently runs the deterministic LOCAL_DEMO build; the URL still needs native WebMCP validation in a supported Chrome.
 
 ## Three-minute demo
 
@@ -88,12 +88,11 @@ The current local gate passes with 10 test files and 63 tests. GitHub Actions is
 
 ## Challenge submission readiness
 
-The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The remaining submission gates are external:
+The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The verified live URL is [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/). The remaining submission gates are external:
 
-- deploy and verify a public live URL in ChatGPT's in-app browser or Chrome with WebMCP enabled;
 - record a public YouTube demo under three minutes with audio covering the product and WebMCP use;
 - run the native WebMCP MAP → DRILL → REPLAY checks and save evidence; and
-- push the repository changes to the public GitHub repository before relying on them in the submission.
+- ensure the readiness documentation and license are on the repository's judge-visible default branch before relying on them in the submission.
 
 The status and exact evidence requirements are tracked in [docs/SUBMISSION_CHECKLIST.md](./docs/SUBMISSION_CHECKLIST.md).
 

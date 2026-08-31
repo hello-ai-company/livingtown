@@ -15,10 +15,10 @@ This checklist maps the repository to the official [Devpost rules](https://webmc
 
 ## Still required before final submission
 
-- **Live URL:** deploy `dist/` and verify the public URL in ChatGPT's in-app browser or Chrome with WebMCP enabled. No deployed URL is present in this repository yet.
+- **Live URL:** [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) is deployed from the static Vite build; HTTP 200 and asset delivery are verified. Native WebMCP validation on the URL remains required.
 - **Demo video:** publish a YouTube video under three minutes, with audio, showing the working product and how WebMCP is used. No video URL is present yet.
 - **Native WebMCP evidence:** run the MAP → DRILL → REPLAY checks on a supported native WebMCP browser. The connected ordinary Chrome run recorded in `docs/EVALUATION.md` is `SIMULATED`, not native evidence.
-- **Public repository state:** commit and push the license and English documentation so the linked GitHub repository contains them. Local files alone are not enough for judges.
+- **Public repository state:** the repository is public and the license/documentation are pushed on the readiness branch; merge or otherwise expose them on the judge-visible default branch before final submission.
 - **Devpost form:** complete the remaining participant and submission fields, including the live URL and video URL, before final submission.
 
 ## Pre-submit verification

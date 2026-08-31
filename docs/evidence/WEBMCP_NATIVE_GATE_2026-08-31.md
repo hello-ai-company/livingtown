@@ -27,12 +27,13 @@ The following native checks remain unverified:
 ## Required manual action
 
 On a supported Chrome installation, enable the current WebMCP testing flag,
-open the deployed HTTPS URL, and follow
+open https://hello-ai-company.github.io/livingtown/, and follow
 [docs/WEBMCP_REAL_DEVICE.md](../WEBMCP_REAL_DEVICE.md). Record the actual
 Chrome version, tested commit, native diagnostics, exact tool sets, phase
 transitions, and one successful native contribution before changing this file
 to a passing result.
 
-The current repository has no verified public live URL yet. A localhost URL,
-tunnel URL, ordinary Chrome UI success, or Vitest fake adapter is not a
-replacement for this gate.
+A verified public live URL now exists at
+https://hello-ai-company.github.io/livingtown/. A localhost URL, tunnel URL,
+ordinary Chrome UI success, or Vitest fake adapter is not a replacement for
+this gate.

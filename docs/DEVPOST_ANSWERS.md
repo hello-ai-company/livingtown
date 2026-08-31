@@ -1,8 +1,8 @@
 # Devpost Answer Sheet — The WebMCP Challenge
 
 Draft only. These answers are not a final submission. The video field remains
-blank by instruction, and the live URL remains a placeholder until a public
-deployment is actually verified.
+blank by instruction. The live URL below is a verified free GitHub Pages
+deployment, but native WebMCP validation is still pending.
 
 ## Project fields
 
@@ -13,7 +13,7 @@ deployment is actually verified.
 | Built with | React, TypeScript, Vite, WebMCP, Supabase |
 | Description | See [SUBMISSION.md](./SUBMISSION.md), English text below |
 | Public repository | https://github.com/hello-ai-company/livingtown |
-| Live URL | [TODO — verified public HTTPS deployment] |
+| Live URL | https://hello-ai-company.github.io/livingtown/ |
 | Video URL | *(blank — not available yet)* |
 
 ## Description for the English write-up
@@ -62,7 +62,7 @@ for this challenge.
 | 28251 | Organization | *(blank)* |
 | 28252 | Is this app new or existing? | New |
 | 28253 | If existing, explain | *(blank — app is new)* |
-| 28254 | Live URL | [TODO — verified public HTTPS URL; never localhost or a tunnel] |
+| 28254 | Live URL | https://hello-ai-company.github.io/livingtown/ |
 | 28255 | Testing instructions | Open the live URL in ChatGPT's in-app browser or WebMCP-enabled Chrome. Follow [README.en.md](../README.en.md) and [docs/DEMO_SCRIPT.en.md](./DEMO_SCRIPT.en.md). Native WebMCP evidence is required before final submission. |
 | 28256 | Public code repository | https://github.com/hello-ai-company/livingtown |
 | 28257 | Agent/client tested | Google Chrome with the SIMULATED fallback; native WebMCP real-device validation is pending. |
@@ -76,6 +76,6 @@ for this challenge.
 - Non-sensitive additional-info values can be saved once the form is open.
 - Country is user-provided but remains pending website confirmation before it
   is typed into the external form.
-- Live URL is not filled until a real public deployment is verified.
+- The verified live URL is filled; native WebMCP validation on that URL remains pending.
 - Video URL is intentionally blank.
 - No final Devpost submission is authorized by this document.
