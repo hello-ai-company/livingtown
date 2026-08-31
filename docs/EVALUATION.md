@@ -1,8 +1,8 @@
 # LivingTown 実装評価
 
 評価日: 2026-08-31
-対象: `chore/supabase-real-evidence`
-Base SHA: `df8850ef2aef1a74caa21504cf0edaa1d2d4c742`（PR #4 merge後のmain）
+対象: `chore/webmcp-submission-readiness`（PR #6 HEADを基準）
+Base SHA: `6c96f5e9af001798bca146dde6c866a1ec525567`（PR #6の証跡更新後）
 
 ## 判定ルール
 
@@ -53,7 +53,7 @@ Base SHA: `df8850ef2aef1a74caa21504cf0edaa1d2d4c742`（PR #4 merge後のmain）
 - WebMCPオブジェクトがない通常Node/Vitest環境でも、同じtool definitionをfake adapterで検証できる。
 - 2Dフォールバックでmap → drill → replayの縦切りが成立する。
 - `npm run seed` は外部APIなしで決定的なdemo dataを生成する。
-- 既存57 testsを維持し、Phase 6のtrust-boundary／Realtime testsを2件追加した。現在は9 files / 59 tests。
+- 既存テストを維持し、trust-boundary／Realtime testsを追加した。現在は10 files / 63 tests。
 
 ### Living Knowledge Visual World
 
@@ -72,7 +72,7 @@ Base SHA: `df8850ef2aef1a74caa21504cf0edaa1d2d4c742`（PR #4 merge後のmain）
 - `TownRepository`をUI／WebMCP／route engineとの共通境界にし、`LocalTownRepository`と`SupabaseTownRepository`を分離した。local demoの同期APIとLocalStorage consistencyは維持している。
 - `VITE_LIVINGTOWN_DATA_MODE=shared` とSupabase URL/keyが揃った場合だけshared adapterを選択し、設定不足時は `LOCAL_DEMO` と理由を管理ビューに表示する。
 - fake Supabase clientで、remote Knowledge／DB-derived counter、Verification tableをSELECTしない境界、server-derived verifier入力、owner_idのdomain漏洩防止、Knowledge Realtime callback、retry、failed writeのno-commitを確認した。
-- 初期4 migrationとfunction EXECUTE hardeningの実Livingtown projectへのapply、5 table、全table RLS、Knowledge-only Realtime、主要なbrowser privilege境界、Security Advisor再確認は [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) に記録した。Hosted DB Security GateはPASSである。一方、LOCAL_PGTAPとBrowser A/B/Cによるreal client検証は未実行であり、full end-to-end Supabase PASSとは扱わない。
+- 初期4 migrationとfunction EXECUTE hardeningの実Livingtown projectへのapply、5 table、全table RLS、Knowledge-only Realtime、主要なbrowser privilege境界、Security Advisor再確認は [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) に記録した。Hosted DB Security GateはPASSである。Browser A/B/Cのreal client相互作用も記録済みで、fresh anonymous browserのraw Verification SELECTはHTTP 403 DENIEDを再確認した。一方、LOCAL_PGTAP、A/B/C再実行、failure injectionは未実行であり、未確認範囲を隠してfull end-to-end PASSとは扱わない。
 
 ### Visual UX manual verification
 
@@ -95,14 +95,14 @@ Base SHA: `df8850ef2aef1a74caa21504cf0edaa1d2d4c742`（PR #4 merge後のmain）
 
 ### Supabase security design
 
-`20260830143556_verification_privacy_rls.sql`、`20260830143717_knowledge_counter_privileges.sql`、`20260830143808_shared_state_trust_boundary.sql` は、verification unique制約、RLS、Verification tableのbrowser SELECT/write禁止、anon roleのwrite禁止、Knowledge counterのcolumn privilege、counter初期化trigger、Auth-derived verifier、RPC-only private writes、Knowledge-only Realtimeを設計している。`20260830162803_function_execute_boundary.sql` はpublic schemaのdefault EXECUTE grantをhardeningし、内部helperをbrowser roleから隠し、authenticated向け公開RPCだけを残す。実DBでのapplyとSecurity Advisor再確認はPASSだが、pgTAPとBrowser A/B/Cは未実行である。実DBでの確認SQLと期待値は [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md) にある。
+`20260830143556_verification_privacy_rls.sql`、`20260830143717_knowledge_counter_privileges.sql`、`20260830143808_shared_state_trust_boundary.sql` は、verification unique制約、RLS、Verification tableのbrowser SELECT/write禁止、anon roleのwrite禁止、Knowledge counterのcolumn privilege、counter初期化trigger、Auth-derived verifier、RPC-only private writes、Knowledge-only Realtimeを設計している。`20260830162803_function_execute_boundary.sql` はpublic schemaのdefault EXECUTE grantをhardeningし、内部helperをbrowser roleから隠し、authenticated向け公開RPCだけを残す。実DBでのapplyとSecurity Advisor再確認はPASSで、記録済みBrowser A/B/C相互作用とfresh raw Verification SELECT DENIEDも [`docs/evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md`](./evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md) にある。pgTAP、A/B/C再実行、failure injectionは未実行である。実DBでの確認SQLと期待値は [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md) にある。
 
-初期4 migrationと `20260830162803_function_execute_boundary.sql` の実Livingtown projectへのapply、schema／RLS／基本権限／Knowledge-only Realtime、Security Advisor再確認は [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) のとおり確認済みで、`HOSTED_DB_SECURITY_GATE: PASS` とする。pgTAPはローカル環境のDocker／CLI不足で未実行、Browser A/B/Cは未実行であり、full end-to-end gateはまだ完了していない。
+初期4 migrationと `20260830162803_function_execute_boundary.sql` の実Livingtown projectへのapply、schema／RLS／基本権限／Knowledge-only Realtime、Security Advisor再確認は [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) のとおり確認済みで、`HOSTED_DB_SECURITY_GATE: PASS` とする。記録済みBrowser A/B/C相互作用とfresh browser raw Verification SELECT DENIEDは [`docs/evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md`](./evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md) にある。pgTAPはローカル環境のDocker／CLI不足で未実行、A/B/C再実行とfailure injectionも未実行であり、full end-to-end gateはまだ完了していない。
 
 ### GitHub Actions
 
 `CI_INFRA_BLOCKED`: PR #1の指定run `33295537735` はGitHub API上で `conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。Phase 4AのPR #2 run `33302362702` / job `99232743694` も、`conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。checkout／Node／npmのstep開始証跡がないため、いずれもコードのtest failureとは判定していない。
-Phase 6のPR #4 run `33310283020` / job `99253976986` も同じ状態（`conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found`）である。checkout／Node／npmのstep開始証跡がないため、今回もコードfailureとは判定せず `CI_INFRA_BLOCKED` と記録する。
+Phase 6のPR #4 run `33310283020` / job `99253976986` とPR #6のlatest run `33361713392` / job `99394196838` は同じ状態（`conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found`）である。checkout／Node／npmのstep開始証跡がないため、これらはコードfailureとは判定せず `CI_INFRA_BLOCKED` と記録する。対して、submission-readiness PR #7のlatest run `33362479378` / job `99396400590` は `conclusion=success` で、typecheck／test／buildのCI gateをPASSした。
 
 ## PENDING
 
@@ -111,7 +111,7 @@ Phase 6のPR #4 run `33310283020` / job `99253976986` も同じ状態（`conclus
 - community knowledge free textとknowledge座標に含まれ得るPIIの投稿防止、moderation、retention、削除、再識別リスク評価。
 - shared RPC内でauthenticated identityからopaque pseudonymous verifier idを発行する仕組みはコード化した。ただしanonymous AuthやWebMCP agentが複数identityを作る可能性があるため、Sybil resistance／distinct-human verificationは未達。
 - **共有環境で完全に匿名であること。** 認証主体、アクセスログ、バックアップ、削除、鍵管理、再識別評価を含む運用がないため、Privacyの匿名性はPASSにしない。
-- function EXECUTE hardening migrationの実適用、pgTAP、Security Advisor再確認、authenticated insert／anon denial／counter protection／duplicate verification、Browser A/B Realtime、temporary drill sessionの削除ジョブ。
+- pgTAP、A/B/Cの再実行、network failure injection、temporary drill sessionの削除ジョブ。function EXECUTE hardeningの実適用、Security Advisor再確認、authenticated insert／anon denial／counter protection／duplicate verification、記録済みBrowser A/B Realtimeは完了済みだが、運用上の再検証は別途必要。
 - Cesium／PLATEAUの本格実装と対象都市・tilesetの固定。
 
 ## Phase 6 quality gate
@@ -121,11 +121,11 @@ Phase 6のPR #4 run `33310283020` / job `99253976986` も同じ状態（`conclus
 | Command | Result |
 |---|---|
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 9 files / 59 tests（既存57件 + 追加2件） |
+| `npm test` | PASS — 10 files / 63 tests |
 | `npm run build` | PASS — Vite production build succeeded |
 | `npm run seed` | PASS — 6 nodes / 7 edges / 10 knowledge / 13 pseudonymous votes / 3 households |
 | `git diff --check` | PASS |
 
 ## 現時点の結論
 
-Phase 6は、Phase 5のvisual worldを維持したまま、local deterministic demoとSupabase shared stateをrepository boundaryで分離する。初期4 migrationの実DB applyは確認済みだが、function EXECUTE hardening、pgTAP、Security Advisor再確認、Browser A/B、実機WebMCP、共有環境で完全匿名の運用、moderation、Cesium／PLATEAUは未確認・未完了なので、LivingTown全体を最終PASSとは扱わない。
+Phase 6は、Phase 5のvisual worldを維持したまま、local deterministic demoとSupabase shared stateをrepository boundaryで分離する。初期4 migrationとfunction EXECUTE hardeningの実DB apply、Security Advisor再確認、記録済みBrowser A/B/C相互作用、fresh browser raw Verification SELECT DENIEDは確認済みだが、pgTAP、A/B/C再実行、failure injection、実機WebMCP、共有環境で完全匿名の運用、moderation、Cesium／PLATEAUは未確認・未完了なので、LivingTown全体を最終PASSとは扱わない。

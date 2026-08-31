@@ -1,5 +1,8 @@
 # LivingTown
 
+English submission and testing guide: [README.en.md](./README.en.md).
+License: MIT — see [LICENSE](./LICENSE).
+
 **近所の立ち話が、避難経路を変える。**
 
 LivingTownは、住民エージェントとの日常会話を検証可能な街の記憶へ変換し、訓練時には世帯の制約enumと組み合わせて説明可能な避難経路を返すWebMCP Challenge向けプロトタイプです。
@@ -93,7 +96,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 - `VITE_ENABLE_3D=1` と `VITE_PLATEAU_TILESET` を設定すると、Replayの3D境界を有効化します。未設定でも全編2Dで動作します。
 - `VITE_MAPLIBRE_STYLE_URL` を設定する場合は、MapLibre向けのスタイルURLと利用規約を確認してください。決定的なローカル地図はネットワーク障害時のフォールバックです。
-- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。初期4 migrationとfunction EXECUTE hardeningのLivingtown projectへの実apply、およびSecurity Advisor再確認は [`SUPABASE_REAL_DB_GATE_2026-08-30.md`](./docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) に記録しています。LOCAL_PGTAPとBrowser A/B/Cによるreal client検証は別のgateであり、未実行です。
+- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。初期4 migrationとfunction EXECUTE hardeningのLivingtown projectへの実apply、およびSecurity Advisor再確認は [`SUPABASE_REAL_DB_GATE_2026-08-30.md`](./docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) に記録しています。Browser A/B/Cの実クライアント相互作用は記録済みで、fresh anonymous browserのraw Verification SELECTはDENIEDを再確認済みです。LOCAL_PGTAP、A/B/Cの再実行、failure injectionは未実行です。詳細は [`SUPABASE_REAL_CLIENT_GATE_2026-08-31.md`](./docs/evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md) を参照してください。
 
 ## Repository contract
 

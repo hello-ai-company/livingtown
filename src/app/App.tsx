@@ -12,6 +12,7 @@ import { getKnowledgeVisualConfig } from '../map/knowledgeVisuals'
 import { createEvidenceBundle, createEvidenceSnapshot, diagnosticsModeMessage, type WebMcpEvidenceSnapshot } from '../webmcp/diagnostics'
 import type { RegistryStatus } from '../webmcp/register'
 import { getToolDefinitions } from '../webmcp/tools'
+import { resolveVerificationTargetId } from './verificationTarget'
 
 const CONDITION_LABEL: Record<Knowledge['condition'], string> = {
   always: 'いつも',
@@ -146,16 +147,20 @@ function AppShell() {
       description: '駅前の横断歩道は、強い雨の日に水が溜まって渡りにくい。',
       confidence: 'experienced',
     }) as { id: string } | undefined
-    if (result?.id) setLastKnowledgeId(result.id)
+    if (result?.id) {
+      setLastKnowledgeId(result.id)
+      setSelectedKnowledgeId(undefined)
+    }
   }
 
   const verifyLastKnowledge = async () => {
-    if (!lastKnowledgeId) return
-    const agreeCount = snapshot.verifications.filter((verification) => verification.knowledge_id === lastKnowledgeId && verification.verdict === 'agree').length
+    const targetKnowledgeId = resolveVerificationTargetId(selectedKnowledgeId, lastKnowledgeId)
+    if (!targetKnowledgeId) return
+    const agreeCount = snapshot.verifications.filter((verification) => verification.knowledge_id === targetKnowledgeId && verification.verdict === 'agree').length
     const verifierId = agreeCount === 0 ? 'anon-demo-neighbor-a' : 'anon-demo-neighbor-b'
     const input = townRepository.dataMode === 'SUPABASE_SHARED'
-      ? { knowledge_id: lastKnowledgeId, verdict: 'agree' as const }
-      : { knowledge_id: lastKnowledgeId, verifier_id: verifierId, verdict: 'agree' as const }
+      ? { knowledge_id: targetKnowledgeId, verdict: 'agree' as const }
+      : { knowledge_id: targetKnowledgeId, verifier_id: verifierId, verdict: 'agree' as const }
     const result = await runTool('verify_knowledge', input) as { verified?: boolean; duplicate?: boolean } | undefined
     if (result?.verified && !result.duplicate) setNotice('Community verified · 地図のvisualが検証済みに変わりました。')
   }
@@ -248,7 +253,7 @@ function AppShell() {
         <div className="main-grid">
           <section className="map-column">
             <Map2D snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} />
-            {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
+            {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
             {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
             {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} />}
             {panel === 'admin' && <AdminStage registry={registry} phase={phase} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} repositoryStatus={repositoryStatus} onRetry={() => { void townRepository.retry().catch((error) => setNotice(error instanceof Error ? error.message : 'Supabaseへの再接続に失敗しました。')) }} onFallbackToLocal={switchToLocalDemo} />}
@@ -277,8 +282,9 @@ export function App() {
   return <PhaseProvider store={townRepository}><AppShell /></PhaseProvider>
 }
 
-function MapStage({ snapshot, lastKnowledgeId, onContribute, onVerify, onDrill }: { snapshot: TownSnapshot; lastKnowledgeId?: string; onContribute: () => void; onVerify: () => void; onDrill: () => void }) {
-  const target = lastKnowledgeId ? snapshot.knowledge.find((item) => item.id === lastKnowledgeId) : snapshot.knowledge.find((item) => item.id === 'k-flood-crosswalk')
+function MapStage({ snapshot, lastKnowledgeId, selectedKnowledgeId, onContribute, onVerify, onDrill }: { snapshot: TownSnapshot; lastKnowledgeId?: string; selectedKnowledgeId?: string; onContribute: () => void; onVerify: () => void; onDrill: () => void }) {
+  const targetId = resolveVerificationTargetId(selectedKnowledgeId, lastKnowledgeId)
+  const target = targetId ? snapshot.knowledge.find((item) => item.id === targetId) : snapshot.knowledge.find((item) => item.id === 'k-flood-crosswalk')
   const targetVerified = target ? isKnowledgeVerified(target) : false
   return (
     <section className="stage-panel">
@@ -292,7 +298,7 @@ function MapStage({ snapshot, lastKnowledgeId, onContribute, onVerify, onDrill }
         <div className="demo-runbook__header"><span className="eyebrow">THE MONEY SHOT</span><span>3 steps / one living route</span></div>
         <div className="demo-steps">
           <div className={`demo-step${lastKnowledgeId ? ' demo-step--done' : ' demo-step--current'}`}><span className="demo-step__number">01</span><div><strong>雨天の知識を登録</strong><small>contribute_knowledge</small></div><button onClick={onContribute}>{lastKnowledgeId ? 'もう一度' : '登録する'} <span>↗</span></button></div>
-          <div className={`demo-step${targetVerified ? ' demo-step--done' : lastKnowledgeId ? ' demo-step--current' : ''}`}><span className="demo-step__number">02</span><div><strong>隣人が2票で追認</strong><small>verify_knowledge × 2</small></div><button onClick={onVerify} disabled={!lastKnowledgeId || targetVerified}>{targetVerified ? '検証済み' : '追認する'} <span>+1</span></button></div>
+          <div className={`demo-step${targetVerified ? ' demo-step--done' : targetId ? ' demo-step--current' : ''}`}><span className="demo-step__number">02</span><div><strong>隣人が2票で追認</strong><small>verify_knowledge × 2</small></div><button onClick={onVerify} disabled={!targetId || targetVerified}>{targetVerified ? '検証済み' : '追認する'} <span>+1</span></button></div>
           <div className={`demo-step${targetVerified ? ' demo-step--current' : ''}`}><span className="demo-step__number">03</span><div><strong>車椅子世帯の道が変わる</strong><small>get_evacuation_route</small></div><button onClick={onDrill} disabled={!targetVerified}>訓練を見る <span>→</span></button></div>
         </div>
       </div>
