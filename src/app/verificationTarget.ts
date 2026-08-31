@@ -1,8 +1,8 @@
 /**
- * The demo action can target either a locally contributed knowledge record or
- * a record selected from a shared repository. Keep the selection fallback
- * explicit so remote knowledge can be verified from another browser.
+ * The demo action can target either a record selected from a shared repository
+ * or a locally contributed knowledge record. An explicit selection wins; the
+ * local contribution is only the fallback used by the demo flow.
  */
-export function resolveVerificationTargetId(lastKnowledgeId?: string, selectedKnowledgeId?: string) {
-  return lastKnowledgeId ?? selectedKnowledgeId
+export function resolveVerificationTargetId(selectedKnowledgeId?: string, lastKnowledgeId?: string) {
+  return selectedKnowledgeId ?? lastKnowledgeId
 }

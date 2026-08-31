@@ -147,11 +147,14 @@ function AppShell() {
       description: '駅前の横断歩道は、強い雨の日に水が溜まって渡りにくい。',
       confidence: 'experienced',
     }) as { id: string } | undefined
-    if (result?.id) setLastKnowledgeId(result.id)
+    if (result?.id) {
+      setLastKnowledgeId(result.id)
+      setSelectedKnowledgeId(undefined)
+    }
   }
 
   const verifyLastKnowledge = async () => {
-    const targetKnowledgeId = resolveVerificationTargetId(lastKnowledgeId, selectedKnowledgeId)
+    const targetKnowledgeId = resolveVerificationTargetId(selectedKnowledgeId, lastKnowledgeId)
     if (!targetKnowledgeId) return
     const agreeCount = snapshot.verifications.filter((verification) => verification.knowledge_id === targetKnowledgeId && verification.verdict === 'agree').length
     const verifierId = agreeCount === 0 ? 'anon-demo-neighbor-a' : 'anon-demo-neighbor-b'
@@ -280,7 +283,7 @@ export function App() {
 }
 
 function MapStage({ snapshot, lastKnowledgeId, selectedKnowledgeId, onContribute, onVerify, onDrill }: { snapshot: TownSnapshot; lastKnowledgeId?: string; selectedKnowledgeId?: string; onContribute: () => void; onVerify: () => void; onDrill: () => void }) {
-  const targetId = resolveVerificationTargetId(lastKnowledgeId, selectedKnowledgeId)
+  const targetId = resolveVerificationTargetId(selectedKnowledgeId, lastKnowledgeId)
   const target = targetId ? snapshot.knowledge.find((item) => item.id === targetId) : snapshot.knowledge.find((item) => item.id === 'k-flood-crosswalk')
   const targetVerified = target ? isKnowledgeVerified(target) : false
   return (
