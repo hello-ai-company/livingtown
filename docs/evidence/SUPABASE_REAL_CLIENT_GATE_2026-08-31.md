@@ -109,20 +109,26 @@ no raw `verifier_id`, `verdict`, `comment`, or Verification records and that
 the RPC feedback does not expose a verifier identifier. The app uses Knowledge
 counters as the browser-visible derived state.
 
-The final evidence-only recheck was limited by the browser-session lifecycle:
-the original authenticated A/B/C tabs were no longer available in the
-automation context. No raw Auth identity, token, or storage value was read,
-and no replacement identity or extra vote was created. Accordingly, the
-following distinction is kept explicit:
+The original authenticated A/B/C tabs were no longer available in the
+automation context, so their identities and the A/B/C interaction sequence
+were not repeated. A separate fresh anonymous browser client was opened only
+for the raw Verification read boundary. Anonymous Auth succeeded, and the
+authenticated browser request `GET /rest/v1/verification?select=id&limit=1`
+returned HTTP `403` with PostgreSQL code `42501` (`permission denied for table
+verification`); no row was returned. No raw Auth identity, token, or storage
+value was read or stored, and no vote or other application data was created.
 
-- Authenticated browser raw Verification SELECT: **NOT RECONFIRMED** in this
-  pass; the hosted DB security audit result remains **DENIED**.
+The following distinction is kept explicit:
+
+- Authenticated browser raw Verification SELECT: **DENIED** (fresh anonymous
+  browser client, HTTP 403; no row returned).
 - RPC response `verifier_id`: **NOT EXPOSED**.
 - Shared snapshot raw Verification: **NOT EXPOSED**.
 - A != B != C: **CONFIRMED** in the recorded A/B/C run; current runtime
-  comparison was not repeated because those sessions were unavailable.
+  comparison was **NOT REPEATED**.
 
-This does not claim that the final browser-session recheck was executed.
+This is a read-boundary recheck only; it does not claim a new A/B/C vote or
+Realtime interaction sequence.
 
 ## Reproduced client issue and minimal fix
 
@@ -159,9 +165,9 @@ precedence, local fallback, and the empty-target case.
 mode, real anonymous identities, contribution, B Realtime receive, first
 vote, second identity threshold, automatic verification, duplicate
 protection, owner isolation, wheelchair route impact, explanation/edge
-linkage, and trailing-refresh convergence. The final raw Verification browser
-SELECT recheck was not repeated because the original sessions were
-unavailable.<br>
+linkage, and trailing-refresh convergence. The fresh raw Verification browser
+SELECT recheck is **DENIED** as required; the A/B/C interaction sequence was
+not repeated.<br>
 `REAL_SUPABASE_GATE: PASS` for the hosted DB + recorded real-browser scope.
-Local pgTAP, the final browser-session recheck, and network fault-injection
-remain separately unverified and are not hidden by this status.
+Local pgTAP, A/B/C re-execution, and network fault-injection remain separately
+unverified and are not hidden by this status.
