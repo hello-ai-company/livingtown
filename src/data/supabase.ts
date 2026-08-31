@@ -13,6 +13,8 @@ import type {
 import { calculateEvacuationRoute } from '../sim/route'
 import type {
   ContributeKnowledgeInput,
+  DeleteKnowledgeInput,
+  DeleteKnowledgeResult,
   EvacuationRouteInput,
   QueryAreaInput,
   RegisterHouseholdInput,
@@ -21,10 +23,14 @@ import type {
   RepositoryCallOptions,
   StoreListener,
   TownRepository,
+  UpdateKnowledgeInput,
+  UpdateKnowledgeResult,
   VerifyKnowledgeInput,
 } from './repository'
 export type {
   ContributeKnowledgeInput,
+  DeleteKnowledgeInput,
+  DeleteKnowledgeResult,
   EvacuationRouteInput,
   QueryAreaInput,
   RegisterHouseholdInput,
@@ -32,11 +38,12 @@ export type {
   ReportBottleneckInput,
   RepositoryCallOptions,
   StoreListener,
+  UpdateKnowledgeInput,
+  UpdateKnowledgeResult,
   VerifyKnowledgeInput,
 } from './repository'
 import type { RepositoryStatus } from './repository'
 import {
-  assertFiniteNumber,
   assertNoForbiddenHouseholdFields,
   assertPseudonymousVerifierId,
   isAllowedHouseholdConstraint,
@@ -44,7 +51,10 @@ import {
   isValidVerifierId,
   validateBottleneckInput,
   validateContributeKnowledgeInput,
+  validateDeleteKnowledgeInput,
+  validateQueryAreaInput,
   validateRegisterHouseholdInput,
+  validateUpdateKnowledgeInput,
   validateVerificationInput,
 } from './validation'
 export { HOUSEHOLD_FORBIDDEN_FIELDS } from './validation'
@@ -255,6 +265,8 @@ export class LocalTownRepository implements TownRepository {
       agree_count: 0,
       disagree_count: 0,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      can_edit: true,
     }
     this.withSnapshot((next) => next.knowledge.unshift(item))
     return item
@@ -294,6 +306,7 @@ export class LocalTownRepository implements TownRepository {
       next.verifications.push(verification)
       if (input.verdict === 'agree') item.agree_count += 1
       else item.disagree_count += 1
+      next.routes = {}
     })
     const updated = this.snapshot.knowledge.find((item) => item.id === input.knowledge_id)
     if (!updated) throw new Error('更新後の暗黙知が見つかりません。')
@@ -310,15 +323,57 @@ export class LocalTownRepository implements TownRepository {
   }
 
   queryArea(input: QueryAreaInput, _options?: RepositoryCallOptions) {
-    assertFiniteNumber('lat', input.lat)
-    assertFiniteNumber('lng', input.lng)
-    if (input.radius_m < 0 || input.radius_m > 2000) throw new Error('radius_m は0〜2000で指定してください。')
+    validateQueryAreaInput(input)
     const latScale = 110_540
     const lngScale = 111_320 * Math.cos((input.lat * Math.PI) / 180)
     return this.snapshot.knowledge.filter((item) => {
       const distance = Math.sqrt(((item.lat - input.lat) * latScale) ** 2 + ((item.lng - input.lng) * lngScale) ** 2)
       return distance <= input.radius_m && (!input.category || item.category === input.category) && (!input.condition || item.condition === input.condition)
     }).map((item) => ({ ...clone(item), verified: item.agree_count - item.disagree_count >= 2 }))
+  }
+
+  updateKnowledge(input: UpdateKnowledgeInput, _options?: RepositoryCallOptions): UpdateKnowledgeResult {
+    validateUpdateKnowledgeInput(input)
+    const current = this.snapshot.knowledge.find((item) => item.id === input.knowledge_id)
+    if (!current) throw new Error('指定された暗黙知が見つかりません。')
+    if (current.can_edit !== true) throw new Error('この暗黙知は現在の匿名セッションから編集できません。')
+    const hasVotes = current.agree_count + current.disagree_count > 0
+    if (hasVotes && input.confirm_reverification_reset !== true) {
+      throw new Error('この暗黙知には追認票があります。confirm_reverification_reset=trueで再検証リセットを確認してください。')
+    }
+    const updatedAt = new Date().toISOString()
+    const updated: Knowledge = {
+      ...current,
+      category: input.category,
+      lat: input.lat,
+      lng: input.lng,
+      condition: input.condition,
+      description: input.description.trim(),
+      confidence: input.confidence,
+      agree_count: hasVotes ? 0 : current.agree_count,
+      disagree_count: hasVotes ? 0 : current.disagree_count,
+      updated_at: updatedAt,
+      can_edit: true,
+    }
+    this.withSnapshot((next) => {
+      next.knowledge = next.knowledge.map((item) => item.id === input.knowledge_id ? updated : item)
+      if (hasVotes) next.verifications = next.verifications.filter((verification) => verification.knowledge_id !== input.knowledge_id)
+      next.routes = {}
+    })
+    return { ...updated, reverification_required: hasVotes, route_invalidated: true }
+  }
+
+  deleteKnowledge(input: DeleteKnowledgeInput, _options?: RepositoryCallOptions): DeleteKnowledgeResult {
+    validateDeleteKnowledgeInput(input)
+    const current = this.snapshot.knowledge.find((item) => item.id === input.knowledge_id)
+    if (!current) throw new Error('指定された暗黙知が見つかりません。')
+    if (current.can_edit !== true) throw new Error('この暗黙知は現在の匿名セッションから削除できません。')
+    this.withSnapshot((next) => {
+      next.knowledge = next.knowledge.filter((item) => item.id !== input.knowledge_id)
+      next.verifications = next.verifications.filter((verification) => verification.knowledge_id !== input.knowledge_id)
+      next.routes = {}
+    })
+    return { id: input.knowledge_id, deleted: true, route_invalidated: true }
   }
 
   registerHousehold(input: RegisterHouseholdInput, _options?: RepositoryCallOptions): Household {

@@ -27,6 +27,9 @@ export interface Knowledge {
   agree_count: number
   disagree_count: number
   created_at: string
+  updated_at?: string
+  /** Derived by the trusted repository boundary; never an owner id. */
+  can_edit?: boolean
 }
 
 export interface Household {

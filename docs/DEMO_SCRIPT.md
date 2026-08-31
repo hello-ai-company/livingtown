@@ -8,7 +8,7 @@
 4. ブラウザで表示し、右上の `管理ビュー` から `デモデータをリセット` を実行する。
 5. 実機確認をする場合は [WEBMCP_REAL_DEVICE.md](./WEBMCP_REAL_DEVICE.md) のflagとDiagnostics手順も準備する。
 
-既定の `LOCAL_DEMO` はこの3分デモ用です。複数ブラウザで共有を見せる場合は、[SUPABASE_SHARED_STATE.md](./SUPABASE_SHARED_STATE.md) のmigrationを実DBへ適用し、`VITE_LIVINGTOWN_DATA_MODE=shared`、`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`を設定して起動します。shared modeではデモリセットでremote dataを消せないため、使い捨てprojectまたはsessionを用意してください。
+既定の `LOCAL_DEMO` はこの3分デモ用です。表示はSimple／日本語が初期値で、右上からEnglishまたはAdvancedへ切り替えられます。複数ブラウザで共有を見せる場合は、Phase 8 draftを含む [SUPABASE_SHARED_STATE.md](./SUPABASE_SHARED_STATE.md) のmigrationを使い捨て実DBへ適用し、`VITE_LIVINGTOWN_DATA_MODE=shared`、`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`を設定して起動します。Phase 8 migrationはこのfeature branchでは未適用です。shared modeではデモリセットでremote dataを消せないため、使い捨てprojectまたはsessionを用意してください。
 
 実機WebMCPを検証できるChromeでは、開発者ツールで `document.modelContext.getTools()` を実行し、phaseごとの一覧を記録する。通常ブラウザではWebMCPがないため、画面の `SIMULATED` 表示とVitestのfake adapterを使う。この2つを混同して実機PASSとは言わない。
 
@@ -18,12 +18,12 @@
 
 ## 0:30 — 幕1：会話を地図にする
 
-1. `街の記憶` を表示し、右側の `map tools` が3本だけであることを見せる。
-2. 投稿の自由文には氏名・住所・電話番号・診断名などを含めないことを先に示す。「登録する」をクリックすると、`contribute_knowledge` がActivityに出て、該当座標へ水面／波紋のPENDING visualがsoft appearする。visualをクリックしてdetail cardの `未検証`、条件、確度、カウンタを見せる。
+1. `街の記憶` を表示し、右側のMAP toolが5本（`contribute_knowledge` / `delete_knowledge` / `query_area` / `update_knowledge` / `verify_knowledge`）であることを見せる。Simpleではtool名ではなく、利用者向けの操作名が表示される。
+2. 地図の `気づいたことを投稿` を押し、地図をタップする。投稿の自由文には氏名・住所・電話番号・診断名などを含めないことを先に示し、位置→カテゴリ→条件→確度→説明・確認の5段階を進める。説明は200文字以内で、個人情報を含めない確認が必須。保存すると`contribute_knowledge`がActivityに出て、該当座標へPENDING visualが現れる。visualをクリックしてdetail cardの `未検証`、条件、確度、カウンタを見せる。
 3. 同じカードの「追認する」を1回クリックする。LOCAL_DEMOではfixtureのpseudonymous identifierが使われ、shared modeでは入力schemaにverifier_idがなく、Auth identityからserver-sideでopaqueなpseudonymous identifierが導出される。visualはまだPENDINGのまま。
 4. もう1回クリックする。LOCAL_DEMOでは別fixtureを使う。shared modeでは同じAuth identityの再送はduplicateになり、threshold到達には別Auth identityが必要になる。2つのidentityでthresholdへ到達したら、短いtransitionと `Community verified` feedbackの後、visualがVERIFIEDへ変わる。
 5. 「同じknowledgeに同じidentity／identifierが投票しても、`knowledge_id + verifier_id` が一意なので二重加算されません。これはsame identifier duplicate preventionの仕組みで、pseudonymous identifierはdistinct humanやSybil耐性を保証せず、追認−反証が2以上になった時だけrouteに影響します」と説明する。
-6. LegendでPENDING／VERIFIED／AFFECTING current routeと、barrier／floodなどcategory別shapeを確認する。`Verified only` filterは表示だけを変え、domain dataを変更しない。
+6. LegendでPENDING／VERIFIED／AFFECTING current routeと、barrier／floodなどcategory別shapeを確認する。`Verified only` filterは表示だけを変え、domain dataを変更しない。Advancedでは自分の投稿だけに編集／削除ボタンが出ること、票がある更新では再検証確認が必要なことを示せる。
 
 ## 1:15 — 幕2：一つの知識が道を変える
 
@@ -47,7 +47,7 @@
 
 管理ビューに戻り、フェーズを `MAP → DRILL → REPLAY` と切り替える。
 
-- 右側のtool名が `3本 → 3本 → 2本` に変わる。
+- 右側のtool名が `5本 → 3本 → 2本` に変わる。
 - `WebMCP Diagnostics` では `Browser WebMCP available`、`NATIVE / SIMULATED`、`transition_id`、expected／actual LivingTown tools、external tools、exact surface match、`nativeRegistered`、`toolchangeCount`、`lastToolchangeAt`、phase AbortSignalを確認できる。
 - 対応実機では `document.modelContext.getTools()` の結果も同じphase集合になる。MAP、DRILL、REPLAYを確認したら `Evidence JSONを保存` で3phaseの証跡をまとめる。
 - 前phaseのtoolは登録解除用AbortSignalで解除され、実行中toolにはphase cancellation signalも伝搬される。`toolchange` 後に既知LivingTown tool集合が再照合される。

@@ -10,6 +10,8 @@ import type {
 } from '../sim/types'
 import type {
   ContributeKnowledgeInput,
+  DeleteKnowledgeInput,
+  DeleteKnowledgeResult,
   EvacuationRouteInput,
   QueryAreaInput,
   RegisterHouseholdInput,
@@ -19,20 +21,28 @@ import type {
   RepositoryStatus,
   StoreListener,
   TownRepository,
+  UpdateKnowledgeInput,
+  UpdateKnowledgeResult,
   VerificationResult,
   VerifyKnowledgeInput,
 } from './repository'
 import {
-  assertFiniteNumber,
   assertDemoAreaCoordinate,
+  assertJapanKnowledgeCoordinate,
   isAllowedHouseholdConstraint,
   isValidHouseholdLabel,
   validateBottleneckInput,
   validateContributeKnowledgeInput,
+  validateDeleteKnowledgeInput,
+  validateQueryAreaInput,
   validateRegisterHouseholdInput,
+  validateUpdateKnowledgeInput,
   validateVerificationInput,
 } from './validation'
 
+// Keep the public read path compatible with the pre-Phase-8 schema while the
+// ownership/CRUD migration is still a draft. `updated_at` is optional on the
+// domain type and is returned by the update RPC after the migration lands.
 const KNOWLEDGE_COLUMNS = 'id,category,lat,lng,condition,description,confidence,agree_count,disagree_count,created_at'
 const HOUSEHOLD_COLUMNS = 'id,label,constraints,start_lat,start_lng,location_scope,expires_at,created_at'
 const BOTTLENECK_COLUMNS = 'id,lat,lng,severity,description,household_id,created_at'
@@ -99,7 +109,7 @@ function requiredCounter(record: Record<string, unknown>, key: string) {
   return value
 }
 
-function mapKnowledgeRow(value: unknown): Knowledge {
+function mapKnowledgeRow(value: unknown, canEdit = false): Knowledge {
   const row = asRecord(value)
   if (!row) throw new Error('Supabase returned an invalid knowledge row.')
   const category = row.category
@@ -112,7 +122,7 @@ function mapKnowledgeRow(value: unknown): Knowledge {
   if (description.trim().length === 0 || description.length > 200) throw new Error('Supabase returned an invalid knowledge description.')
   const lat = requiredFiniteNumber(row, 'lat')
   const lng = requiredFiniteNumber(row, 'lng')
-  assertDemoAreaCoordinate(lat, lng, 'Knowledgeの座標')
+  assertJapanKnowledgeCoordinate(lat, lng, 'Knowledgeの座標')
   return {
     id: requiredString(row, 'id'),
     category: category as Knowledge['category'],
@@ -124,6 +134,8 @@ function mapKnowledgeRow(value: unknown): Knowledge {
     agree_count: requiredCounter(row, 'agree_count'),
     disagree_count: requiredCounter(row, 'disagree_count'),
     created_at: requiredString(row, 'created_at'),
+    ...(typeof row.updated_at === 'string' ? { updated_at: row.updated_at } : {}),
+    can_edit: canEdit,
   }
 }
 
@@ -211,6 +223,7 @@ export class SupabaseTownRepository implements TownRepository {
   private refreshPromise?: Promise<void>
   private refreshPending = false
   private disposed = false
+  private ownedKnowledgeIds = new Set<string>()
 
   constructor(options: SupabaseTownRepositoryOptions) {
     this.client = options.client ?? createClient(options.url, options.anonKey)
@@ -299,9 +312,39 @@ export class SupabaseTownRepository implements TownRepository {
     return Array.isArray(data) ? data : []
   }
 
+  /**
+   * Ownership is intentionally reduced to an ID set at the repository
+   * boundary. The browser never receives or stores the private owner_id.
+   * Missing-function errors are treated as an empty set while the Phase 8
+   * migration is still a draft; this keeps public reads fail-closed.
+   */
+  private async loadOwnedKnowledgeIds(signal?: AbortSignal) {
+    if (!this.status.authenticated || typeof this.client.rpc !== 'function') return new Set<string>()
+    try {
+      const query = queryWithSignal(this.client.rpc('get_my_knowledge_ids', {}), signal)
+      const { data, error } = await query
+      if (error) return new Set<string>()
+      const rows = Array.isArray(data) ? data : data ? [data] : []
+      return new Set(rows.flatMap((row) => {
+        if (typeof row === 'string') return [row]
+        const record = asRecord(row)
+        if (!record) return []
+        if (typeof record.id === 'string') return [record.id]
+        if (typeof record.knowledge_id === 'string') return [record.knowledge_id]
+        return typeof record.get_my_knowledge_ids === 'string' ? [record.get_my_knowledge_ids] : []
+      }))
+    } catch {
+      return new Set<string>()
+    }
+  }
+
   private async loadRemoteState(signal?: AbortSignal) {
     const knowledgeRows = await this.selectRows('knowledge', KNOWLEDGE_COLUMNS, signal)
-    const knowledge = knowledgeRows.map(mapKnowledgeRow)
+    this.ownedKnowledgeIds = await this.loadOwnedKnowledgeIds(signal)
+    const knowledge = knowledgeRows.map((row) => {
+      const mapped = mapKnowledgeRow(row)
+      return { ...mapped, can_edit: this.ownedKnowledgeIds.has(mapped.id) }
+    })
 
     let households: Household[] = []
     let bottlenecks: Bottleneck[] = []
@@ -325,7 +368,10 @@ export class SupabaseTownRepository implements TownRepository {
       verifications: [],
       households,
       bottlenecks,
-      routes: recalculateRoutes({ ...this.snapshot, knowledge, verifications: [], households, bottlenecks }),
+      // A remote Knowledge INSERT/UPDATE/DELETE can invalidate a route that
+      // was calculated from the previous snapshot. Force an explicit
+      // recalculation instead of silently presenting stale guidance.
+      routes: {},
     }
     return next
   }
@@ -392,11 +438,14 @@ export class SupabaseTownRepository implements TownRepository {
     await this.closeRealtimeChannel()
     if (this.disposed) return
     this.setStatus({ realtime: 'CONNECTING' })
+    const refreshKnowledge = () => {
+      void this.refreshRemoteState().catch(() => undefined)
+    }
     this.channel = this.client
       .channel('livingtown-shared-state')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'knowledge' }, () => {
-        void this.refreshRemoteState().catch(() => undefined)
-      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'knowledge' }, refreshKnowledge)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'knowledge' }, refreshKnowledge)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'knowledge' }, refreshKnowledge)
       .subscribe((state: string) => {
         if (state === 'SUBSCRIBED') this.setStatus({ realtime: 'CONNECTED' })
         if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED') this.setStatus({ realtime: 'ERROR' })
@@ -460,6 +509,66 @@ export class SupabaseTownRepository implements TownRepository {
     }
   }
 
+  async updateKnowledge(input: UpdateKnowledgeInput, options: RepositoryCallOptions = {}): Promise<UpdateKnowledgeResult> {
+    validateUpdateKnowledgeInput(input)
+    throwIfAborted(options.signal)
+    try {
+      await this.ready
+      await this.ensureAuthenticated(true)
+      throwIfAborted(options.signal)
+      const query = queryWithSignal(this.client.rpc('update_knowledge', {
+        p_knowledge_id: input.knowledge_id,
+        p_category: input.category,
+        p_lat: input.lat,
+        p_lng: input.lng,
+        p_condition: input.condition,
+        p_description: input.description.trim(),
+        p_confidence: input.confidence,
+        p_confirm_reverification_reset: input.confirm_reverification_reset === true,
+      }), options.signal)
+      const { data, error } = await query
+      if (error) throw error
+      const rpcRecord = asRecord(Array.isArray(data) ? data[0] : data)
+      await this.refreshRemoteState(options.signal)
+      const row = Array.isArray(data) ? data[0] : data
+      const mapped = mapKnowledgeRow(row, true)
+      const current = this.snapshot.knowledge.find((item) => item.id === mapped.id)
+      return {
+        ...(current ?? mapped),
+        ...(mapped.updated_at ? { updated_at: mapped.updated_at } : {}),
+        can_edit: true,
+        reverification_required: rpcRecord?.reverification_required === true,
+        route_invalidated: true,
+      }
+    } catch (error) {
+      this.setRemoteFailure(error)
+      throw error
+    }
+  }
+
+  async deleteKnowledge(input: DeleteKnowledgeInput, options: RepositoryCallOptions = {}): Promise<DeleteKnowledgeResult> {
+    validateDeleteKnowledgeInput(input)
+    throwIfAborted(options.signal)
+    try {
+      await this.ready
+      await this.ensureAuthenticated(true)
+      const query = queryWithSignal(this.client.rpc('delete_knowledge', {
+        p_knowledge_id: input.knowledge_id,
+        p_confirm_delete: input.confirm_delete,
+      }), options.signal)
+      const { data, error } = await query
+      if (error) throw error
+      await this.refreshRemoteState(options.signal)
+      const row = Array.isArray(data) ? data[0] : data
+      const record = asRecord(row)
+      const id = typeof record?.id === 'string' ? record.id : input.knowledge_id
+      return { id, deleted: true, route_invalidated: true }
+    } catch (error) {
+      this.setRemoteFailure(error)
+      throw error
+    }
+  }
+
   async verifyKnowledge(input: VerifyKnowledgeInput, options: RepositoryCallOptions = {}): Promise<VerificationResult> {
     validateVerificationInput(input, false)
     throwIfAborted(options.signal)
@@ -497,9 +606,7 @@ export class SupabaseTownRepository implements TownRepository {
 
   async queryArea(input: QueryAreaInput, options: RepositoryCallOptions = {}) {
     throwIfAborted(options.signal)
-    assertFiniteNumber('lat', input.lat)
-    assertFiniteNumber('lng', input.lng)
-    if (input.radius_m < 0 || input.radius_m > 2000) throw new Error('radius_m は0〜2000で指定してください。')
+    validateQueryAreaInput(input)
     await this.ready
     throwIfAborted(options.signal)
     const latScale = 110_540

@@ -2,11 +2,13 @@
 
 この手順は、通常ブラウザの `SIMULATED` 表示やVitestのfake `modelContext`ではなく、対応Chromeの本物のWebMCP surfaceを確認するためのものです。実機で取得していない結果を `PASS` と記録しないでください。
 
+Phase 8では、公開Netlify URLを変更せず、feature branchの実装をローカルまたは新しいpreviewで確認します。既存の [`WEBMCP_NATIVE_GATE_2026-08-31.md`](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) はPhase 7の3本MAP surfaceに対する歴史的証跡なので、Phase 8の5本MAP surfaceの代わりにはなりません。新しい確認結果は [`WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md`](./evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md) に記録します。
+
 ## 0. 期待する結果
 
 | Phase | LivingTownのknown tools（この集合と完全一致） |
 |---|---|
-| MAP | `contribute_knowledge`, `verify_knowledge`, `query_area` |
+| MAP | `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge` |
 | DRILL | `register_household`, `get_evacuation_route`, `report_bottleneck` |
 | REPLAY | `control_replay`, `get_debrief_summary` |
 
@@ -57,10 +59,12 @@ npm run dev
 ## 4. MAPを確認する
 
 1. Diagnosticsのphase切替で **MAP** を選びます。
-2. `actual getTools() LivingTown tools` が次の3本だけであることを確認します。
+2. `actual getTools() LivingTown tools` が次の5本だけであることを確認します。
    - `contribute_knowledge`
-   - `verify_knowledge`
+   - `delete_knowledge`
    - `query_area`
+   - `update_knowledge`
+   - `verify_knowledge`
 3. 外部toolがあれば、`external tools` に分離されていることを確認します。
 4. `exact surface match: PASS` と `nativeRegistered: YES` を確認します。
 
@@ -72,7 +76,7 @@ npm run dev
    - `register_household`
    - `get_evacuation_route`
    - `report_bottleneck`
-4. MAPの `contribute_knowledge`、`verify_knowledge`、`query_area` が実surfaceから消えたことを、`getTools()`、WebMCP pane、またはModel Context Tool Inspector Extensionでも確認します。
+4. MAPの `contribute_knowledge`、`delete_knowledge`、`query_area`、`update_knowledge`、`verify_knowledge` が実surfaceから消えたことを、`getTools()`、WebMCP pane、またはModel Context Tool Inspector Extensionでも確認します。
 5. `toolchangeCount` と `lastToolchangeAt` が更新されていることを記録します。
 
 ## 6. REPLAYへ切り替える
@@ -129,6 +133,8 @@ MAP、DRILL、REPLAYへ切り替えるたびに、Available Toolsとschemaを確
 
 4. 実行が成功し、LivingTownのActivityに `contribute_knowledge` の結果が反映されることを確認します。
 5. phaseをDRILLへ切り替え、ExtensionからMAPのtoolが見つからなくなることを確認します。
+
+`update_knowledge` と `delete_knowledge` は破壊的な操作を含むため、実機gateでは使い捨てのKnowledgeと認証identityだけを使います。schemaに `confirm_reverification_reset` と `confirm_delete: true` があり、owner以外のIDを指定しても成功しないことを確認します。実DB migrationが未適用の環境では呼び出さず、`MIGRATION_NOT_APPLIED` と記録してください。
 
 ## 9. Consoleだけでの実行証跡
 

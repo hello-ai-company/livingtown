@@ -32,11 +32,19 @@ Supabase Auth identity
           │
           └─ RPC register_household / report_bottleneck
 
+Authenticated Knowledge INSERT
+          │
+          └─ owner trigger → private knowledge_owner → owned-ID RPC
+                                      │
+                                      └─ owner-only update/delete RPCs
+
 Knowledge rows + derived counters ──→ repository snapshot ──→ visual state + route engine + Replay
              Knowledge Realtime event ──────────────────────┘
 ```
 
 Knowledge is shared community-readable state. Verification is the DB-private source of truth for those counters; a shared browser never selects or receives raw `verifier_id`, `verdict`, `comment`, or `created_at` records. Shared clients receive Knowledge plus derived `agree_count` / `disagree_count` only. Household and bottleneck rows are owner-scoped private drill state. A route is recalculated locally from the current snapshot and the fixed graph; no external routing service is used.
+
+Phase 8 keeps `knowledge_owner` private from both `anon` and `authenticated` table access. `get_my_knowledge_ids()` returns only the current Auth identity's Knowledge IDs, which the repository converts to a boolean `can_edit` flag. The browser never receives raw `owner_id`; update and delete calls go through owner-only security-definer RPCs with explicit confirmation. A Knowledge update/delete or Realtime Knowledge event clears derived routes so the user must calculate a fresh route.
 
 ## Verification trust boundary
 
@@ -82,6 +90,7 @@ Apply migrations in filename order:
 3. `20260830143717_knowledge_counter_privileges.sql` — zero-counter insert trigger and knowledge column privileges.
 4. `20260830143808_shared_state_trust_boundary.sql` — owner scope, RPC-only private writes, server-derived verifier identity, Knowledge trust checks, and Knowledge-only Realtime publication membership.
 5. `20260830162803_function_execute_boundary.sql` — remove default browser-role EXECUTE grants from internal helpers and grant the three public RPCs to `authenticated` only. This hardening migration is applied to the Livingtown hosted project; its local filename follows the remote migration version.
+6. `20260831075455_real_map_knowledge_ownership_crud.sql` — **Phase 8 draft only**: Japan-wide Knowledge bounds, `updated_at`, private `knowledge_owner`, owned-ID RPC, owner-only update/delete RPCs, vote reset confirmation, and Knowledge-only Realtime invariants. Do not apply until the Phase 8 shared CRUD gate is approved.
 
 The initial four migrations use `if not exists`, named `drop policy if exists`, trigger replacement, and guarded publication changes where possible. `20260830143808_shared_state_trust_boundary.sql` revokes browser SELECT/INSERT/UPDATE/DELETE on Verification and drops the earlier authenticated read policy. If a deployed project already added Verification to `supabase_realtime`, its guarded block executes `ALTER PUBLICATION supabase_realtime DROP TABLE public.verification`; this changes publication exposure, not stored records. Do not edit an applied migration in a deployed project; apply `20260830162803_function_execute_boundary.sql` as a new migration.
 
@@ -91,6 +100,7 @@ The relevant permissions are:
 - `authenticated`: Knowledge read and insert of domain columns only; no counter column or Knowledge update/delete.
 - `authenticated`: no Verification table read or write; verification mutation through `submit_verification` RPC only. The RPC executes inside the trusted database function and returns aggregate result fields, not the verifier identity.
 - `authenticated`: Household and Bottleneck read only for the current owner; writes through owner-derived RPCs.
+- `authenticated`: no direct access to `knowledge_owner`; only `get_my_knowledge_ids()` and owner-only update/delete RPC execution after the Phase 8 migration is applied.
 - `service_role`: server-side operational role only; never expose it to a browser.
 
 Before calling the project ready, verify the actual deployed database. Useful checks in the SQL editor are:
@@ -133,7 +143,7 @@ Browser A / Browser B derived visual state
 
 It deliberately does not broadcast private Verification, household, or bottleneck rows. The migration adds Knowledge to `supabase_realtime` and removes Verification if a previous deployment had added it. Supabase documents Postgres Changes setup, publication membership, and RLS interaction in the [Postgres Changes guide](https://supabase.com/docs/guides/realtime/postgres-changes); for larger deployments, evaluate the documented Broadcast option.
 
-On a Knowledge event, counters are validated and existing route inputs are recalculated through the same deterministic engine. A failed refresh leaves the previous trusted snapshot in place and exposes `lastSyncError`. `retry()` performs a fresh read and re-establishes the channel when necessary.
+On a Knowledge event, counters are validated and derived routes are cleared rather than silently reused. The UI shows a localized stale-route notice and requires an explicit recalculation. A failed refresh leaves the previous trusted snapshot in place and exposes `lastSyncError`. `retry()` performs a fresh read and re-establishes the channel when necessary.
 
 ## Manual shared-mode verification
 
@@ -156,7 +166,7 @@ Use the authenticated ChatGPT Supabase MCP or safe read-only SQL/Advisor queries
 
 For the shared-mode manual flow, mark `SUPABASE_MANUAL_ACTION_REQUIRED` until the project owner records real application evidence.
 
-1. Apply the initial four migrations and `20260830162803_function_execute_boundary.sql` to a disposable Supabase project. The Livingtown hosted project already has all five migrations applied; do not reapply them for this evidence record.
+1. Apply the initial four migrations and `20260830162803_function_execute_boundary.sql` to a disposable Supabase project. The Livingtown hosted project already has all five baseline migrations applied; do not reapply them for this historical evidence record. Keep the Phase 8 draft unapplied until its separate gate is approved.
 2. Enable Anonymous Sign-Ins if the demo is to use the no-PII browser flow.
 3. Start two browser sessions with `VITE_LIVINGTOWN_DATA_MODE=shared` and the same project URL/key.
 4. Confirm `Data diagnostics` shows `SUPABASE_SHARED`, authenticated status, connected database, and Realtime status. Do not copy keys or raw identity values into evidence.
@@ -167,6 +177,8 @@ For the shared-mode manual flow, mark `SUPABASE_MANUAL_ACTION_REQUIRED` until th
 9. Register a temporary wheelchair household and calculate the route. Confirm the deterministic `avoided.reason`, `knowledge_id`, and edge IDs match the shared Knowledge.
 10. Stop Realtime or disconnect the network, confirm the last snapshot remains visible, the error is surfaced, and retry/refetch recovers without a false local success.
 
+For the Phase 8 CRUD gate, use two authenticated identities and a disposable project after applying migration `20260831075455_real_map_knowledge_ownership_crud.sql`. Confirm that each identity can edit/delete only its own Knowledge, that direct `knowledge_owner` SELECT/INSERT/UPDATE/DELETE is denied for both browser roles, that a vote-bearing update requires `confirm_reverification_reset`, and that update/delete clear routes. Record this as a new evidence file; do not overwrite the historical Phase 7/6 evidence.
+
 Record the project, migration revision, browser roles, UTC timestamps, and observed pass/fail result. Never record access tokens, keys, raw user IDs, or verifier IDs.
 
-The [`docs/evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md`](./evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md) file is a historical local-environment audit and remains unchanged as history. The initial four migrations and `20260830162803_function_execute_boundary.sql` were later applied to the `Livingtown` project; the initial and post-hardening observations are recorded in [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md). That evidence records `HOSTED_DB_SECURITY_GATE: PASS`, while pgTAP remains `LOCAL_PGTAP: BLOCKED` and Browser A/B/C remains `BROWSER_REAL_CLIENT_GATE: NOT RUN`. Do not treat the fake adapters, Vitest results, or hosted DB-only PASS as a full real-client end-to-end PASS.
+The [`docs/evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md`](./evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md) file is a historical local-environment audit and remains unchanged as history. The initial four migrations and `20260830162803_function_execute_boundary.sql` were later applied to the `Livingtown` project; the initial and post-hardening observations are recorded in [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md). That evidence records `HOSTED_DB_SECURITY_GATE: PASS`, while the Phase 8 draft migration remains unapplied, its 38-assertion pgTAP file remains unrun, and the Phase 8 two-identity CRUD gate remains `NOT RUN`. Do not treat the fake adapters, Vitest results, or hosted DB-only PASS as a full real-client end-to-end PASS.

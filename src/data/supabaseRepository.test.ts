@@ -71,6 +71,7 @@ class FakeSupabaseClient {
   readonly removeChannel = vi.fn(async () => ({ status: 'ok' }))
   readonly insertPayloads: Array<{ table: string; payload: Row }> = []
   readonly selectTables: string[] = []
+  readonly knowledgeOwners = new Set<string>()
   user: { id: string } | undefined
   failReads = false
   failWrites = false
@@ -121,6 +122,9 @@ class FakeSupabaseClient {
     return new FakeQuery(() => {
       if (this.failRpc) return { data: null, error: new Error('fake rpc failure') }
       if (name === 'submit_verification') return this.submitVerification(args)
+      if (name === 'get_my_knowledge_ids') return { data: [...this.knowledgeOwners].map((knowledge_id) => ({ knowledge_id })), error: null }
+      if (name === 'update_knowledge') return this.updateKnowledge(args)
+      if (name === 'delete_knowledge') return this.deleteKnowledge(args)
       if (name === 'register_household') return this.registerHousehold(args)
       if (name === 'report_bottleneck') return this.reportBottleneck(args)
       return { data: null, error: new Error(`unknown fake rpc: ${name}`) }
@@ -144,7 +148,40 @@ class FakeSupabaseClient {
     }
     this.rows[table] ??= []
     this.rows[table].unshift(row)
+    if (table === 'knowledge' && typeof row.id === 'string' && this.user) this.knowledgeOwners.add(row.id)
     return row
+  }
+
+  private updateKnowledge(args: Record<string, unknown>): Response {
+    const knowledgeId = String(args.p_knowledge_id)
+    const row = this.rows.knowledge.find((candidate) => candidate.id === knowledgeId)
+    if (!row || !this.knowledgeOwners.has(knowledgeId)) return { data: null, error: new Error('knowledge not found or not owned') }
+    const hasVotes = Number(row.agree_count ?? 0) + Number(row.disagree_count ?? 0) > 0
+    if (hasVotes && args.p_confirm_reverification_reset !== true) return { data: null, error: new Error('reverification confirmation is required') }
+    if (hasVotes) this.rows.verification = this.rows.verification.filter((candidate) => candidate.knowledge_id !== knowledgeId)
+    Object.assign(row, {
+      category: args.p_category,
+      lat: args.p_lat,
+      lng: args.p_lng,
+      condition: args.p_condition,
+      description: args.p_description,
+      confidence: args.p_confidence,
+      agree_count: hasVotes ? 0 : row.agree_count,
+      disagree_count: hasVotes ? 0 : row.disagree_count,
+      updated_at: '2026-08-30T10:04:00.000Z',
+    })
+    return { data: { ...row, reverification_required: hasVotes, route_invalidated: true }, error: null }
+  }
+
+  private deleteKnowledge(args: Record<string, unknown>): Response {
+    const knowledgeId = String(args.p_knowledge_id)
+    if (args.p_confirm_delete !== true || !this.knowledgeOwners.has(knowledgeId)) return { data: null, error: new Error('knowledge not found or not owned') }
+    const before = this.rows.knowledge.length
+    this.rows.knowledge = this.rows.knowledge.filter((candidate) => candidate.id !== knowledgeId)
+    if (this.rows.knowledge.length === before) return { data: null, error: new Error('knowledge not found') }
+    this.rows.verification = this.rows.verification.filter((candidate) => candidate.knowledge_id !== knowledgeId)
+    this.knowledgeOwners.delete(knowledgeId)
+    return { data: { id: knowledgeId, deleted: true, route_invalidated: true }, error: null }
   }
 
   private submitVerification(args: Record<string, unknown>): Response {
@@ -271,8 +308,9 @@ describe('SupabaseTownRepository', () => {
     const first = await repository.verifyKnowledge({ knowledge_id: 'k-shared', verifier_id: 'anon-attacker-a', verdict: 'agree' })
     const duplicate = await repository.verifyKnowledge({ knowledge_id: 'k-shared', verifier_id: 'anon-attacker-b', verdict: 'disagree' })
 
-    expect(fake.rpcCalls[0]).toMatchObject({ name: 'submit_verification' })
-    expect(fake.rpcCalls[0].args).not.toHaveProperty('verifier_id')
+    const submitCalls = fake.rpcCalls.filter((call) => call.name === 'submit_verification')
+    expect(submitCalls[0]).toBeDefined()
+    expect(submitCalls[0].args).not.toHaveProperty('verifier_id')
     expect(first).toMatchObject({ agree_count: 1, duplicate: false, verified: false })
     expect(first).not.toHaveProperty('verifier_id')
     expect(duplicate).toMatchObject({ agree_count: 1, disagree_count: 0, duplicate: true })
@@ -307,6 +345,53 @@ describe('SupabaseTownRepository', () => {
         confidence: 'heard',
       },
     }])
+    repository.dispose()
+  })
+
+  it('hydrates owner-only edit capability from an ID-only RPC without exposing owner ids', async () => {
+    const fake = new FakeSupabaseClient()
+    seedKnowledge(fake, { agree_count: 0, disagree_count: 0 })
+    fake.knowledgeOwners.add('k-shared')
+    const repository = sharedRepository(fake)
+    await repository.ready
+
+    expect(repository.getSnapshot().knowledge[0]).toMatchObject({ id: 'k-shared', can_edit: true })
+    expect(JSON.stringify(repository.getSnapshot())).not.toContain('owner_id')
+    expect(JSON.stringify(repository.getSnapshot())).not.toContain('knowledgeOwners')
+    repository.dispose()
+  })
+
+  it('uses owner-only update/delete RPCs and keeps the snapshot unchanged when an RPC fails', async () => {
+    const fake = new FakeSupabaseClient()
+    seedKnowledge(fake, { agree_count: 1, disagree_count: 0 })
+    fake.knowledgeOwners.add('k-shared')
+    const repository = sharedRepository(fake)
+    await repository.ready
+
+    const unchanged = JSON.stringify(repository.getSnapshot().knowledge[0])
+    fake.failRpc = true
+    await expect(repository.updateKnowledge({
+      knowledge_id: 'k-shared', category: 'barrier', lat: 35.681, lng: 139.76,
+      condition: 'always', description: 'failed update', confidence: 'heard', confirm_reverification_reset: true,
+    })).rejects.toThrow('fake rpc failure')
+    await expect(repository.deleteKnowledge({ knowledge_id: 'k-shared', confirm_delete: true })).rejects.toThrow('fake rpc failure')
+    expect(JSON.stringify(repository.getSnapshot().knowledge[0])).toBe(unchanged)
+    fake.failRpc = false
+
+    const updated = await repository.updateKnowledge({
+      knowledge_id: 'k-shared', category: 'barrier', lat: 35.681, lng: 139.76,
+      condition: 'always', description: 'updated by owner', confidence: 'heard', confirm_reverification_reset: true,
+    })
+    expect(updated).toMatchObject({ id: 'k-shared', description: 'updated by owner', reverification_required: true, route_invalidated: true })
+    const updateCall = fake.rpcCalls.find((call) => call.name === 'update_knowledge')!
+    expect(updateCall.args).toMatchObject({ p_knowledge_id: 'k-shared', p_confirm_reverification_reset: true })
+    expect(updateCall.args).not.toHaveProperty('owner_id')
+
+    const deleted = await repository.deleteKnowledge({ knowledge_id: 'k-shared', confirm_delete: true })
+    expect(deleted).toMatchObject({ id: 'k-shared', deleted: true, route_invalidated: true })
+    expect(repository.getSnapshot().knowledge).toEqual([])
+    const deleteCall = fake.rpcCalls.find((call) => call.name === 'delete_knowledge')!
+    expect(deleteCall.args).toEqual({ p_knowledge_id: 'k-shared', p_confirm_delete: true })
     repository.dispose()
   })
 
@@ -361,6 +446,24 @@ describe('SupabaseTownRepository', () => {
     repository.dispose()
     repository.dispose()
     expect(fake.removeChannel).toHaveBeenCalledTimes(1)
+  })
+
+  it('refreshes public knowledge for Realtime UPDATE and DELETE events', async () => {
+    const fake = new FakeSupabaseClient()
+    seedKnowledge(fake, { agree_count: 0, disagree_count: 0 })
+    const repository = sharedRepository(fake)
+    await repository.ready
+
+    fake.rows.knowledge[0].description = 'updated remotely'
+    fake.channelInstance.emit()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(repository.getSnapshot().knowledge[0]?.description).toBe('updated remotely')
+
+    fake.rows.knowledge = []
+    fake.channelInstance.emit()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(repository.getSnapshot().knowledge).toEqual([])
+    repository.dispose()
   })
 
   it('coalesces overlapping Knowledge events and converges through a trailing refresh', async () => {

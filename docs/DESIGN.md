@@ -18,7 +18,7 @@
 ## 2. システム構成
 
 - Frontend: Vite + React + TypeScript
-- 2D map: deterministic local walking graphを描くSVGフォールバック。MapLibre styleは任意の表示アダプター。
+- 2D map: MapLibre + 国土地理院（GSI）標準タイルを主rendererとし、GSI Englishはz9–11に限定する。MapLibreを初期化できない場合は、deterministic local walking graphの既存SVGへフォールバックする。
 - 3D: CesiumJS + PLATEAU 3D Tilesは未設定時にロードしない。
 - Data: `TownRepository`を境界とし、`LocalTownRepository`（LocalStorageの決定的デモ）と`SupabaseTownRepository`（Database + Auth + Realtime）を明示的に切り替える。route engineはどちらのadapterから渡されたsnapshotにも同じdeterministic graphを適用する。
 - WebMCP: Imperative APIの直接呼び出しは `src/webmcp/register.ts` だけに隔離する。ツール定義はAPI objectを知らない純粋な定義層とする。
@@ -32,7 +32,7 @@
 
 | Phase | Available tools |
 |---|---|
-| `map` | `contribute_knowledge`, `verify_knowledge`, `query_area` |
+| `map` | `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge` |
 | `drill` | `register_household`, `get_evacuation_route`, `report_bottleneck` |
 | `replay` | `control_replay`, `get_debrief_summary` |
 
@@ -127,9 +127,10 @@ Replayでは同じselected routeを入力に `AFFECTING_ROUTE` knowledgeを再�
 
 ```sql
 knowledge(id, category, lat, lng, condition, description, confidence,
-          agree_count, disagree_count, created_at)
+          agree_count, disagree_count, created_at, updated_at)
 verification(id, knowledge_id, verifier_id, verdict, comment, created_at,
              unique(knowledge_id, verifier_id))
+knowledge_owner(knowledge_id, owner_id, created_at) -- private; browser roles cannot read it
 ```
 
 - local demoの`verifier_id`はpseudonymous identifierのfixtureとして扱う。prefixやregexだけではPII非保持・本人性・Sybil耐性を保証しない。shared modeではclientのverifier_idを受け付けず、Supabase Auth identityをRPC内でhashしたopaqueなpseudonymous identifierをDB内部で使う。shared browserはVerification tableをSELECTせず、Knowledge counterだけを受け取る。同じAuth identityのduplicate preventionはできるが、anonymous Authやagentによる複数identity作成を防ぐものではない。
@@ -161,7 +162,7 @@ bottleneck(id, lat, lng, severity, description, household_id, created_at)
 drill_run(id, scenario, weather, routes, created_at)
 ```
 
-## 5. WebMCPツールスキーマ（8本）
+## 5. WebMCPツールスキーマ（10本）
 
 実装側の戻り値はJSON文字列化してImperative APIへ渡す。schemaの制約は補助であり、入力検証はstoreでも厳格に実行する。
 
@@ -171,6 +172,10 @@ drill_run(id, scenario, weather, routes, created_at)
 
 引数: `category`, `lat`, `lng`, `condition`, `description`（200文字以内）, `confidence`。自由文には氏名・住所・電話番号・診断名などを含めない。戻り値: `{ id, status: "pending_verification", verifiedThreshold: 2 }`。
 
+#### `delete_knowledge`
+
+引数: `knowledge_id`, `confirm_delete: true`。現在のAuth identityが所有するKnowledgeだけをsecurity-definer RPCで削除し、既存routeを無効化する。`owner_id`は入力にも戻り値にも含めない。
+
 #### `verify_knowledge`
 
 local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagree`）, 任意の `comment`（200文字以内）。`verifier_id` はpseudonymous fixtureであり、形式だけではPII非保持やdistinct-humanを保証しない。shared modeの引数は `knowledge_id`, `verdict`, `comment` だけで、server-side RPCがAuth identityからopaque identifierを導出する。両modeとも同じ`knowledge_id + verifier_id`に対する重複を無視する。戻り値にはshared modeでverifier idを含めない。
@@ -178,6 +183,10 @@ local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagre
 #### `query_area`
 
 引数: `lat`, `lng`, `radius_m`（最大2000）, 任意の `category`, `condition`。戻り値: `{ items: [...] }`。
+
+#### `update_knowledge`
+
+引数: `knowledge_id`, `category`, `lat`, `lng`, `condition`, `description`（200文字以内）, `confidence`、任意の `confirm_reverification_reset`。所有者だけが更新でき、既存票がある場合は明示確認後に票をリセットして再検証を要求する。更新後は既存routeを無効化する。
 
 ### drillフェーズ
 
@@ -229,6 +238,14 @@ local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagre
 - `knowledge.description` はcommunity free textで、knowledgeの座標もPIIを投稿・推測できる余地がある。投稿UI／tool descriptionでは注意を促すが、free-textのmoderation、retention、削除・再識別評価はPENDINGである。
 - household profileではdirect PIIを保持しない。これはLivingTown全体がPIIを保持しないことや、共有環境で完全に匿名であることを意味しない。認証主体の運用、監査、削除、鍵管理、DB上の既存データ検査は別途必要である。
 - `authenticated identity → server-side trusted boundary → opaque pseudonymous verifier_id` をshared RPCで実装した。ただしanonymous Auth identity自体はdistinct humanではなく、WebMCP agentが複数identityを作る可能性があるため、Sybil resistance／distinct-human verificationはPENDING。
+
+### Phase 8 — Real Map / Community CRUD / i18n
+
+- `?lang=ja|en` と保存済みlocale、navigator fallback、`document.documentElement.lang` を実装し、`?mode=simple|advanced` と保存済みexperience modeを用意する。Simpleは一般利用者向けの状態説明、Advancedはtool名・diagnostics・raw edge IDを表示する。modeを変えてもWebMCPのtool setは変えない。
+- MapLibreはGSI standard tilesをz9–18、English tilesをz9–11へ接続し、minZoom=9／maxZoom=18、attribution、knowledge／route／avoided edge／household／bottleneck overlayを持つ。現在地は明示したGeolocateControlの一度の操作だけで、auto permission／tracking／保存は行わない。
+- 地図tap／FABから、位置→カテゴリ→条件→確度→説明・確認の5段階ContributionFormを開く。説明は最大200文字、個人情報を含めない確認を必須とし、投稿地点は他の利用者に表示される。編集・削除は`can_edit`が付いた自分の投稿だけに表示する。
+- `knowledge_owner`はprivate mapping table、`get_my_knowledge_ids()`はcurrent identityのIDだけを返す。owner mapping、raw owner UUID、verification recordはbrowserへ渡さない。update/deleteはsecurity-definer owner-only RPC、入力検証、明示confirmation、route invalidationを使う。
+- 対応draftは [`supabase/migrations/20260831075455_real_map_knowledge_ownership_crud.sql`](../supabase/migrations/20260831075455_real_map_knowledge_ownership_crud.sql)、pgTAP計画は [`supabase/tests/0005_real_map_knowledge_ownership_crud.sql`](../supabase/tests/0005_real_map_knowledge_ownership_crud.sql) にある。Phase 8ではmigrationを適用していないため、shared DB gateとNative WebMCP再確認はPENDINGである。既存 [`docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md`](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) は変更しない。
 
 ### Supabase migration verification
 
@@ -285,6 +302,12 @@ livingtown/
 - [x] LOCAL_DEMOとSUPABASE_SHAREDをrepository factoryで分離し、設定不足時に安全なlocal fallbackを表示する。
 - [x] shared adapterはKnowledgeとDB-maintained counterだけをremoteから読み、raw Verificationをbrowser snapshotへhydrateせず、UI/WebMCPと同じrepositoryを通す。
 - [x] shared verificationはcaller-supplied verifier_idを信用せず、Auth-derived RPCとDB unique制約でsame-identity duplicateを防ぐ。
+- [x] locale（JA/EN）とSimple/Advanced表示をURL・LocalStorageから選べ、Simpleでは技術的なtool／diagnostic表現を隠す。html langも同期する。
+- [x] MapLibre + GSI標準／英語タイル、z9–18のzoom boundary、attribution、Knowledge／route／avoided LineString／household／bottleneck overlay、SVG fallbackを提供する。
+- [x] 地図tap/FABから位置→カテゴリ→条件→確度→説明の5段階投稿を開き、privacy確認、200文字制限、Escape／focus trap／focus returnを提供する。
+- [x] `knowledge_owner`をbrowser roleから隠し、owned IDだけを使ってowner-only update/delete RPCへ接続する。票のある更新はreverification resetを要求し、編集／削除後にrouteを無効化する。
+- [x] MAPのtool surfaceを`contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge`の5本に固定し、update/delete schemaにconfirmationを含める。
+- [ ] Phase 8 migrationの実DB適用、A/B CRUD／RLS／Realtime gate、5本MAP surfaceのNative WebMCP実機再確認。
 - [ ] 実Supabase projectへのmigration適用、Auth insert／counter bypass denial／duplicate verification／Browser A/B Realtimeの実証。
 
 ## 11. Devpost用要約

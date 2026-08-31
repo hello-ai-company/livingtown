@@ -28,6 +28,27 @@ export interface ContributeKnowledgeInput {
   confidence: KnowledgeConfidence
 }
 
+export interface UpdateKnowledgeInput extends ContributeKnowledgeInput {
+  knowledge_id: string
+  confirm_reverification_reset?: boolean
+}
+
+export interface DeleteKnowledgeInput {
+  knowledge_id: string
+  confirm_delete: boolean
+}
+
+export interface UpdateKnowledgeResult extends Knowledge {
+  reverification_required: boolean
+  route_invalidated: boolean
+}
+
+export interface DeleteKnowledgeResult {
+  id: string
+  deleted: true
+  route_invalidated: boolean
+}
+
 export interface VerifyKnowledgeInput {
   knowledge_id: string
   /** Local demo accepts a pseudonymous fixture. Shared mode ignores this field. */
@@ -116,6 +137,8 @@ export interface TownRepository {
   subscribeStatus(listener: StoreListener): () => void
   recordActivity(tool: string, summary: string, status?: 'success' | 'error'): MaybePromise<void>
   contributeKnowledge(input: ContributeKnowledgeInput, options?: RepositoryCallOptions): MaybePromise<Knowledge>
+  updateKnowledge(input: UpdateKnowledgeInput, options?: RepositoryCallOptions): MaybePromise<UpdateKnowledgeResult>
+  deleteKnowledge(input: DeleteKnowledgeInput, options?: RepositoryCallOptions): MaybePromise<DeleteKnowledgeResult>
   verifyKnowledge(input: VerifyKnowledgeInput, options?: RepositoryCallOptions): MaybePromise<VerificationResult>
   queryArea(input: QueryAreaInput, options?: RepositoryCallOptions): MaybePromise<Array<Knowledge & { verified: boolean }>>
   registerHousehold(input: RegisterHouseholdInput, options?: RepositoryCallOptions): MaybePromise<Household>

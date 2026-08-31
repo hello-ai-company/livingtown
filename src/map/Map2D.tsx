@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES } from '../sim/graph'
 import type { Household, RouteResult, TownSnapshot } from '../sim/types'
 import { KnowledgeDetailCard } from './KnowledgeDetailCard'
 import { KnowledgeVisual } from './KnowledgeVisual'
+import { MapLibreMap } from './MapLibreMap'
+import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
 import {
   deriveKnowledgeVisuals,
   filterKnowledgeVisuals,
@@ -16,7 +18,7 @@ import {
   type KnowledgeVisualView,
 } from './knowledgeVisuals'
 
-interface Map2DProps {
+export interface Map2DProps {
   snapshot: TownSnapshot
   focusHouseholdId?: string
   selectedKnowledgeId?: string
@@ -24,6 +26,11 @@ interface Map2DProps {
   onSelectHousehold?: (householdId: string) => void
   onSelectKnowledge?: (knowledgeId: string) => void
   onClearKnowledge?: () => void
+  onRequestContribution?: (location: { lat: number; lng: number }) => void
+  onEditKnowledge?: (knowledge: import('../sim/types').Knowledge) => void
+  onDeleteKnowledge?: (knowledge: import('../sim/types').Knowledge) => void
+  locale?: Locale
+  mode?: ExperienceMode
   compact?: boolean
 }
 
@@ -83,7 +90,8 @@ function overlapOffset(view: KnowledgeVisualView, views: KnowledgeVisualView[]) 
   return { x: Math.cos(angle) * 18, y: Math.sin(angle) * 18 }
 }
 
-export function Map2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onClearKnowledge, compact = false }: Map2DProps) {
+function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onClearKnowledge, onEditKnowledge, onDeleteKnowledge, locale = 'ja', mode = 'simple', compact = false }: Map2DProps) {
+  const t = useMemo(() => createTranslator(locale), [locale])
   const [filters, setFilters] = useState<{ status: KnowledgeStatusFilter; category: KnowledgeCategoryFilter | 'bottleneck' }>({ status: 'all', category: 'all' })
   const [internalSelectedKnowledgeId, setInternalSelectedKnowledgeId] = useState<string>()
   const previousStates = useRef(new Map<string, KnowledgeVisualState>())
@@ -179,32 +187,32 @@ export function Map2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlig
     <div className={`map-frame${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`}>
       <div className="map-frame__topline">
         <div>
-          <span className="eyebrow">LIVING MAP / 2D</span>
-          <span className="map-frame__title">街の記憶を、次の一歩へ</span>
+          <span className="eyebrow">{mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : t('map.fallbackMode')}</span>
+          <span className="map-frame__title">{t('map.title')}</span>
         </div>
-        <span className="map-frame__mode"><span className="status-dot status-dot--live" /> offline graph · MapLibre-ready</span>
+        <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? 'offline graph · MapLibre fallback' : t('map.fallbackMode')}</span>
       </div>
 
-      <div className="map-filter-bar" aria-label="地図の知識フィルター">
-        <div className="map-filter-bar__status" role="group" aria-label="状態で絞り込む">
-          <span className="map-filter-bar__label">SHOW</span>
+      <div className="map-filter-bar" aria-label={t('map.filterGroup')}>
+        <div className="map-filter-bar__status" role="group" aria-label={t('map.filterGroup')}>
+          <span className="map-filter-bar__label">{t('map.filterLabel')}</span>
           {([
-            ['all', 'All'],
-            ['verified', 'Verified only'],
-            ['affecting_route', 'Affecting current route'],
+            ['all', t('map.all')],
+            ['verified', t('map.verifiedOnly')],
+            ['affecting_route', t('map.affecting')],
           ] as Array<[KnowledgeStatusFilter, string]>).map(([value, label]) => (
             <button key={value} type="button" className={filters.status === value ? 'is-active' : ''} onClick={() => setFilters((current) => ({ ...current, status: value }))}>{label}</button>
           ))}
         </div>
-        <label className="map-filter-bar__category">Category
-          <select aria-label="カテゴリで絞り込む" value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value as KnowledgeCategoryFilter | 'bottleneck' }))}>
-            <option value="all">All signals</option>
-            {MAP_CATEGORY_ORDER.map((category) => <option key={category} value={category}>{category === 'narrow_path' ? 'narrow path' : category === 'safe_spot' ? 'safe spot' : category}</option>)}
+        <label className="map-filter-bar__category">{t('map.category')}
+          <select aria-label={t('map.category')} value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value as KnowledgeCategoryFilter | 'bottleneck' }))}>
+            <option value="all">{t('map.allSignals')}</option>
+            {MAP_CATEGORY_ORDER.map((category) => <option key={category} value={category}>{category === 'bottleneck' ? t('map.bottleneck') : t(`category.${category}`)}</option>)}
           </select>
         </label>
       </div>
 
-      <svg className="town-map" viewBox="0 0 900 540" role="img" aria-label="LivingTown デモエリアの経路と地域知識マップ">
+      <svg className="town-map" viewBox="0 0 900 540" role="img" aria-label={t('map.knowledgeMapAlt')}>
         <defs>
           <pattern id="map-grid" width="42" height="42" patternUnits="userSpaceOnUse">
             <path d="M 42 0 L 0 0 0 42" fill="none" stroke="rgba(70, 95, 104, 0.17)" strokeWidth="1" />
@@ -226,7 +234,7 @@ export function Map2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlig
           const toPoint = MapPoint({ lat: to.lat, lng: to.lng, bounds })
           const selected = selectedRouteEdges.has(edge.id)
           const avoided = avoidedEdgeIds.has(edge.id)
-          return <line key={edge.id} x1={fromPoint.x} y1={fromPoint.y} x2={toPoint.x} y2={toPoint.y} className={`map-road${selected ? ' map-road--selected' : ''}${avoided ? ' map-road--avoided' : ''}`} aria-label={`${edge.label}${avoided ? '・回避したedge' : ''}`} />
+          return <line key={edge.id} x1={fromPoint.x} y1={fromPoint.y} x2={toPoint.x} y2={toPoint.y} className={`map-road${selected ? ' map-road--selected' : ''}${avoided ? ' map-road--avoided' : ''}`} aria-label={`${edge.label}${avoided ? ` · ${t('map.avoidedEdge')}` : ''}`} />
         })}
 
         {visibleAffectingViews.flatMap((view) => view.affectedEdgeIds.slice(0, 2).map((edgeId) => {
@@ -282,7 +290,7 @@ export function Map2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlig
               transform={`translate(${point.x + (household.id === 'h-infant' ? 15 : household.id === 'h-open' ? -14 : 0)} ${point.y + 18})`}
               role="button"
               tabIndex={0}
-              aria-label={`${household.label ?? '匿名世帯'}を選択`}
+              aria-label={t('map.selectHousehold', { label: household.label ?? t('common.anonymousHousehold') })}
               onClick={() => onSelectHousehold?.(household.id)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
@@ -298,26 +306,38 @@ export function Map2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlig
         })}
       </svg>
 
-      <div className="map-frame__legend knowledge-legend" aria-label="地図の凡例">
+      <div className="map-frame__legend knowledge-legend" aria-label={t('map.knowledgeMapAlt')}>
         <div className="knowledge-legend__row">
-          <span><i className="legend-state legend-state--pending" />Pending / 未検証</span>
-          <span><i className="legend-state legend-state--verified" />Verified / 検証済み</span>
-          <span><i className="legend-state legend-state--affecting" />Affecting current route</span>
+          <span><i className="legend-state legend-state--pending" />{t('map.legendPending')}</span>
+          <span><i className="legend-state legend-state--verified" />{t('map.legendVerified')}</span>
+          <span><i className="legend-state legend-state--affecting" />{t('map.legendAffecting')}</span>
         </div>
         <div className="knowledge-legend__row knowledge-legend__categories">
-          {KNOWLEDGE_CATEGORY_ORDER.map((category) => <span key={category}><i className={`legend-category legend-category--${category}`} />{category === 'narrow_path' ? 'narrow path' : category === 'safe_spot' ? 'safe spot' : category}</span>)}
-          <span><i className="legend-category legend-category--bottleneck" />bottleneck</span>
+          {KNOWLEDGE_CATEGORY_ORDER.map((category) => <span key={category}><i className={`legend-category legend-category--${category}`} />{t(`category.${category}`)}</span>)}
+          <span><i className="legend-category legend-category--bottleneck" />{t('map.legendBottleneck')}</span>
         </div>
       </div>
 
       {selectedRoute && (
         <div className={`map-route-callout${selectedView ? ' map-route-callout--hidden' : ''}`}>
-          <div><span className="eyebrow">ROUTE NOW</span><strong>{selectedHousehold?.label ?? '選択世帯'} · {selectedRoute.eta_minutes} min</strong></div>
-          <span>{selectedRoute.avoided.length > 0 ? `${selectedRoute.avoided.length}件の知識を経路に反映・${avoidedEdgeIds.size} edgeを回避` : '標準経路を計算済み'}</span>
+          <div><span className="eyebrow">{t(mode === 'simple' ? 'map.simpleRouteNow' : 'map.routeNow')}</span><strong>{selectedHousehold?.label ?? t('common.selectedHousehold')} · {selectedRoute.eta_minutes} min</strong></div>
+          <span>{selectedRoute.avoided.length > 0 ? t('map.routeApplied', { count: selectedRoute.avoided.length, edges: avoidedEdgeIds.size }) : t('map.routeReady')}</span>
         </div>
       )}
 
-      {selectedView && <KnowledgeDetailCard view={selectedView} selectedHousehold={selectedHousehold} onClose={clearKnowledge} />}
+      {selectedView && <KnowledgeDetailCard view={selectedView} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onClose={clearKnowledge} onEdit={onEditKnowledge} onDelete={onDeleteKnowledge} />}
     </div>
   )
+}
+
+/**
+ * MapLibre is the primary renderer. The existing SVG graph remains a
+ * deterministic fallback for browsers without WebGL or when the map runtime
+ * cannot be initialized.
+ */
+export function Map2D(props: Map2DProps) {
+  const [useFallback, setUseFallback] = useState(false)
+  const handleFallback = useCallback(() => setUseFallback(true), [])
+  if (useFallback) return <SvgMap2D {...props} />
+  return <MapLibreMap {...props} locale={props.locale ?? 'ja'} mode={props.mode ?? 'simple'} onFallback={handleFallback} />
 }

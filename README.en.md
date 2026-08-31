@@ -24,13 +24,13 @@ For a production build:
 npm run build
 ```
 
-The static output is written to `dist/`. The primary verified free public production deployment is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/). It deploys `main` (`27a303f`) with `npm run build` and `dist/`, and runs `SUPABASE_SHARED` using the existing project's browser-safe Supabase configuration. A newly opened browser tab confirmed HTTPS, anonymous Auth, `CONNECTED`, Realtime `CONNECTED`, and the MAP → DRILL → REPLAY flow. The GitHub Pages URL [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) remains as a fallback. Native WebMCP agent validation also passed on this public URL with Chrome 152.0.7977.64, Codex, and Chrome DevTools for agents; evidence is recorded in [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md). The `SIMULATED` fallback remains available for browsers without Native WebMCP.
+The static output is written to `dist/`. The primary verified free public production deployment is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/). The public URL currently deploys the Phase 7 baseline from `main` (`27a303f`) with `npm run build` and `dist/`, and runs `SUPABASE_SHARED` using the existing project's browser-safe Supabase configuration. The Phase 8 real-map/community-CRUD/i18n feature branch has not been deployed to production. A newly opened browser tab confirmed HTTPS, anonymous Auth, `CONNECTED`, Realtime `CONNECTED`, and the MAP → DRILL → REPLAY flow. The GitHub Pages URL [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) remains as a fallback. Native WebMCP agent validation passed on the Phase 7 public URL with Chrome 152.0.7977.64, Codex, and Chrome DevTools for agents; that historical evidence does not automatically cover the Phase 8 five-tool surface. The Phase 8 native gate is pending; see [docs/evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md](./docs/evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md). The `SIMULATED` fallback remains available for browsers without Native WebMCP.
 
 ## Three-minute demo
 
 The full English runbook is [docs/DEMO_SCRIPT.en.md](./docs/DEMO_SCRIPT.en.md). The core sequence is:
 
-1. Use `contribute_knowledge` to report a rainy crosswalk.
+1. Confirm the five MAP tools (`contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, and `verify_knowledge`), then tap the map and use the five-step form to report a rainy crosswalk.
 2. Use `verify_knowledge` twice with the local demo's pseudonymous fixtures.
 3. Use `get_evacuation_route` for the wheelchair household under flood/rain conditions.
 4. Explain the actual avoided graph edges through `avoided[].reason` and `avoided[].edge_ids`.
@@ -45,11 +45,11 @@ LivingTown exposes phase-scoped tools:
 
 | Phase | Tools |
 | --- | --- |
-| MAP | `contribute_knowledge`, `verify_knowledge`, `query_area` |
+| MAP | `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge` |
 | DRILL | `register_household`, `get_evacuation_route`, `report_bottleneck` |
 | REPLAY | `control_replay`, `get_debrief_summary` |
 
-The current phase controls which tools are exposed. The UI visualizes pending knowledge, verified knowledge, and knowledge that affected the selected route. Replay derives the same explanation from the same snapshot, so the UI and agent surface do not maintain divergent route state.
+The current phase controls which tools are exposed. The primary map renderer uses MapLibre with GSI standard tiles (and GSI English tiles at zoom levels 9–11); the existing SVG graph remains the deterministic fallback. The UI visualizes pending knowledge, verified knowledge, and knowledge that affected the selected route. Replay derives the same explanation from the same snapshot, so the UI and agent surface do not maintain divergent route state.
 
 ## WebMCP implementation
 
@@ -70,7 +70,7 @@ When the browser does not expose WebMCP, the same tool definitions run through t
 - Household inputs are restricted to an anonymous label, the `wheelchair | infant | elderly | pet` constraint enum, and a coordinate snapped to the demo graph.
 - Household input rejects names, email, phone, diagnosis, medical information, and exact-address fields.
 - Shared Supabase mode keeps raw verification records private, exposes only derived counters to the browser, scopes household/bottleneck operations through owner-aware RPCs, and uses RLS and function-execution hardening.
-- Community knowledge remains free text and may still contain identifying information; moderation, retention, deletion operations, and stronger Sybil resistance are not implemented yet.
+- Community knowledge remains free text and may still contain identifying information; moderation, retention, and stronger Sybil resistance are not implemented yet. Phase 8 adds an unapplied private owner mapping plus owner-only update/delete RPCs with explicit confirmation; the browser receives only owned knowledge IDs, never raw owner IDs.
 
 See [docs/WEBMCP_REAL_DEVICE.md](./docs/WEBMCP_REAL_DEVICE.md) for native-browser verification and [docs/SUPABASE_SHARED_STATE.md](./docs/SUPABASE_SHARED_STATE.md) for the shared-state trust boundary.
 
@@ -84,14 +84,14 @@ npm run seed
 git diff --check
 ```
 
-The current local gate passes with 10 test files and 63 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
+The current local gate passes with 12 test files and 74 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
 
 ## Challenge submission readiness
 
-The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. The remaining submission gate is external:
+The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. The Phase 8 feature branch is prepared for review, but the remaining submission gate is external:
 
 - record a public YouTube demo under three minutes with audio covering the product and WebMCP use;
-- the native WebMCP MAP → DRILL → REPLAY gate is PASS, with evidence saved in [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md); and
+- the historical Phase 7 native WebMCP MAP → DRILL → REPLAY gate is PASS, with evidence saved in [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md); the Phase 8 five-tool surface requires a new real-device gate; and
 - the public repository default branch now contains the readiness documentation and MIT license; keep the final submission link pointed at that public repository.
 
 The status and exact evidence requirements are tracked in [docs/SUBMISSION_CHECKLIST.md](./docs/SUBMISSION_CHECKLIST.md).

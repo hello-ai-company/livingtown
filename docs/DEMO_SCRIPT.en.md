@@ -8,10 +8,10 @@ This script is for a public demo video. Keep the final video under three minutes
 
 ## 0:20 — MAP: turn conversation into knowledge
 
-1. Open the MAP phase and show the three current tools: `contribute_knowledge`, `verify_knowledge`, and `query_area`.
-2. Register a rainy crosswalk observation. Show the new `PENDING` visual and its detail card.
+1. Open the MAP phase and show the five current tools: `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, and `verify_knowledge`. In Simple mode, explain that these appear as friendly actions rather than technical names.
+2. Tap **Report something**, tap the map, and complete the five-step flow: location → category → condition → confidence → description/review/privacy. Keep the description under 200 characters and confirm that it contains no personal information. Show the new `PENDING` visual and its detail card.
 3. Verify it twice with the local demo fixtures. Show the transition to `VERIFIED`.
-4. Point out that the verification threshold is agreements minus disagreements of at least two, and that duplicate pseudonymous votes are ignored.
+4. Point out that the verification threshold is agreements minus disagreements of at least two, and that duplicate pseudonymous votes are ignored. In Advanced mode, show that only the current user's memories expose edit/delete controls, and that vote-bearing edits require reverification confirmation.
 
 ## 1:10 — DRILL: let verified knowledge change the route
 
@@ -29,7 +29,7 @@ This script is for a public demo video. Keep the final video under three minutes
 ## 2:30 — WebMCP lifecycle and close
 
 1. Open WebMCP Diagnostics and switch MAP → DRILL → REPLAY.
-2. Show the tool surface changing from 3 tools to 3 tools to 2 tools, with the previous phase's tools removed.
+2. Show the tool surface changing from 5 tools to 3 tools to 2 tools, with the previous phase's tools removed.
 3. In a native WebMCP browser, show `getTools()`, `toolchange`, and the phase transition evidence. If the browser is not native, show `SIMULATED` honestly and do not call it real-device evidence.
 
 “LivingTown does not make an agent memorize a UI. The tools available now are the tools exposed now, and the town's shared state explains the route.”

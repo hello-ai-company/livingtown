@@ -1,9 +1,9 @@
-import type { QueryAreaInput, ContributeKnowledgeInput, VerifyKnowledgeInput, TownRepository } from '../../data/repository'
+import type { DeleteKnowledgeInput, QueryAreaInput, ContributeKnowledgeInput, UpdateKnowledgeInput, VerifyKnowledgeInput, TownRepository } from '../../data/repository'
 import type { ToolDefinition } from '../types'
 
 export function mapTools(store: TownRepository): ToolDefinition[] {
   const sharedMode = store.dataMode === 'SUPABASE_SHARED'
-  return [
+  const definitions: ToolDefinition[] = [
     {
       name: 'contribute_knowledge',
       title: '街の暗黙知を登録',
@@ -12,8 +12,8 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
         type: 'object',
         properties: {
           category: { type: 'string', enum: ['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'] },
-          lat: { type: 'number' },
-          lng: { type: 'number' },
+          lat: { type: 'number', minimum: 20, maximum: 46.5 },
+          lng: { type: 'number', minimum: 122, maximum: 154 },
           condition: { type: 'string', enum: ['always', 'rain', 'night', 'crowded'] },
           description: { type: 'string', maxLength: 200 },
           confidence: { type: 'string', enum: ['experienced', 'heard', 'guess'] },
@@ -25,6 +25,25 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
         const result = await store.contributeKnowledge(input, { signal: context.signal })
         await store.recordActivity('contribute_knowledge', `新しい暗黙知「${result.description}」を登録`)
         return { id: result.id, status: 'pending_verification', verifiedThreshold: 2 }
+      },
+    },
+    {
+      name: 'delete_knowledge',
+      title: '街の暗黙知を削除',
+      description: '現在の認証済み匿名identityが所有する暗黙知だけを削除する。confirm_delete=trueが必要で、所有権はserver-sideで判定する。削除すると既存の避難経路は無効になる。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          knowledge_id: { type: 'string' },
+          confirm_delete: { type: 'boolean', const: true, description: '削除と経路の再計算が必要になることを確認する。' },
+        },
+        required: ['knowledge_id', 'confirm_delete'],
+      },
+      readOnlyHint: false,
+      run: async (input: DeleteKnowledgeInput, context) => {
+        const result = await store.deleteKnowledge(input, { signal: context.signal })
+        await store.recordActivity('delete_knowledge', '所有する暗黙知を削除。避難経路の再計算が必要')
+        return result
       },
     },
     {
@@ -62,8 +81,8 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
       inputSchema: {
         type: 'object',
         properties: {
-          lat: { type: 'number' },
-          lng: { type: 'number' },
+          lat: { type: 'number', minimum: 20, maximum: 46.5 },
+          lng: { type: 'number', minimum: 122, maximum: 154 },
           radius_m: { type: 'number', maximum: 2000 },
           category: { type: 'string', enum: ['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'] },
           condition: { type: 'string', enum: ['always', 'rain', 'night', 'crowded'] },
@@ -77,5 +96,32 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
         return { items: result }
       },
     },
+    {
+      name: 'update_knowledge',
+      title: '街の暗黙知を更新',
+      description: '現在の認証済み匿名identityが所有する暗黙知だけを更新する。カテゴリ、座標、条件、説明、確度を検証し、票がある場合はconfirm_reverification_reset=trueで票をリセットして再検証を求める。owner_idは入力しない。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          knowledge_id: { type: 'string' },
+          category: { type: 'string', enum: ['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'] },
+          lat: { type: 'number', minimum: 20, maximum: 46.5 },
+          lng: { type: 'number', minimum: 122, maximum: 154 },
+          condition: { type: 'string', enum: ['always', 'rain', 'night', 'crowded'] },
+          description: { type: 'string', maxLength: 200 },
+          confidence: { type: 'string', enum: ['experienced', 'heard', 'guess'] },
+          confirm_reverification_reset: { type: 'boolean', description: '既存の票をリセットする場合にtrue。' },
+        },
+        required: ['knowledge_id', 'category', 'lat', 'lng', 'condition', 'description', 'confidence'],
+      },
+      readOnlyHint: false,
+      run: async (input: UpdateKnowledgeInput, context) => {
+        const result = await store.updateKnowledge(input, { signal: context.signal })
+        await store.recordActivity('update_knowledge', result.reverification_required ? '暗黙知を更新し、再検証を要求' : '暗黙知を更新')
+        return result
+      },
+    },
   ]
+  const order = ['contribute_knowledge', 'delete_knowledge', 'query_area', 'update_knowledge', 'verify_knowledge']
+  return order.map((name) => definitions.find((tool) => tool.name === name)!).filter(Boolean)
 }

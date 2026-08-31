@@ -19,9 +19,9 @@ npm run dev
 
 ## Public production demo
 
-審査員向けのPrimary Live URLは [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) です。公開GitHubリポジトリの `main`（`27a303f`）から、Netlify Free planで `npm run build` → `dist/` を継続デプロイしています。Production buildには `VITE_LIVINGTOWN_DATA_MODE=shared` と既存Livingtown Supabaseのブラウザ公開可能な設定をNetlifyのEnvironment variablesへ登録しています。値はこのrepositoryへcommitしていません。
+審査員向けのPrimary Live URLは [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) です。現在公開されているURLは、公開GitHubリポジトリの `main`（`27a303f`）からNetlify Free planで継続デプロイしているPhase 7の検証済みベースラインです。Phase 8のreal map／community CRUD／i18n変更を含むfeature branchは、まだ本番へデプロイしていません。Production buildには `VITE_LIVINGTOWN_DATA_MODE=shared` と既存Livingtown Supabaseのブラウザ公開可能な設定をNetlifyのEnvironment variablesへ登録しています。値はこのrepositoryへcommitしていません。
 
-新しいブラウザタブで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録と説明可能な経路計算を確認済みです。Chrome 152.0.7977.64とCodex + Chrome DevTools for agentsによるNative WebMCPの実agent検証も本番URLで完了し、証跡は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) にあります。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` を維持し、Native WebMCPのPASSとは扱いません。
+新しいブラウザタブで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録と説明可能な経路計算を確認済みです。Chrome 152.0.7977.64とCodex + Chrome DevTools for agentsによるNative WebMCPの実agent検証もPhase 7の本番URLで完了し、証跡は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) にあります。この証跡は既存の3本MAP surfaceに対する歴史的記録であり、Phase 8の5本surfaceへは自動的に継承しません。Phase 8の新featureは `REAL_DEVICE_MANUAL_ACTION_REQUIRED` です。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` を維持し、Native WebMCPのPASSとは扱いません。
 
 GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) はfallbackとして残しています。Netlifyの詳細な確認結果は [docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md](./docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md) を参照してください。
 
@@ -29,14 +29,14 @@ GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-a
 
 手順は [docs/DEMO_SCRIPT.md](./docs/DEMO_SCRIPT.md) を参照してください。中心シーンは次の一連です。
 
-1. `contribute_knowledge` で雨天の横断歩道を投稿
+1. MAPの5本のtool（`contribute_knowledge` / `delete_knowledge` / `query_area` / `update_knowledge` / `verify_knowledge`）を確認し、地図タップから5段階フォームで雨天の横断歩道を投稿
 2. `verify_knowledge` を2つのpseudonymous identifier（`anon-demo-neighbor-a` / `anon-demo-neighbor-b`）で1回ずつ実行
 3. `drill` で車椅子世帯の洪水・雨天ルートを計算
 4. `avoided[].reason` と `avoided[].edge_ids` が、実際に外れたグラフ辺を説明していることを確認
 
 ## Living Knowledge Visual World
 
-街の知識はリストだけでなく、現在の2Dマップ上の視覚的な状態として表示されます。表示状態は同じdomain dataから導出します。
+街の知識はリストだけでなく、MapLibre + 国土地理院（GSI）タイルを使う実地図上の視覚的な状態として表示されます。MapLibreを初期化できない環境では、既存の決定的SVGグラフへフォールバックします。表示状態は同じdomain dataから導出します。
 
 `Knowledge` のカテゴリ・検証カウンタと、選択中routeの `avoided[].knowledge_id` / `edge_ids` を使い、次の順で変化します。
 
@@ -44,7 +44,7 @@ GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-a
 
 - barrier、flood、darkness、narrow path、safe spot、otherをカテゴリ別のinline SVGで描画します。safe spotは危険警告とは異なるpositive visualです。
 - `All`、`Verified only`、`Affecting current route` とカテゴリfilter、状態とカテゴリのLegendを提供します。filterはdomain dataを変更しません。
-- visualを選択すると、条件、確度、追認／反証、net score、verification状態、route impact、実際に避けたedge、avoided reasonをdetail cardで確認できます。Knowledgeの座標や自由文を新しいprofile情報として複製しません。
+- visualを選択すると、条件、確度、追認／反証、net score、verification状態、route impact、実際に避けたedge、avoided reasonをdetail cardで確認できます。自分の投稿だけが編集／削除でき、削除・内容変更後は既存routeを無効化します。Knowledgeの座標や自由文を新しいprofile情報として複製しません。
 - Replayにも `KNOWLEDGE → ROUTE` panelを表示し、routeを変えたverified knowledge、avoided reason、edge、bottleneckを同じsnapshotから振り返れます。
 - 詳細な視覚仕様は [docs/LIVING_KNOWLEDGE_VISUALS.md](./docs/LIVING_KNOWLEDGE_VISUALS.md) を参照してください。
 
@@ -58,7 +58,7 @@ npm run seed
 git diff --check
 ```
 
-実装状況と残課題は [docs/EVALUATION.md](./docs/EVALUATION.md)、設計の正本は [docs/DESIGN.md](./docs/DESIGN.md) と [Notionの設計書](https://app.notion.com/p/c22ef848aa464ff6b6a39dc010d5f2c7) です。
+実装状況と残課題は [docs/EVALUATION.md](./docs/EVALUATION.md)、設計の正本は [docs/DESIGN.md](./docs/DESIGN.md) と [Notionの設計書](https://app.notion.com/p/c22ef848aa464ff6b6a39dc010d5f2c7) です。Phase 8の変更点と未適用migrationの扱いは、同ドキュメントのPhase 8節を参照してください。
 
 ## Shared LivingTown mode
 
@@ -70,7 +70,7 @@ VITE_SUPABASE_URL=https://<project>.supabase.co
 VITE_SUPABASE_ANON_KEY=<publishable-or-anon-key>
 ```
 
-`shared` とSupabaseの両方が設定された場合は `SupabaseTownRepository` がKnowledgeをDBへ保存し、VerificationをDB-privateなsource of truthとしてRPC内で扱い、Auth identityからserver-sideでopaqueなpseudonymous verifier identifierを導出します。shared browserへはKnowledgeのderived counterだけを渡し、raw `verifier_id`、verdict、comment、created_atはhydrateしません。`verifier_id`をWebMCPやUIから自由入力するshared contractではありません。SupabaseのURLまたはkeyが欠けている場合は、書き込みを試みず `LOCAL_DEMO` へ明示的にfallbackします。接続後の障害ではlocalへ黙って書き込まず、管理ビューの `Data diagnostics` にERRORを表示します。retryで再取得でき、必要なら「このタブをLOCAL_DEMOへ切替」で明示的にlocalへ切り替えます。
+`shared` とSupabaseの両方が設定された場合は `SupabaseTownRepository` がKnowledgeをDBへ保存し、VerificationをDB-privateなsource of truthとしてRPC内で扱い、Auth identityからserver-sideでopaqueなpseudonymous verifier identifierを導出します。shared browserへはKnowledgeのderived counterだけを渡し、raw `verifier_id`、verdict、comment、created_atはhydrateしません。`verifier_id`をWebMCPやUIから自由入力するshared contractではありません。Phase 8の `knowledge_owner` はprivate mapping tableとしてbrowser roleから隠し、現在のidentityが所有するknowledge IDだけをsecurity-definer RPCで取得します。更新／削除はowner-only RPCと明示確認を必須にし、票がある内容変更は再検証へ戻し、routeを無効化します。対応migrationは [`supabase/migrations/20260831075455_real_map_knowledge_ownership_crud.sql`](./supabase/migrations/20260831075455_real_map_knowledge_ownership_crud.sql) にあるdraftで、まだ適用していません。SupabaseのURLまたはkeyが欠けている場合は、書き込みを試みず `LOCAL_DEMO` へ明示的にfallbackします。接続後の障害ではlocalへ黙って書き込まず、管理ビューの `Data diagnostics` にERRORを表示します。retryで再取得でき、必要なら「このタブをLOCAL_DEMOへ切替」で明示的にlocalへ切り替えます。
 
 UI、WebMCP、決定的route engineは `TownRepository` に依存します。`LocalTownRepository` は既存demoを維持し、`SupabaseTownRepository` はremote stateとRealtimeを担当します。household／bottleneckはAuth ownerにscopeされたRPC経由で扱い、public Knowledgeとは別の境界です。詳細なmigration、RLS、匿名Auth、Realtime、障害時の手動確認は [docs/SUPABASE_SHARED_STATE.md](./docs/SUPABASE_SHARED_STATE.md) を参照してください。
 
@@ -78,7 +78,7 @@ UI、WebMCP、決定的route engineは `TownRepository` に依存します。`Lo
 
 WebMCP固有のブラウザAPIは [`src/webmcp/register.ts`](./src/webmcp/register.ts) に隔離しています。対応ブラウザでは現行Imperative APIの `document.modelContext.registerTool`、登録ごとの `AbortSignal`、`getTools()`、`toolchange` を使います。非対応ブラウザでは同じ定義をローカルシミュレーターから呼び出します。
 
-- `map`: `contribute_knowledge`, `verify_knowledge`, `query_area`
+- `map`: `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge`
 - `drill`: `register_household`, `get_evacuation_route`, `report_bottleneck`
 - `replay`: `control_replay`, `get_debrief_summary`
 
@@ -88,7 +88,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 右上の `管理ビュー` にある `WebMCP Diagnostics` では、ブラウザAPIの有無、`NATIVE` / `SIMULATED` mode、現在phase、transition、phase AbortSignal、`getTools()` から分離したLivingTown toolと外部tool、exact surface match、`toolchange` の状態を確認できます。`Evidence JSONをコピー` または `Evidence JSONを保存` で、現在の診断と確認済みphaseのメタデータを一つに出力できます。Evidence JSONにはknowledge本文やhousehold profileを含めません。
 
-`SIMULATED` は通常ブラウザ用の動作確認であり、**This is not real-device WebMCP evidence.** と表示されます。今回のNative判定は、対応ChromeでCodex agentがChrome DevTools for agents経由で `getTools()`相当のtool discovery、live schema、tool実行、phase切替、旧toolの消滅を確認した記録を対象にしています。詳細は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) と [docs/WEBMCP_REAL_DEVICE.md](./docs/WEBMCP_REAL_DEVICE.md) を参照してください。
+`SIMULATED` は通常ブラウザ用の動作確認であり、**This is not real-device WebMCP evidence.** と表示されます。今回のNative判定は、対応ChromeでCodex agentがChrome DevTools for agents経由で `getTools()`相当のtool discovery、live schema、tool実行、phase切替、旧toolの消滅を確認した記録を対象にしています。Phase 8の5本surfaceはまだ実機再確認前です。詳細は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md)、[docs/evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md](./docs/evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md)、[docs/WEBMCP_REAL_DEVICE.md](./docs/WEBMCP_REAL_DEVICE.md) を参照してください。
 
 ## Privacy and verification boundary
 
