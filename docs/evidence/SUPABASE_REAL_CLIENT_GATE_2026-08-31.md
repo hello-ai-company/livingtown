@@ -103,11 +103,26 @@ trailing-refresh tests; no network fault was injected into the hosted project.
 ## Browser privacy boundary
 
 The hosted DB security gate had already confirmed that browser roles cannot
-SELECT the raw `verification` table or directly INSERT it. This browser run
-additionally confirmed that the shared client snapshot contains no raw
-`verifier_id`, `verdict`, `comment`, or Verification records and that the RPC
-feedback does not expose a verifier identifier. The app uses Knowledge counters
-as the browser-visible derived state.
+SELECT the raw `verification` table or directly INSERT it. The recorded
+browser run additionally confirmed that the shared client snapshot contains
+no raw `verifier_id`, `verdict`, `comment`, or Verification records and that
+the RPC feedback does not expose a verifier identifier. The app uses Knowledge
+counters as the browser-visible derived state.
+
+The final evidence-only recheck was limited by the browser-session lifecycle:
+the original authenticated A/B/C tabs were no longer available in the
+automation context. No raw Auth identity, token, or storage value was read,
+and no replacement identity or extra vote was created. Accordingly, the
+following distinction is kept explicit:
+
+- Authenticated browser raw Verification SELECT: **NOT RECONFIRMED** in this
+  pass; the hosted DB security audit result remains **DENIED**.
+- RPC response `verifier_id`: **NOT EXPOSED**.
+- Shared snapshot raw Verification: **NOT EXPOSED**.
+- A != B != C: **CONFIRMED** in the recorded A/B/C run; current runtime
+  comparison was not repeated because those sessions were unavailable.
+
+This does not claim that the final browser-session recheck was executed.
 
 ## Reproduced client issue and minimal fix
 
@@ -123,7 +138,7 @@ precedence, local fallback, and the empty-target case.
 ## Checks and limitations
 
 - `npm run typecheck`: PASS
-- `npm test`: PASS — 62 tests
+- `npm test`: PASS — 63 tests
 - `npm run build`: PASS
 - `npm run seed`: PASS
 - `git diff --check`: PASS
@@ -140,11 +155,13 @@ precedence, local fallback, and the empty-target case.
 
 `HOSTED_DB_SECURITY_GATE: PASS` (the preceding hosted DB audit)<br>
 `LOCAL_PGTAP: BLOCKED`<br>
-`BROWSER_REAL_CLIENT_GATE: PASS` for the 16 Phase 6C criteria: shared mode,
-real anonymous identities, contribution, B Realtime receive, first vote,
-second identity threshold, automatic verification, duplicate protection,
-owner isolation, wheelchair route impact, explanation/edge linkage, and
-trailing-refresh convergence.<br>
-`REAL_SUPABASE_GATE: PASS` for the hosted DB + real-browser scope. Local pgTAP
-and network fault-injection remain separately unverified and are not hidden by
-this status.
+`BROWSER_REAL_CLIENT_GATE: PASS` for the recorded 16 Phase 6C criteria: shared
+mode, real anonymous identities, contribution, B Realtime receive, first
+vote, second identity threshold, automatic verification, duplicate
+protection, owner isolation, wheelchair route impact, explanation/edge
+linkage, and trailing-refresh convergence. The final raw Verification browser
+SELECT recheck was not repeated because the original sessions were
+unavailable.<br>
+`REAL_SUPABASE_GATE: PASS` for the hosted DB + recorded real-browser scope.
+Local pgTAP, the final browser-session recheck, and network fault-injection
+remain separately unverified and are not hidden by this status.
