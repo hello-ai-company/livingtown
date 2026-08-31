@@ -161,6 +161,7 @@ The local result is code-review ready, not merge/deploy ready. Shared Supabase C
 
 `CI_INFRA_BLOCKED`: PR #1の指定run `33295537735` はGitHub API上で `conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。Phase 4AのPR #2 run `33302362702` / job `99232743694` も、`conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。checkout／Node／npmのstep開始証跡がないため、いずれもコードのtest failureとは判定していない。
 Phase 6のPR #4 run `33310283020` / job `99253976986` とPR #6のlatest run `33361713392` / job `99394196838` は同じ状態（`conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found`）である。checkout／Node／npmのstep開始証跡がないため、これらはコードfailureとは判定せず `CI_INFRA_BLOCKED` と記録する。対して、submission-readiness PR #7のlatest run `33362479378` / job `99396400590` は `conclusion=success` で、typecheck／test／buildのCI gateをPASSした。
+PR #12のlatest run `33412529760` / job `99555280799` は `conclusion=success`。workflow Node 22で `npm ci`、typecheck、test、buildをPASSした。actions runtimeのNode 20 deprecation annotationはアプリのNode versionとは別の警告である。
 
 ## PENDING
 

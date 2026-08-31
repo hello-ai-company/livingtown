@@ -16,6 +16,11 @@ Feature HEAD at the implementation/test gate: `4986b46f3c5d2a6e810843dcba7890fdb
 - `npm run seed`: PASS — 6 graph nodes / 7 directed edges, 10 Knowledge observations, 13 pseudonymous votes, 3 households.
 - `git diff --check`: PASS
 
+## Hosted CI
+
+- PR #12 run `33412529760` / job `99555280799`: SUCCESS on feature HEAD `346f40c9ecc6de3730ee8b957a7bf76d355f6b4f`.
+- The hosted job ran `npm ci`, `npm run typecheck`, `npm test`, and `npm run build` successfully with workflow Node `22`. GitHub emitted only the existing action-runtime deprecation annotation for `actions/checkout@v4` and `actions/setup-node@v4`.
+
 ## Phase 10 behavior covered by code and automated tests
 
 - One-line composer labels: JA `この場所で何がありましたか？`; EN `What's happening here?`.
