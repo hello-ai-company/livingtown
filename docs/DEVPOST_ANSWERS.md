@@ -1,8 +1,9 @@
 # Devpost Answer Sheet — The WebMCP Challenge
 
 Draft only. These answers are not a final submission. The video field remains
-blank by instruction. The live URL below is a verified free GitHub Pages
-deployment, but native WebMCP validation is still pending.
+blank by instruction. The live URL below is a verified free Netlify production
+deployment; GitHub Pages remains a fallback, and native WebMCP validation is
+still pending.
 
 ## Project fields
 
@@ -13,7 +14,7 @@ deployment, but native WebMCP validation is still pending.
 | Built with | React, TypeScript, Vite, WebMCP, Supabase |
 | Description | See [SUBMISSION.md](./SUBMISSION.md), English text below |
 | Public repository | https://github.com/hello-ai-company/livingtown |
-| Live URL | https://hello-ai-company.github.io/livingtown/ |
+| Live URL | https://livingtown-webmcp.netlify.app/ |
 | Video URL | *(blank — not available yet)* |
 
 ## Description for the English write-up
@@ -62,8 +63,8 @@ for this challenge.
 | 28251 | Organization | *(blank)* |
 | 28252 | Is this app new or existing? | New |
 | 28253 | If existing, explain | *(blank — app is new)* |
-| 28254 | Live URL | https://hello-ai-company.github.io/livingtown/ |
-| 28255 | Testing instructions | Open the live URL in ChatGPT's in-app browser or WebMCP-enabled Chrome. Follow [README.en.md](../README.en.md) and [docs/DEMO_SCRIPT.en.md](./DEMO_SCRIPT.en.md). Native WebMCP evidence is required before final submission. |
+| 28254 | Live URL | https://livingtown-webmcp.netlify.app/ |
+| 28255 | Testing instructions | Open the Netlify live URL in ChatGPT's in-app browser or WebMCP-enabled Chrome. Confirm `SUPABASE_SHARED`, Anonymous Auth, `CONNECTED`, and Realtime `CONNECTED` in Data diagnostics, then use MAP → DRILL → REPLAY. Follow [README.en.md](../README.en.md) and [docs/DEMO_SCRIPT.en.md](./DEMO_SCRIPT.en.md). Native WebMCP evidence is required before final submission. |
 | 28256 | Public code repository | https://github.com/hello-ai-company/livingtown |
 | 28257 | Agent/client tested | Google Chrome with the SIMULATED fallback; native WebMCP real-device validation is pending. |
 | 28258 | AI tools used | OpenAI Codex |
@@ -74,8 +75,7 @@ for this challenge.
 
 - Project overview and details have been saved to the Devpost draft.
 - Non-sensitive additional-info values were saved in the Devpost draft.
-- Country is user-provided but remains pending website confirmation before it
-  is typed into the external form.
-- The verified live URL is filled; native WebMCP validation on that URL remains pending.
+- Country `Japan` is saved in the Devpost draft.
+- The verified Netlify live URL is filled; native WebMCP validation on that URL remains pending.
 - Video URL is intentionally blank.
 - No final Devpost submission is authorized by this document.

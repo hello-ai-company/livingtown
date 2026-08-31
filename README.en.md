@@ -24,7 +24,7 @@ For a production build:
 npm run build
 ```
 
-The static output is written to `dist/`. A verified free public deployment is available at [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/). It currently runs the deterministic LOCAL_DEMO build; the URL still needs native WebMCP validation in a supported Chrome.
+The static output is written to `dist/`. The primary verified free public production deployment is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/). It deploys `main` (`27a303f`) with `npm run build` and `dist/`, and runs `SUPABASE_SHARED` using the existing project's browser-safe Supabase configuration. A newly opened browser tab confirmed HTTPS, anonymous Auth, `CONNECTED`, Realtime `CONNECTED`, and the MAP → DRILL → REPLAY flow. The GitHub Pages URL [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) remains as a fallback. Native WebMCP is still an external manual gate and is not claimed by the current `SIMULATED` browser run.
 
 ## Three-minute demo
 
@@ -88,7 +88,7 @@ The current local gate passes with 10 test files and 63 tests. GitHub Actions is
 
 ## Challenge submission readiness
 
-The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The verified live URL is [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/). The remaining submission gates are external:
+The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. The remaining submission gates are external:
 
 - record a public YouTube demo under three minutes with audio covering the product and WebMCP use;
 - run the native WebMCP MAP → DRILL → REPLAY checks and save evidence; and

@@ -10,8 +10,18 @@ under-three-minute video exists.
 - **Tagline:** Turn neighborhood memory into verifiable evacuation routes with WebMCP.
 - **Built with:** React, TypeScript, Vite, WebMCP, Supabase
 - **Public repository:** https://github.com/hello-ai-company/livingtown
-- **Live URL:** https://hello-ai-company.github.io/livingtown/
+- **Live URL:** https://livingtown-webmcp.netlify.app/
 - **Video URL:** [TODO — public YouTube video under 3 minutes with audio]
+
+## Production hosting verification
+
+- **Primary hosting:** Netlify Free plan, public production site at https://livingtown-webmcp.netlify.app/
+- **Source:** `hello-ai-company/livingtown`, `main` at `27a303f`
+- **Build:** `npm run build`, publish directory `dist`, repository root as base directory
+- **Environment:** `VITE_LIVINGTOWN_DATA_MODE=shared`, existing Livingtown Supabase URL, and a browser-safe publishable/anon key are configured in Netlify Environment variables. No value is committed here.
+- **Smoke test:** fresh browser tab loaded over HTTPS; `SUPABASE_SHARED`, Supabase configured `YES`, Anonymous Auth `YES`, `CONNECTED`, and Realtime `CONNECTED`; MAP → DRILL → REPLAY, temporary wheelchair household registration, route calculation, and Replay debrief were observed.
+- **Fallback:** GitHub Pages remains available at https://hello-ai-company.github.io/livingtown/.
+- **Native WebMCP:** not verified in the connected browser; the UI remains explicitly `SIMULATED`.
 
 ## What is LivingTown?
 
@@ -86,6 +96,7 @@ Local quality gates on this submission-readiness branch:
 
 External evidence:
 
+- NETLIFY_PRODUCTION_GATE: PASS for the public Netlify production URL, latest merged `main`, HTTPS, same-origin assets, shared Supabase diagnostics, and MAP → DRILL → REPLAY smoke test.
 - HOSTED_DB_SECURITY_GATE: PASS for the existing Free-plan Supabase project.
 - BROWSER_REAL_CLIENT_GATE: PASS for the recorded shared A/B/C interaction
   sequence.

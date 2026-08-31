@@ -1,8 +1,8 @@
 # LivingTown 実装評価
 
 評価日: 2026-08-31
-対象: `chore/webmcp-submission-readiness`（PR #6 HEADを基準）
-Base SHA: `6c96f5e9af001798bca146dde6c866a1ec525567`（PR #6の証跡更新後）
+対象: `chore/netlify-production-deploy`（PR #6 merge後）
+Base SHA: `27a303f7450b8a85c71aba978b316eb0b80895f7`
 
 ## 判定ルール
 
@@ -13,6 +13,14 @@ Base SHA: `6c96f5e9af001798bca146dde6c866a1ec525567`（PR #6の証跡更新後�
 通常ブラウザの `SIMULATED` fallback、fake `modelContext`、Vitestの成功は、Chrome実機WebMCPのPASS証跡ではない。
 
 ## PASS
+
+### Netlify production deployment
+
+- `NETLIFY_PRODUCTION_GATE: PASS`: the public stable URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), served over HTTPS from the latest merged `main@27a303f`.
+- Netlify Free plan uses repository-root `npm run build` and publishes `dist`. The GitHub repository is connected for continuous deployment; GitHub Pages remains a fallback.
+- A fresh browser tab loaded the site without a prior LivingTown origin state. Data diagnostics showed `SUPABASE_SHARED`, configured `YES`, authenticated `YES`, `CONNECTED`, and Realtime `CONNECTED`.
+- The public production smoke test covered MAP → DRILL → REPLAY, one safe temporary wheelchair household registration, an explainable route calculation, and the Replay debrief. Runtime assets were same-origin; no GitHub Pages or localhost resource was required.
+- `NATIVE_WEBMCP_LIVE_URL_GATE: NOT VERIFIED`: this browser did not expose `document.modelContext`; the UI correctly remained `SIMULATED`.
 
 ### Core routing
 

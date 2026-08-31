@@ -17,6 +17,14 @@ npm run dev
 
 `npm run seed` は、外部APIなしでデモ用歩行グラフ、暗黙知10件、pseudonymous verification data、世帯3件を `seed/` に生成します。アプリは初回起動時に同じ決定的データをLocalStorageへ読み込みます。
 
+## Public production demo
+
+審査員向けのPrimary Live URLは [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) です。公開GitHubリポジトリの `main`（`27a303f`）から、Netlify Free planで `npm run build` → `dist/` を継続デプロイしています。Production buildには `VITE_LIVINGTOWN_DATA_MODE=shared` と既存Livingtown Supabaseのブラウザ公開可能な設定をNetlifyのEnvironment variablesへ登録しています。値はこのrepositoryへcommitしていません。
+
+新しいブラウザタブで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録と説明可能な経路計算を確認済みです。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` を維持し、Native WebMCPのPASSとは扱いません。
+
+GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) はfallbackとして残しています。Netlifyの詳細な確認結果は [docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md](./docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md) を参照してください。
+
 ## 3分デモ
 
 手順は [docs/DEMO_SCRIPT.md](./docs/DEMO_SCRIPT.md) を参照してください。中心シーンは次の一連です。
