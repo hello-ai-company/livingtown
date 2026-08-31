@@ -63,13 +63,23 @@ service-role key, private key, password, access token, GitHub token, or Netlify
 token. A browser publishable Supabase key is expected in a Vite browser bundle
 and is constrained by the existing database grants and RLS.
 
-`NATIVE_WEBMCP_LIVE_URL_GATE: NOT VERIFIED`
+The separate Native WebMCP gate was completed against this same public URL
+using Codex + Chrome DevTools for agents (`chrome-devtools-mcp` 1.8.0) with
+Chrome 152.0.7977.64. The old deployed tool surface was verified as exact for
+MAP (`contribute_knowledge`, `query_area`, `verify_knowledge`), DRILL
+(`register_household`, `get_evacuation_route`, `report_bottleneck`), and
+REPLAY (`control_replay`, `get_debrief_summary`). The native agent invocation
+also completed a read-only `query_area` and one non-PII contribution, with the
+new observation reflected in the shared activity/count UI.
 
-This browser did not expose `document.modelContext`. LivingTown correctly
-displayed `SIMULATED`; no simulated tool result was promoted to Native WebMCP
-evidence. See
-[`WEBMCP_NATIVE_GATE_2026-08-31.md`](./WEBMCP_NATIVE_GATE_2026-08-31.md) for the
-remaining manual gate.
+`NATIVE_WEBMCP_GATE: PASS`
+`NATIVE_WEBMCP_AGENT_INVOCATION: PASS`
+`NATIVE_WEBMCP_LIVE_URL_GATE: PASS`
+
+See [`WEBMCP_NATIVE_GATE_2026-08-31.md`](./WEBMCP_NATIVE_GATE_2026-08-31.md)
+for the full evidence. This is evidence for the deployed Phase 7 surface; any
+new Phase 8 tool surface requires a separate native revalidation after a
+future preview/production deployment.
 
 GitHub Pages remains available as the fallback URL:
 https://hello-ai-company.github.io/livingtown/
