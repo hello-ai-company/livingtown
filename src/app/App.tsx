@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Map2D } from '../map/Map2D'
+import { MapExperience } from '../map/MapExperience'
 import { KnowledgeContributionForm } from '../map/KnowledgeContributionForm'
 import { Replay3D } from '../map/Replay3D'
 import { ReplayKnowledgePanel } from '../map/ReplayKnowledgePanel'
@@ -16,6 +16,9 @@ import type { RegistryStatus } from '../webmcp/register'
 import { getToolDefinitions } from '../webmcp/tools'
 import { resolveVerificationTargetId } from './verificationTarget'
 import { useTranslator, useUiPreferences, type ExperienceMode, type Locale, type Translator } from '../i18n'
+import { DEFAULT_TOKYO_CAMERA } from '../map3d/navaraCamera'
+import { getNavaraCapabilities, resolveInitialMapDimension, persistMapDimension } from '../map3d/navaraCapabilities'
+import type { GeoCamera, MapDimension, WeatherVisualMode } from '../map3d/types'
 
 const PHASE_BASE: Array<{ key: Phase; index: string; short: string }> = [
   { key: 'map', index: '01', short: 'MAP' },
@@ -60,6 +63,9 @@ function AppShell() {
   const [editingKnowledge, setEditingKnowledge] = useState<Knowledge>()
   const [editingLocation, setEditingLocation] = useState<{ lat: number; lng: number }>()
   const [locationPickerActive, setLocationPickerActive] = useState(false)
+  const [mapDimension, setMapDimension] = useState<MapDimension>(() => resolveInitialMapDimension(getNavaraCapabilities()))
+  const [mapCamera, setMapCamera] = useState<GeoCamera>(DEFAULT_TOKYO_CAMERA)
+  const [weatherVisualMode, setWeatherVisualMode] = useState<WeatherVisualMode>()
 
   const browserUserAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
   const currentEvidence = useMemo(
@@ -207,6 +213,11 @@ function AppShell() {
     setSelectedHouseholdId(householdId)
   }
 
+  const open3D = () => {
+    persistMapDimension('3d')
+    setMapDimension('3d')
+  }
+
   const submitKnowledge = async (input: ContributeKnowledgeInput | UpdateKnowledgeInput) => {
     const isUpdate = 'knowledge_id' in input
     const toolName = isUpdate ? 'update_knowledge' : 'contribute_knowledge'
@@ -318,10 +329,10 @@ function AppShell() {
 
         <div className="main-grid">
           <section className="map-column">
-            <Map2D snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} locationPickerActive={locationPickerActive} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onRequestContribution={(location) => setContributionLocation(location)} onLocationPicked={(location) => { setLocationPickerActive(false); if (editingKnowledge) setEditingLocation(location); else setContributionLocation(location); setNotice(t('notice.locationSelected')) }} onEditKnowledge={(knowledge) => { setEditingKnowledge(knowledge); setEditingLocation({ lat: knowledge.lat, lng: knowledge.lng }); setContributionLocation(undefined) }} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />
+            <MapExperience snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} dimension={mapDimension} camera={mapCamera} onDimensionChange={setMapDimension} onCameraChange={setMapCamera} onNotice={setNotice} weatherMode={weatherVisualMode} onWeatherModeChange={setWeatherVisualMode} locationPickerActive={locationPickerActive} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onRequestContribution={(location) => setContributionLocation(location)} onLocationPicked={(location) => { setLocationPickerActive(false); if (editingKnowledge) setEditingLocation(location); else setContributionLocation(location); setNotice(t('notice.locationSelected')) }} onEditKnowledge={(knowledge) => { setEditingKnowledge(knowledge); setEditingLocation({ lat: knowledge.lat, lng: knowledge.lng }); setContributionLocation(undefined) }} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />
             {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
-            {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
-            {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} />}
+            {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
+            {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} onView3D={open3D} />}
             {panel === 'admin' && <AdminStage registry={registry} phase={phase} phaseMeta={phaseMeta} locale={locale} mode={mode} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} repositoryStatus={repositoryStatus} onRetry={() => { void townRepository.retry().catch((error) => setNotice(error instanceof Error ? error.message : (locale === 'ja' ? 'Supabaseの再接続に失敗しました。' : 'Supabase reconnect failed.'))) }} onFallbackToLocal={switchToLocalDemo} />}
           </section>
 
@@ -402,13 +413,14 @@ interface DrillStageProps {
   onChangeRouteInputs: (value: { scenario: 'earthquake' | 'flood'; weather: 'clear' | 'rain'; time_of_day: 'day' | 'night' }) => void
   onCalculate: () => void
   onReplay: () => void
+  onView3D: () => void
   onRunTool: (name: string, input: unknown) => Promise<unknown>
   onRegisterHousehold: () => void
   locale: Locale
   mode: ExperienceMode
 }
 
-function DrillStage({ snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onRunTool, onRegisterHousehold, locale, mode }: DrillStageProps) {
+function DrillStage({ snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onView3D, onRunTool, onRegisterHousehold, locale, mode }: DrillStageProps) {
   const t = useTranslator(locale)
   return (
     <section className="stage-panel">
@@ -430,23 +442,23 @@ function DrillStage({ snapshot, selectedHouseholdId, selectedHousehold, selected
         <button className="primary-button" onClick={onCalculate}>{t('drill.calculate')} <span>↗</span></button>
       </div>
 
-      {selectedRoute ? <RouteResultPanel route={selectedRoute} locale={locale} mode={mode} onReplay={onReplay} onRunTool={onRunTool} selectedHouseholdId={selectedHouseholdId} /> : <div className="empty-route"><div className="empty-route__icon">⌁</div><div><strong>{t('drill.emptyTitle')}</strong><p>{t('drill.emptyBody')}</p></div></div>}
+      {selectedRoute ? <RouteResultPanel route={selectedRoute} locale={locale} mode={mode} onReplay={onReplay} onView3D={onView3D} onRunTool={onRunTool} selectedHouseholdId={selectedHouseholdId} /> : <div className="empty-route"><div className="empty-route__icon">⌁</div><div><strong>{t('drill.emptyTitle')}</strong><p>{t('drill.emptyBody')}</p></div></div>}
     </section>
   )
 }
 
-function RouteResultPanel({ route, locale, mode, onReplay, onRunTool, selectedHouseholdId }: { route: RouteResult; locale: Locale; mode: ExperienceMode; onReplay: () => void; onRunTool: (name: string, input: unknown) => Promise<unknown>; selectedHouseholdId: string }) {
+function RouteResultPanel({ route, locale, mode, onReplay, onView3D, onRunTool, selectedHouseholdId }: { route: RouteResult; locale: Locale; mode: ExperienceMode; onReplay: () => void; onView3D: () => void; onRunTool: (name: string, input: unknown) => Promise<unknown>; selectedHouseholdId: string }) {
   const t = useTranslator(locale)
   return (
     <div className="route-result">
       <div className="route-result__summary"><div><span className="eyebrow">{t(mode === 'simple' ? 'route.simpleExplained' : 'route.explained')}</span><strong>{route.eta_minutes} {locale === 'ja' ? '分' : 'min'} <small>{t('route.highGround')}</small></strong></div><div className="route-result__distance">{route.distance_m} m <span>·</span> {route.avoided.length ? t('route.applied', { count: route.avoided.length }) : t('route.standard')}</div></div>
       {route.avoided.length > 0 ? <div className="avoided-callout"><div className="avoided-callout__heading"><span className="avoided-callout__icon">↝</span><div><span className="eyebrow">{mode === 'advanced' ? 'AVOIDED / EXPLAINABLE' : t('route.simpleAvoided')}</span><strong>{t(mode === 'simple' ? 'route.simpleAvoided' : 'route.avoided')}</strong></div></div><div className="avoided-list">{route.avoided.map((item) => <div key={item.knowledge_id} className="avoided-item"><span className="avoided-item__line" /><div><strong>{item.reason}</strong><p>「{item.description}」</p></div></div>)}</div></div> : <div className="clear-route"><span>◎</span><div><strong>{t('route.clearTitle')}</strong><p>{t('route.clearBody')}</p></div></div>}
-      <div className="route-result__actions"><button className="secondary-button" onClick={() => void onRunTool('report_bottleneck', { lat: 35.6804, lng: 139.7605, severity: 2, description: '南側の路地で車椅子の方向転換に時間がかかった。', household_id: selectedHouseholdId })}>{t('route.report')} <span>+</span></button><button className="primary-button" onClick={onReplay}>{t('route.replay')} <span>→</span></button></div>
+      <div className="route-result__actions"><button className="secondary-button" onClick={() => void onRunTool('report_bottleneck', { lat: 35.6804, lng: 139.7605, severity: 2, description: '南側の路地で車椅子の方向転換に時間がかかった。', household_id: selectedHouseholdId })}>{t('route.report')} <span>+</span></button><button className="secondary-button" onClick={onView3D}>{t('drill.view3d')} <span>↗</span></button><button className="primary-button" onClick={onReplay}>{t('route.replay')} <span>→</span></button></div>
     </div>
   )
 }
 
-function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, locale, mode, onRunTool, onSelectHousehold, onSelectKnowledge }: { snapshot: TownSnapshot; selectedHouseholdId: string; selectedRoute?: RouteResult; locale: Locale; mode: ExperienceMode; onRunTool: (name: string, input: unknown) => Promise<unknown>; onSelectHousehold: (id: string) => void; onSelectKnowledge: (knowledgeId: string) => void }) {
+function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, locale, mode, onRunTool, onSelectHousehold, onSelectKnowledge, onView3D }: { snapshot: TownSnapshot; selectedHouseholdId: string; selectedRoute?: RouteResult; locale: Locale; mode: ExperienceMode; onRunTool: (name: string, input: unknown) => Promise<unknown>; onSelectHousehold: (id: string) => void; onSelectKnowledge: (knowledgeId: string) => void; onView3D: () => void }) {
   const t = useTranslator(locale)
   const [summaryRequested, setSummaryRequested] = useState(false)
   const selectedHousehold = snapshot.households.find((item) => item.id === selectedHouseholdId)
@@ -462,7 +474,7 @@ function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, locale, mod
       <p className="stage-lead">{t(mode === 'simple' ? 'replay.simpleLead' : 'replay.lead')}</p>
       <div className="replay-toolbar"><span className="replay-toolbar__status"><span className={`status-dot${snapshot.replay.is_playing ? ' status-dot--live' : ''}`} />{snapshot.replay.is_playing ? t('replay.playing') : t('replay.paused')}{mode === 'advanced' && ` · ${snapshot.replay.camera}`}</span><div><button className="icon-button" onClick={() => runReplay({ action: 'overview' })} aria-label={t('replay.overview')}>◎</button><button className="icon-button" onClick={() => runReplay({ action: 'pause' })} aria-label={t('replay.pause')}>Ⅱ</button><button className="icon-button" onClick={() => runReplay({ action: 'resume' })} aria-label={t('replay.resume')}>▶</button></div></div>
       <div className="replay-focus-row"><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleFocus' : 'replay.focus')}</span>{snapshot.households.map((household) => <button key={household.id} className={`focus-button${household.id === selectedHouseholdId ? ' focus-button--active' : ''}`} onClick={() => { onSelectHousehold(household.id); runReplay({ action: 'replay_route', target_id: household.id }) }}>{household.label ?? t('common.anonymousHousehold')} <small>{household.constraints.length ? household.constraints.map((item) => t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></button>)}</div>
-      <Replay3D snapshot={snapshot} locale={locale} mode={mode} />
+      <Replay3D snapshot={snapshot} locale={locale} mode={mode} onView3D={onView3D} />
       <ReplayKnowledgePanel snapshot={snapshot} selectedRoute={selectedRoute} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onSelectKnowledge={onSelectKnowledge} />
       <div className="replay-summary-row"><div><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleDebrief' : 'replay.debrief')}</span><strong>{t('replay.trainingLog', { label: selectedHousehold?.label ?? t('common.selectedHousehold') })}</strong><p>{selectedRoute ? t('replay.summaryWithRoute', { minutes: selectedRoute.eta_minutes, count: selectedRoute.avoided.length }) : t('replay.summaryEmpty')}</p></div><button className="secondary-button" onClick={() => { setSummaryRequested(true); void onRunTool('get_debrief_summary', {}) }}>{t('replay.refreshSummary')} <span>↗</span></button></div>
       {summaryRequested && <div className="mini-summary"><div><strong>{snapshot.households.length}</strong><span>{t('replay.households')}</span></div><div><strong>{Object.keys(snapshot.routes).length}</strong><span>{t('replay.routes')}</span></div><div><strong>{snapshot.bottlenecks.length}</strong><span>{t('replay.bottleneckCount')}</span></div><div><strong>{snapshot.knowledge.filter(isKnowledgeVerified).length}</strong><span>{t('replay.verifiedKnowledge')}</span></div>{targetBottleneck && <button className="text-button" onClick={() => runReplay({ action: 'highlight_bottleneck', target_id: targetBottleneck.id })}>{t('replay.viewBottleneck')} →</button>}</div>}

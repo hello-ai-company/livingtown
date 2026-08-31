@@ -24,7 +24,7 @@ For a production build:
 npm run build
 ```
 
-The static output is written to `dist/`. The primary verified free public production deployment is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/). The public URL currently deploys the Phase 7 baseline from `main` (`27a303f`) with `npm run build` and `dist/`, and runs `SUPABASE_SHARED` using the existing project's browser-safe Supabase configuration. The Phase 8 real-map/community-CRUD/i18n feature branch has not been deployed to production. A newly opened browser tab confirmed HTTPS, anonymous Auth, `CONNECTED`, Realtime `CONNECTED`, and the MAP → DRILL → REPLAY flow. The GitHub Pages URL [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) remains as a fallback. Native WebMCP agent validation passed on the Phase 7 public URL with Chrome 152.0.7977.64, Codex, and Chrome DevTools for agents; that historical evidence does not automatically cover the Phase 8 five-tool surface. The Phase 8 native gate is pending; see [docs/evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md](./docs/evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md). The `SIMULATED` fallback remains available for browsers without Native WebMCP.
+The static output is written to `dist/`. The primary verified free public production deployment is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/). The public URL currently deploys the Phase 7 baseline from `main` (`27a303f`) with `npm run build` and `dist/`, and runs `SUPABASE_SHARED` using the existing project's browser-safe Supabase configuration. The Phase 8 real-map/community-CRUD/i18n branch and the Phase 9 Navara 3D branch have not been deployed to production. A newly opened browser tab confirmed HTTPS, anonymous Auth, `CONNECTED`, Realtime `CONNECTED`, and the MAP → DRILL → REPLAY flow. The GitHub Pages URL [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) remains as a fallback. Native WebMCP agent validation passed on the Phase 7 public URL with Chrome 152.0.7977.64, Codex, and Chrome DevTools for agents; that historical evidence does not automatically cover the Phase 8 five-tool surface or Phase 9 3D view. The Phase 9 native gate is not run; see [docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md](./docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md). The `SIMULATED` fallback remains available for browsers without Native WebMCP.
 
 ## Three-minute demo
 
@@ -34,6 +34,7 @@ The full English runbook is [docs/DEMO_SCRIPT.en.md](./docs/DEMO_SCRIPT.en.md). 
 2. Use `verify_knowledge` twice with the local demo's pseudonymous fixtures.
 3. Use `get_evacuation_route` for the wheelchair household under flood/rain conditions.
 4. Explain the actual avoided graph edges through `avoided[].reason` and `avoided[].edge_ids`.
+5. From DRILL or REPLAY, explicitly open the shared Navara 3D view; if the renderer is unavailable, show the localized 2D fallback honestly.
 
 Do not put names, addresses, phone numbers, diagnoses, or free-form medical information into demo payloads.
 
@@ -50,6 +51,12 @@ LivingTown exposes phase-scoped tools:
 | REPLAY | `control_replay`, `get_debrief_summary` |
 
 The current phase controls which tools are exposed. The primary map renderer uses MapLibre: `Auto` selects GSI for the Japan map region and OpenFreeMap's Liberty style for worldwide locations, while Advanced mode can pin either provider. The existing SVG graph remains the deterministic fallback. Worldwide Knowledge uses Web Mercator-safe bounds (latitude `-85.051129..85.051129`, longitude `-180..180`); drill households, bottlenecks, and the deterministic walking graph remain scoped to the Tokyo demo area. GSI and OpenFreeMap attribution are rendered by the map, and the current-location action is explicit and one-shot with no tracking or persistence. The UI visualizes pending knowledge, verified knowledge, and knowledge that affected the selected route. Replay derives the same explanation from the same snapshot, so the UI and agent surface do not maintain divergent route state.
+
+## Immersive Navara 3D map
+
+MapLibre 2D remains the initial view. Navara 0.1.1 is loaded only after an explicit `View in 3D` action, keeping Navara, Three, postprocessing, WASM, and Worker dependencies out of the initial application entry. Tokyo uses GSI raster imagery and GSI terrain; the Chiyoda Project PLATEAU 3D Tileset is an optional, reachability-checked layer. Outside Japan, the 3D fallback uses API-key-free OpenStreetMap raster imagery and an ellipsoid terrain surface, while the deterministic drill graph remains scoped to the Tokyo demo area.
+
+Both dimensions project the same `TownRepository` snapshot. Knowledge states, households, bottlenecks, routes, `avoided.reason`, and the guided camera tour therefore remain consistent across 2D and 3D. Visual weather is a simulation tied to drill conditions, not a current-weather API. Navara, GSI, and PLATEAU attribution is visible in the 3D UI. See [docs/NAVARA_3D.md](./docs/NAVARA_3D.md) and the local-only [3D gate evidence](./docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md).
 
 ## WebMCP implementation
 
@@ -84,11 +91,11 @@ npm run seed
 git diff --check
 ```
 
-The current local gate passes with 14 test files and 88 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
+The current local gate passes with 19 test files and 99 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
 
 ## Challenge submission readiness
 
-The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. The Phase 8 feature branch is prepared for review, but the remaining submission gate is external:
+The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. The Phase 9 feature branch is prepared for review, but it has not been deployed to the live URL and the remaining submission gate is external:
 
 - record a public YouTube demo under three minutes with audio covering the product and WebMCP use;
 - the historical Phase 7 native WebMCP MAP → DRILL → REPLAY gate is PASS, with evidence saved in [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md); the Phase 8 five-tool surface requires a new real-device gate; and

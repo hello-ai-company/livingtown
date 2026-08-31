@@ -21,7 +21,7 @@ npm run dev
 
 審査員向けのPrimary Live URLは [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) です。現在公開されているURLは、公開GitHubリポジトリの `main`（`27a303f`）からNetlify Free planで継続デプロイしているPhase 7の検証済みベースラインです。Phase 8のreal map／community CRUD／i18n変更を含むfeature branchは、まだ本番へデプロイしていません。Production buildには `VITE_LIVINGTOWN_DATA_MODE=shared` と既存Livingtown Supabaseのブラウザ公開可能な設定をNetlifyのEnvironment variablesへ登録しています。値はこのrepositoryへcommitしていません。
 
-新しいブラウザタブで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録と説明可能な経路計算を確認済みです。Chrome 152.0.7977.64とCodex + Chrome DevTools for agentsによるNative WebMCPの実agent検証もPhase 7の本番URLで完了し、証跡は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) にあります。この証跡は既存の3本MAP surfaceに対する歴史的記録であり、Phase 8の5本surfaceへは自動的に継承しません。Phase 8の新featureは `REAL_DEVICE_MANUAL_ACTION_REQUIRED` です。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` を維持し、Native WebMCPのPASSとは扱いません。
+新しいブラウザタブで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録と説明可能な経路計算を確認済みです。Chrome 152.0.7977.64とCodex + Chrome DevTools for agentsによるNative WebMCPの実agent検証もPhase 7の本番URLで完了し、証跡は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) にあります。この証跡は既存の3本MAP surfaceに対する歴史的記録であり、Phase 8の5本surfaceやPhase 9の3D表示へは自動的に継承しません。Phase 9のfeature branchは本番へデプロイしていません。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` を維持し、Native WebMCPのPASSとは扱いません。
 
 GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) はfallbackとして残しています。Netlifyの詳細な確認結果は [docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md](./docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md) を参照してください。
 
@@ -33,6 +33,7 @@ GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-a
 2. `verify_knowledge` を2つのpseudonymous identifier（`anon-demo-neighbor-a` / `anon-demo-neighbor-b`）で1回ずつ実行
 3. `drill` で車椅子世帯の洪水・雨天ルートを計算
 4. `avoided[].reason` と `avoided[].edge_ids` が、実際に外れたグラフ辺を説明していることを確認
+5. DRILLまたはREPLAYのCTAから、同じsnapshotを使うNavara 3D表示を明示的に開く。3Dが利用できない場合はローカライズされた理由とともに2Dへ戻る
 
 ## Living Knowledge Visual World
 
@@ -50,6 +51,14 @@ GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-a
 - Replayにも `KNOWLEDGE → ROUTE` panelを表示し、routeを変えたverified knowledge、avoided reason、edge、bottleneckを同じsnapshotから振り返れます。
 - 詳細な視覚仕様は [docs/LIVING_KNOWLEDGE_VISUALS.md](./docs/LIVING_KNOWLEDGE_VISUALS.md) を参照してください。
 
+## Immersive Navara 3D map
+
+MAPは引き続きMapLibre 2Dを初期表示とし、利用者が `3Dで見る` を選んだときだけNavara 0.1.1を遅延ロードします。3Dでは東京のGSI raster／GSI terrainを基準に、到達性と利用条件を確認できた場合だけ千代田区のProject PLATEAU 3D Tilesを任意レイヤーとして表示します。東京以外はAPI key不要のOpenStreetMap rasterとellipsoid terrainを使い、訓練用の決定的グラフは東京デモエリア内に残ります。
+
+2Dと3Dは同じ `TownRepository` snapshotを投影し、Knowledgeの `PENDING`／`VERIFIED`／`AFFECTING_ROUTE`、世帯、bottleneck、route、`avoided.reason` を共有します。3Dから2Dへ戻るときもGeoCameraの中心・zoom・headingを保持します。天候は既存の訓練条件と連動する視覚シミュレーション（clear／rain／heavy rain／night）であり、現在の天気APIは使用しません。Navara、GSI、PLATEAUのattributionは画面内に表示されます。
+
+3Dの詳細、公式APIの使用箇所、能力判定、WASM／Worker遅延境界、フォールバック、手動確認項目は [docs/NAVARA_3D.md](./docs/NAVARA_3D.md) と [docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md](./docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md) を参照してください。後者は本番証跡ではなく、`LOCAL_3D_GATE` と明示したローカル確認です。
+
 ## Quality gate
 
 ```bash
@@ -60,7 +69,7 @@ npm run seed
 git diff --check
 ```
 
-実装状況と残課題は [docs/EVALUATION.md](./docs/EVALUATION.md)、設計の正本は [docs/DESIGN.md](./docs/DESIGN.md) と [Notionの設計書](https://app.notion.com/p/c22ef848aa464ff6b6a39dc010d5f2c7) です。Phase 8の変更点と未適用migrationの扱いは、同ドキュメントのPhase 8節を参照してください。
+実装状況と残課題は [docs/EVALUATION.md](./docs/EVALUATION.md)、設計の正本は [docs/DESIGN.md](./docs/DESIGN.md) と [Notionの設計書](https://app.notion.com/p/c22ef848aa464ff6b6a39dc010d5f2c7) です。Phase 8の変更点と未適用migration、Phase 9の3D境界とローカルゲートは、同ドキュメントの各節を参照してください。
 
 ## Shared LivingTown mode
 
@@ -104,7 +113,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 ## Optional integrations
 
-- `VITE_ENABLE_3D=1` と `VITE_PLATEAU_TILESET` を設定すると、Replayの3D境界を有効化します。未設定でも全編2Dで動作します。
+- 3Dは環境変数ではなく、`@navaramap/three@0.1.1` の遅延チャンクを利用者の明示操作で読み込みます。対応API、WASM、Worker、WebGL2が不足する端末では3Dを開始せず、2Dへフォールバックします。
 - `VITE_MAPLIBRE_STYLE_URL` を設定する場合は、MapLibre向けのスタイルURLと利用規約を確認してください。決定的なローカル地図はネットワーク障害時のフォールバックです。
 - `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。初期4 migrationとfunction EXECUTE hardeningのLivingtown projectへの実apply、およびSecurity Advisor再確認は [`SUPABASE_REAL_DB_GATE_2026-08-30.md`](./docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) に記録しています。Browser A/B/Cの実クライアント相互作用は記録済みで、fresh anonymous browserのraw Verification SELECTはDENIEDを再確認済みです。LOCAL_PGTAP、A/B/Cの再実行、failure injectionは未実行です。詳細は [`SUPABASE_REAL_CLIENT_GATE_2026-08-31.md`](./docs/evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md) を参照してください。
 

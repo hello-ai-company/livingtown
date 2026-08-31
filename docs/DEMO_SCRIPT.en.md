@@ -27,6 +27,14 @@ This script is for a public demo video. Keep the final video under three minutes
 2. Use `control_replay` and show the `KNOWLEDGE → ROUTE` panel.
 3. Show the influential knowledge, avoided reason, edge, and bottleneck derived from the same selected route snapshot.
 
+## Optional Phase 9 — Navara 3D local gate
+
+1. Keep MapLibre 2D as the initial view and explicitly choose **View in 3D** from MAP, DRILL, or REPLAY.
+2. Show the Tokyo GSI imagery/terrain, pending/verified/route-affecting knowledge, household marker, green route, and red dashed avoided road. In the Chiyoda bounds, show the optional PLATEAU building layer only if its reachability check succeeds.
+3. In Advanced mode, show the renderer, exact pinned versions, terrain and PLATEAU status, quality, visual weather, and FPS when available. Say **Simulation / Visual only** and explain that no current-weather API is used.
+4. Move through clear → rain → heavy rain → night → route conditions. Then run the guided camera through overview, household/start, hazard, avoided road, safe route, and destination; verify pause/resume/overview/exit.
+5. Return to 2D and repeat the 2D → 3D → 2D cycle at least three times. Record any localized fallback honestly. This local gate is not production or Native WebMCP evidence.
+
 ## 2:30 — WebMCP lifecycle and close
 
 1. Open WebMCP Diagnostics and switch MAP → DRILL → REPLAY.

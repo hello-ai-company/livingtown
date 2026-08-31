@@ -41,7 +41,7 @@
 2. `振り返り` をクリックする。
 3. 世帯Aのフォーカスボタンをクリックし、`control_replay` のActivityを示す。
 4. `KNOWLEDGE → ROUTE` panelで、影響したverified knowledge、avoided reason、edge、bottleneckを確認する。項目をクリックすると地図上のdetail cardへ戻れる。
-5. 「2Dフォールバックは常に動きます。PLATEAUの設定があれば同じデータを3Dへ切り替えられます」と説明する。現フェーズではCesium／PLATEAUを主張しない。
+5. 「2Dフォールバックは常に動きます。ここから明示的にNavara 3Dを開くと、同じsnapshotを立体表示できます」と説明する。3Dが利用できない場合は表示された理由と2Dへの自動復帰を見せ、PLATEAUが任意レイヤーであること、現在の天気APIではないことを明示する。
 6. 「同じ地図が、平時は暮らしを、有事は命を守る。フェーズフリー防災です」と締める。
 
 ## 2:40 — WebMCP lifecycleの締め
@@ -55,6 +55,15 @@
 - WebMCP非対応ブラウザでは `SIMULATED` fallbackとして同じ縦切りを実行できる。
 
 「LivingTownは、エージェントに長い手順を暗記させません。今できることだけがtoolとして存在し、街の状態そのものがプロトコルになります。」
+
+## Phase 9 — Navara 3D（ローカル確認のみ）
+
+1. MAPの2D表示を初期状態として確認し、`3Dで見る` またはDRILL／REPLAYの3D CTAを明示的に押す。
+2. `LIVING MAP / NAVARA 3D`、東京のGSI raster／terrain、KnowledgeのPENDING／VERIFIED／AFFECTING_ROUTE、世帯マーカー、緑のroute、赤い破線のavoided roadを確認する。千代田区に移動した場合だけ、到達できればPLATEAU建物を確認する。
+3. Advancedでrenderer、固定version、terrain、PLATEAU状態、quality、visual weather、FPS（取得できる場合）を表示する。`Simulation / Visual only` と「現在の天気APIは使用していません」を読み上げる。
+4. `晴れ → 雨 → 大雨 → 夜 → 訓練条件` を切り替え、雨／夜の見た目がsimulationでありroute domainを変更しないことを確認する。
+5. `案内を見る` でoverview → 世帯・出発地点 → 危険知識 → 回避した道 → 安全な経路 → 避難先を進め、pause／resume／overview／exitを確認する。
+6. 2Dへ戻し、2D → 3D → 2Dを少なくとも3回繰り返す。失敗時はローカライズされたfallbackを記録し、3Dの成功を本番URLやNative WebMCPの証拠とは扱わない。
 
 ## Shared stateの短い確認（追加デモ）
 

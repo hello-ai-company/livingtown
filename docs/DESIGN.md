@@ -13,13 +13,13 @@
 
 1. **map / 平時**: `contribute_knowledge` で雑談を構造化し、`verify_knowledge` で追認／反証する。
 2. **drill / 訓練**: `register_household` は制約enumと一時座標だけを受け取り、`get_evacuation_route` が検証済み知識を重み付けする。現地の詰まりは `report_bottleneck` で追加する。
-3. **replay / 振り返り**: `control_replay` がカメラと再生を操縦し、`get_debrief_summary` が世帯別の学びを集計する。Cesium／PLATEAUはこのフェーズの任意アダプターであり、2Dだけで成立する。
+3. **replay / 振り返り**: `control_replay` がカメラと再生を操縦し、`get_debrief_summary` が世帯別の学びを集計する。Navara 3Dは同じsnapshotを立体表示する任意の体験層であり、2Dだけでも成立する。
 
 ## 2. システム構成
 
 - Frontend: Vite + React + TypeScript
 - 2D map: MapLibreを主rendererとし、Autoでは日本の地図領域に国土地理院（GSI）標準タイル、それ以外の世界地域にOpenFreeMapを選ぶ。AdvancedではGSI／OpenFreeMapを明示選択でき、MapLibreを初期化できない場合はdeterministic local walking graphの既存SVGへフォールバックする。
-- 3D: CesiumJS + PLATEAU 3D Tilesは未設定時にロードしない。
+- 3D: Navara 0.1.1 + Default plugin 0.1.1 + Three 0.185.1 + postprocessing 6.39.4を明示的な3D操作後に遅延ロードする。2DエントリはNavara実装、Three、WASM、Workerを初期importしない。WebGL2／WebAssembly／Worker／ResizeObserver／requestAnimationFrameの不足、runtime／terrain／GPU／context lossを2Dへローカライズしてフォールバックする。
 - Data: `TownRepository`を境界とし、`LocalTownRepository`（LocalStorageの決定的デモ）と`SupabaseTownRepository`（Database + Auth + Realtime）を明示的に切り替える。route engineはどちらのadapterから渡されたsnapshotにも同じdeterministic graphを適用する。
 - WebMCP: Imperative APIの直接呼び出しは `src/webmcp/register.ts` だけに隔離する。ツール定義はAPI objectを知らない純粋な定義層とする。
 - Deployment target: Vercel / Netlify想定。実機WebMCPの確認は対応Chromeで別途行う。
@@ -267,18 +267,27 @@ values
 
 After the initial four migrations plus `20260830162803_function_execute_boundary.sql`, also expect `has_table_privilege('authenticated', 'public.verification', 'INSERT')` to be false, `has_function_privilege('authenticated', 'public.submit_verification(uuid,text,text)', 'EXECUTE')` to be true, and the three internal helpers to be non-executable by browser roles. The browser calls the public RPCs with domain inputs only; it never supplies `verifier_id`. Use the complete role/privilege checks in [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md), and run them against a disposable project rather than treating a SQL-editor owner session as browser evidence.
 
-## 8. 3Dリプレイ方針
+## 8. Navara 3D方針
 
-CesiumJS + PLATEAU 3D Tilesは遅延ロードする任意機能。`VITE_ENABLE_3D` 未設定時はCesiumをロードせず、2D上で同じリプレイ操作を提供する。次フェーズで対象都市とtilesetの利用条件を固定する。
+Phase 9の3Dは、`src/map3d/` の純粋な投影層とNavara runtime層を分ける。`buildSceneDataset(snapshot, householdId)` が `TownSnapshot`からKnowledge、household、route、avoided road、bottleneckを導出し、MapLibreとNavaraが同じrepository stateを読む。3Dはrouteを再計算せず、既存 `RouteResult` のLineStringと `avoided[].edge_ids` を表示する。
+
+初期表示は2Dで、URL `?view=2d|3d` とLocalStorageは明示選択の補助に限る。3DチャンクはReact lazy importからのみ読み込み、Navaraの公式 `ThreeView` と `DefaultPlugin` を使用する。プラグインは `view.init()` 前に追加し、初期化後にデフォルトphotoreal scene、raster source、terrain、任意の3D Tiles、Knowledge／route mesh、weather effectを追加する。runtime failure、WASM／Worker failure、WebGL context loss、terrain／PLATEAUの到達不能は部分リソースをdisposeして2Dへ戻す。
+
+東京ではGSI standard rasterとGSI DEM rasterを使い、Navara 0.1.1に含まれる公式 `JAPAN_GSI_ELEVATION_DECODER()` を使う。千代田区のProject PLATEAU tilesetはHTTPS／CORS／到達性を確認できた場合だけ任意レイヤーとして追加し、確認失敗は3D全体の失敗ではなく `BLOCKED` と表示する。日本国外ではAPI key不要のOpenStreetMap rasterとellipsoid terrainを使う。GSI、OpenStreetMap、Navara、PLATEAUのattributionを隠さず表示する。
+
+`GeoCamera` が2D／3Dの共通camera contractである。東京とSan Franciscoの中心・zoom・height・heading・pitchを往復でき、reduced motion時は短い／即時のcamera transitionを使う。guided cameraはoverview、household/start、hazard、avoided road、safe route、destinationの純粋な6段階で、pause／resume／overview／exitを持つ。
+
+天候は `clear | rain | heavy_rain | night` のvisual presetで、routeの `weather` と `time_of_day` に初期同期する。これは現況観測ではなく `Simulation / Visual only` と表示し、current-weather API、水深計測、resident reportとの混同をしない。rain mesh、RainDrop、cloudsはインストール済み公式exportを利用できる品質／端末でだけ有効にし、low／mobileでは負荷の高い効果を省略する。3Dの詳細とローカルゲート項目は [docs/NAVARA_3D.md](./NAVARA_3D.md) に固定する。
 
 ## 9. リポジトリ構成
 
 ```text
 livingtown/
 ├── README.md
-├── docs/{DESIGN,EVALUATION,DEMO_SCRIPT,WEBMCP_REAL_DEVICE,LIVING_KNOWLEDGE_VISUALS}.md
+├── docs/{DESIGN,EVALUATION,DEMO_SCRIPT,NAVARA_3D,WEBMCP_REAL_DEVICE,LIVING_KNOWLEDGE_VISUALS}.md
 ├── src/webmcp/{register.ts,register.test.ts,diagnostics.ts,diagnostics.test.ts,tools/}
 ├── src/map/{Map2D,KnowledgeVisual,KnowledgeDetailCard,ReplayKnowledgePanel,knowledgeVisuals}.tsx
+├── src/map3d/{NavaraMap3D,NavaraScene,navaraLoader,navaraDatasets,navaraCamera,navaraWeather,navaraCapabilities}.ts
 ├── src/sim/{types,graph,route,route.test}.ts
 ├── src/data/{demoData,repository,townRepository,supabase,supabaseRepository,validation,useTownSnapshot}.ts
 ├── src/phases/PhaseContext.tsx
@@ -295,7 +304,7 @@ livingtown/
 - [x] 未検証、agree 1票、disagreeでthreshold未満の知識は経路を変えない。
 - [x] `avoided.reason` と `avoided.edge_ids` が実際に外れた辺を指す。
 - [x] household profileに個人情報フィールドを保存できず、constraintsはenumのみ。
-- [x] `VITE_ENABLE_3D` なしで全編が2Dで動く。
+- [x] 3Dを明示的に選ばない限り全編がMapLibre 2Dで動き、Navara runtimeを初期ロードしない。
 - [x] `npm run seed` 一回でグラフ、暗黙知10件、pseudonymous verification record、世帯3件を生成できる。
 - [x] KnowledgeがPENDING／VERIFIED／AFFECTING_ROUTEの3状態でカテゴリ別に描画され、selected routeの実際の `avoided` recordとdetail／Replayが連動する。
 - [x] filter、Legend、keyboard focus、aria-label、reduced-motion、狭いviewport向けdetail cardを提供する。
@@ -307,9 +316,13 @@ livingtown/
 - [x] 地図tap/FABから位置→カテゴリ→条件→確度→説明の5段階投稿を開き、privacy確認、200文字制限、Escape／focus trap／focus returnを提供する。
 - [x] `knowledge_owner`をbrowser roleから隠し、owned IDだけを使ってowner-only update/delete RPCへ接続する。票のある更新はreverification resetを要求し、編集／削除後にrouteを無効化する。
 - [x] MAPのtool surfaceを`contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge`の5本に固定し、update/delete schemaにconfirmationを含める。
+- [x] MapLibre 2Dを初期表示とし、Navara 3Dをlazy importする2D／3D切替、共有GeoCamera、共有snapshot投影、能力判定、品質切替、ローカライズ済み2D fallbackを実装する。
+- [x] Navaraの公式APIで東京GSI raster／terrain、任意PLATEAU 3D Tiles、Knowledge／route／avoided road／household／bottleneck、visual weather、guided camera、dispose境界を実装する。
+- [x] Navara 3Dのloader、capability、camera、weather、dataset、tour、i18n回帰テストを追加する。初期entryにNavara実装を含めないbuild分割を確認する。
+- [x] `LOCAL_3D_GATE` の実ブラウザで東京3D、terrain／PLATEAU可否、2D↔3D反復、weather、tour、JA/EN、reduced motionを確認する（native WebMCPとは別）。証跡は `docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md`。
 - [ ] Phase 8 migrationの実DB適用、A/B CRUD／RLS／Realtime gate、5本MAP surfaceのNative WebMCP実機再確認。
 - [ ] 実Supabase projectへのmigration適用、Auth insert／counter bypass denial／duplicate verification／Browser A/B Realtimeの実証。
 
 ## 11. Devpost用要約
 
-**LivingTown — neighborhood small talk that changes evacuation routes**。日常会話を検証可能な街の知識へ変換し、世帯の制約enumと組み合わせて説明可能な避難経路を返す。WebMCPのphase連動dynamic registrationにより、今できる操作だけがagentに見える。React + Vite + TypeScript、2D deterministic graph、Supabase/RLS境界、Dijkstraを使用し、Cesium + PLATEAUは次フェーズに残す。
+**LivingTown — neighborhood small talk that changes evacuation routes**。日常会話を検証可能な街の知識へ変換し、世帯の制約enumと組み合わせて説明可能な避難経路を返す。WebMCPのphase連動dynamic registrationにより、今できる操作だけがagentに見える。React + Vite + TypeScript、MapLibre 2D、遅延ロードするNavara 3D、Supabase/RLS境界、Dijkstraを使用し、同じTownRepository snapshotを平面／立体の両方へ投影する。

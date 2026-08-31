@@ -5,6 +5,7 @@ import { KnowledgeDetailCard } from './KnowledgeDetailCard'
 import { KnowledgeVisual } from './KnowledgeVisual'
 import { MapLibreMap } from './MapLibreMap'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
+import type { GeoCamera } from '../map3d/types'
 import {
   deriveKnowledgeVisuals,
   filterKnowledgeVisuals,
@@ -34,6 +35,8 @@ export interface Map2DProps {
   locale?: Locale
   mode?: ExperienceMode
   compact?: boolean
+  camera?: GeoCamera
+  onCameraChange?: (camera: GeoCamera) => void
 }
 
 interface MapBounds {

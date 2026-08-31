@@ -64,6 +64,17 @@ function captureCamera(map: MapLibreInstance, fallback: CameraSnapshot): CameraS
   }, fallback.center)
 }
 
+function cameraFromGeo(camera: Map2DProps['camera'], fallback: [number, number]): CameraSnapshot {
+  return preserveCamera(camera ? {
+    center: [camera.lng, camera.lat],
+    zoom: camera.zoom,
+    bearing: camera.heading,
+    // MapLibre uses a non-negative pitch while Navara expresses the same
+    // view with a downward-looking negative pitch.
+    pitch: camera.pitch !== undefined && camera.pitch > 0 ? camera.pitch : 0,
+  } : undefined, fallback)
+}
+
 function createOverlayData(
   snapshot: TownSnapshot,
   visibleViews: ReturnType<typeof deriveKnowledgeVisuals>,
@@ -113,16 +124,18 @@ export function MapLibreMap({
   compact = false,
   locale,
   mode,
+  camera,
+  onCameraChange,
   onFallback,
 }: MapLibreMapProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<MapLibreInstance | null>(null)
-  const cameraRef = useRef<CameraSnapshot>(preserveCamera(undefined, routeCenter(snapshot, selectedKnowledgeId)))
+  const cameraRef = useRef<CameraSnapshot>(cameraFromGeo(camera, routeCenter(snapshot, selectedKnowledgeId)))
   const postingModeRef = useRef(false)
   const locationPickerRef = useRef(false)
   const basemapModeRef = useRef<BasemapMode>('auto')
-  const callbacksRef = useRef({ onRequestContribution, onLocationPicked, onSelectHousehold, onSelectKnowledge })
+  const callbacksRef = useRef({ onRequestContribution, onLocationPicked, onSelectHousehold, onSelectKnowledge, onCameraChange })
   const [mapReady, setMapReady] = useState(false)
   const [postingMode, setPostingMode] = useState(false)
   const [basemapMode, setBasemapMode] = useState<BasemapMode>('auto')
@@ -146,8 +159,8 @@ export function MapLibreMap({
   )
 
   useEffect(() => {
-    callbacksRef.current = { onRequestContribution, onLocationPicked, onSelectHousehold, onSelectKnowledge }
-  }, [onLocationPicked, onRequestContribution, onSelectHousehold, onSelectKnowledge])
+    callbacksRef.current = { onRequestContribution, onLocationPicked, onSelectHousehold, onSelectKnowledge, onCameraChange }
+  }, [onCameraChange, onLocationPicked, onRequestContribution, onSelectHousehold, onSelectKnowledge])
 
   useEffect(() => {
     postingModeRef.current = postingMode
@@ -226,6 +239,13 @@ export function MapLibreMap({
     map.on('moveend', () => {
       cameraRef.current = captureCamera(map, initialCamera)
       const center = map.getCenter()
+      callbacksRef.current.onCameraChange?.({
+        lng: center.lng,
+        lat: center.lat,
+        zoom: cameraRef.current.zoom,
+        heading: cameraRef.current.bearing,
+        pitch: cameraRef.current.pitch,
+      })
       const next = resolveBasemapProvider(basemapModeRef.current, { lat: center.lat, lng: center.lng })
       if (next.provider !== provider) {
         setProvider(next.provider)
