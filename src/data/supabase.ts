@@ -10,7 +10,10 @@ import type {
   TownSnapshot,
   Verification,
 } from '../sim/types'
+import { KNOWLEDGE_CATEGORIES } from '../sim/types'
 import { calculateEvacuationRoute } from '../sim/route'
+import { assertObservationTextSafe, coarsenObservationCoordinate } from '../observations/privacyGuard'
+import { isObservationVisible, normalizeObservationMetadata } from '../observations/observationPolicy'
 import type {
   ContributeKnowledgeInput,
   DeleteKnowledgeInput,
@@ -45,6 +48,7 @@ export type {
 import type { RepositoryStatus } from './repository'
 import {
   assertNoForbiddenHouseholdFields,
+  assertWorldKnowledgeCoordinate,
   assertPseudonymousVerifierId,
   isAllowedHouseholdConstraint,
   isValidHouseholdLabel,
@@ -85,6 +89,32 @@ function isSafePersistedHousehold(value: unknown): value is Household {
     typeof household.created_at === 'string'
 }
 
+function isSafePersistedKnowledge(value: unknown): value is Knowledge {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const knowledge = value as Partial<Knowledge>
+  if (typeof knowledge.id !== 'string' || typeof knowledge.category !== 'string' || !KNOWLEDGE_CATEGORIES.includes(knowledge.category) ||
+    typeof knowledge.lat !== 'number' || !Number.isFinite(knowledge.lat) || typeof knowledge.lng !== 'number' || !Number.isFinite(knowledge.lng) ||
+    typeof knowledge.condition !== 'string' || !['always', 'rain', 'night', 'crowded'].includes(knowledge.condition) ||
+    typeof knowledge.confidence !== 'string' || !['experienced', 'heard', 'guess'].includes(knowledge.confidence) ||
+    typeof knowledge.description !== 'string' || knowledge.description.trim().length === 0 || knowledge.description.length > 200 ||
+    typeof knowledge.agree_count !== 'number' || !Number.isInteger(knowledge.agree_count) || knowledge.agree_count < 0 ||
+    typeof knowledge.disagree_count !== 'number' || !Number.isInteger(knowledge.disagree_count) || knowledge.disagree_count < 0 ||
+    typeof knowledge.created_at !== 'string' ||
+    (knowledge.updated_at !== undefined && typeof knowledge.updated_at !== 'string') ||
+    (knowledge.report_type !== undefined && knowledge.report_type !== 'persistent_condition' && knowledge.report_type !== 'incident') ||
+    (knowledge.observed_at !== undefined && (typeof knowledge.observed_at !== 'string' || !Number.isFinite(Date.parse(knowledge.observed_at)))) ||
+    (knowledge.expires_at !== undefined && (typeof knowledge.expires_at !== 'string' || !Number.isFinite(Date.parse(knowledge.expires_at)))) ||
+    (knowledge.source_kind !== undefined && knowledge.source_kind !== 'community' && knowledge.source_kind !== 'official') ||
+    (knowledge.location_precision_m !== undefined && (typeof knowledge.location_precision_m !== 'number' || !Number.isFinite(knowledge.location_precision_m) || knowledge.location_precision_m < 0 || knowledge.location_precision_m > 10000))) return false
+  try {
+    assertWorldKnowledgeCoordinate(knowledge.lat, knowledge.lng)
+    assertObservationTextSafe(knowledge.description, 'ja', knowledge.category)
+  } catch {
+    return false
+  }
+  return true
+}
+
 function isSafePersistedVerification(value: unknown): value is Verification {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const verification = value as Partial<Verification>
@@ -122,7 +152,13 @@ export function reconcilePersistedKnowledgeCounters(knowledge: Knowledge[], veri
 
 function initialSnapshot(): TownSnapshot {
   return {
-    knowledge: clone(DEMO_KNOWLEDGE),
+    knowledge: clone(DEMO_KNOWLEDGE).map((item) => ({
+      ...item,
+      report_type: item.report_type ?? 'persistent_condition',
+      observed_at: item.observed_at ?? item.created_at,
+      source_kind: item.source_kind ?? 'community',
+      location_precision_m: item.location_precision_m ?? 0,
+    })),
     verifications: clone(DEMO_VERIFICATIONS),
     households: clone(DEMO_HOUSEHOLDS),
     bottlenecks: [],
@@ -176,6 +212,7 @@ export class LocalTownRepository implements TownRepository {
         !candidate.routes ||
         !candidate.replay ||
         !Array.isArray(candidate.events) ||
+        candidate.knowledge.some((knowledge) => !isSafePersistedKnowledge(knowledge)) ||
         candidate.households.some((household) => !isSafePersistedHousehold(household)) ||
         candidate.verifications.some((verification) => !isSafePersistedVerification(verification))) {
         return null
@@ -188,7 +225,13 @@ export class LocalTownRepository implements TownRepository {
       }
       const reconciledKnowledge = reconcilePersistedKnowledgeCounters(candidate.knowledge, candidate.verifications)
       if (!reconciledKnowledge) return null
-      candidate.knowledge = reconciledKnowledge
+      candidate.knowledge = reconciledKnowledge.map((item) => ({
+        ...item,
+        report_type: item.report_type ?? 'persistent_condition',
+        observed_at: item.observed_at ?? item.created_at,
+        source_kind: item.source_kind ?? 'community',
+        location_precision_m: item.location_precision_m ?? 0,
+      }))
       const activeHouseholds = candidate.households.filter((household) =>
         household.location_scope === 'demo' || !household.expires_at || Date.parse(household.expires_at) > Date.now(),
       )
@@ -254,18 +297,26 @@ export class LocalTownRepository implements TownRepository {
 
   contributeKnowledge(input: ContributeKnowledgeInput, _options?: RepositoryCallOptions): Knowledge {
     validateContributeKnowledgeInput(input)
+    const now = new Date()
+    const metadata = normalizeObservationMetadata({
+      category: input.category,
+      report_type: input.report_type,
+      observed_at: input.observed_at,
+    }, now)
+    const location = coarsenObservationCoordinate(input.category, input.lat, input.lng)
     const item: Knowledge = {
       id: `k-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       category: input.category,
-      lat: input.lat,
-      lng: input.lng,
+      lat: location.lat,
+      lng: location.lng,
       condition: input.condition,
       description: input.description.trim(),
       confidence: input.confidence,
       agree_count: 0,
       disagree_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      ...metadata,
       can_edit: true,
     }
     this.withSnapshot((next) => next.knowledge.unshift(item))
@@ -328,7 +379,7 @@ export class LocalTownRepository implements TownRepository {
     const lngScale = 111_320 * Math.cos((input.lat * Math.PI) / 180)
     return this.snapshot.knowledge.filter((item) => {
       const distance = Math.sqrt(((item.lat - input.lat) * latScale) ** 2 + ((item.lng - input.lng) * lngScale) ** 2)
-      return distance <= input.radius_m && (!input.category || item.category === input.category) && (!input.condition || item.condition === input.condition)
+      return distance <= input.radius_m && isObservationVisible(item) && (!input.category || item.category === input.category) && (!input.condition || item.condition === input.condition) && (!input.report_type || (item.report_type ?? 'persistent_condition') === input.report_type)
     }).map((item) => ({ ...clone(item), verified: item.agree_count - item.disagree_count >= 2 }))
   }
 
@@ -342,17 +393,24 @@ export class LocalTownRepository implements TownRepository {
       throw new Error('この暗黙知には追認票があります。confirm_reverification_reset=trueで再検証リセットを確認してください。')
     }
     const updatedAt = new Date().toISOString()
+    const metadata = normalizeObservationMetadata({
+      category: input.category,
+      report_type: input.report_type ?? current.report_type,
+      observed_at: input.observed_at ?? current.observed_at,
+    }, new Date(updatedAt))
+    const location = coarsenObservationCoordinate(input.category, input.lat, input.lng)
     const updated: Knowledge = {
       ...current,
       category: input.category,
-      lat: input.lat,
-      lng: input.lng,
+      lat: location.lat,
+      lng: location.lng,
       condition: input.condition,
       description: input.description.trim(),
       confidence: input.confidence,
       agree_count: hasVotes ? 0 : current.agree_count,
       disagree_count: hasVotes ? 0 : current.disagree_count,
       updated_at: updatedAt,
+      ...metadata,
       can_edit: true,
     }
     this.withSnapshot((next) => {

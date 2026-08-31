@@ -42,3 +42,12 @@ This script is for a public demo video. Keep the final video under three minutes
 3. In a native WebMCP browser, show `getTools()`, `toolchange`, and the phase transition evidence. If the browser is not native, show `SIMULATED` honestly and do not call it real-device evidence.
 
 “LivingTown does not make an agent memorize a UI. The tools available now are the tools exposed now, and the town's shared state explains the route.”
+
+## Phase 10 — One-line community report (local verification only)
+
+1. Open MAP in Simple/English and enter “A bicycle was reportedly stolen near here yesterday.” in the visible “What's happening here?” composer. Submit with Enter. Confirm the derived theft/incident metadata, Community report wording, coarsened neutral marker, and no route change.
+2. Enter a harassment example such as “Harassment was reported near the station.” Confirm the cautious community wording, no suspect identity, and no evacuation-route effect.
+3. Switch to Japanese and enter “この道は雨の日に水がたまる”. Confirm a flood persistent condition. It remains a Community report and does not affect routing until the existing verification threshold is reached.
+4. Return to English and submit “An explosion was reported in this area.” Confirm an explosion incident, Community report label, coarsened location, neutral marker, and no weather or fire simulation. Do not enter tactical military-location text; explain that the safety guard rejects it.
+5. In Advanced mode, inspect report type, observed time, expiry, location precision, and route impact policy. Exercise Now/Today/This week/All and Disaster/Safety/Crime & harassment/Community filters. The post-submit Undo uses owner-only delete.
+6. Confirm that MapLibre 2D and explicitly selected Navara 3D read the same snapshot. Expired incidents leave the current overlay without being treated as if they never existed. Do not present this local flow as Phase 10 Native WebMCP, Supabase, or production evidence.

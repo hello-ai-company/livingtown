@@ -91,11 +91,11 @@ npm run seed
 git diff --check
 ```
 
-The current local gate passes with 19 test files and 99 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
+The current Phase 10 local gate passes with 21 test files and 126 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
 
 ## Challenge submission readiness
 
-The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. The Phase 9 feature branch is prepared for review, but it has not been deployed to the live URL and the remaining submission gate is external:
+The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. The Phase 10 feature branch is prepared for review, but it has not been deployed to the live URL and the remaining submission gate is external:
 
 - record a public YouTube demo under three minutes with audio covering the product and WebMCP use;
 - the historical Phase 7 native WebMCP MAP → DRILL → REPLAY gate is PASS, with evidence saved in [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md); the Phase 8 five-tool surface requires a new real-device gate; and
@@ -110,3 +110,13 @@ The status and exact evidence requirements are tracked in [docs/SUBMISSION_CHECK
 - [WebMCP specification](https://webmachinelearning.github.io/webmcp/)
 - [Chrome WebMCP developer documentation](https://developer.chrome.com/docs/ai/webmcp)
 - [WebMCP secure tools guidance](https://developer.chrome.com/docs/ai/webmcp/secure-tools)
+
+## Phase 10: Living Observation Layer
+
+The MAP screen now keeps a one-line composer visible: “What's happening here?” (JA: “この場所で何がありましたか？”). A user can press Enter or Send after writing one short sentence. A deterministic rule-based interpreter derives category, persistent condition or incident, condition, confidence, and incident observation time. No external LLM or new paid AI API is required. The location priority is explicit map selection, the last explicitly obtained current location, then map center; geolocation is never requested automatically.
+
+The implementation reuses the existing Knowledge verification, ownership, Realtime, route, WebMCP, MapLibre, and Navara paths. Reports remain Community report until the net verification score reaches two, then become Community confirmed; neither state is Official information. Theft and harassment are never allowed to alter evacuation routes. Violence and conflict use cautious non-accusatory wording, conflict stays map-only with a neutral marker, and precise military/tactical details are blocked. Sensitive coordinates are coarsened before persistence, while general flood, barrier, and accessibility points remain usable.
+
+The MAP WebMCP surface remains exactly five tools: contribute_knowledge, delete_knowledge, query_area, update_knowledge, and verify_knowledge. There is no report_observation tool. The existing contribute contract remains valid while the category enum and optional report_type / observed_at fields are extended. See [the Phase 10 design](./docs/LIVING_OBSERVATION_LAYER.md) and [local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) for the full safety and gate status.
+
+The Phase 10 Supabase migration and pgTAP file are review-only drafts and have not been applied or executed. This feature branch is not deployed to Netlify, and the Phase 10 Native WebMCP gate is explicitly not run.

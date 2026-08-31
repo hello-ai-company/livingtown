@@ -1,5 +1,6 @@
 import { DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES } from '../sim/graph'
 import { isKnowledgeVerified } from '../sim/route'
+import { isObservationVisible } from '../observations/observationPolicy'
 import type { Household, Knowledge, RouteResult, TownSnapshot } from '../sim/types'
 import type { Knowledge3DState, SceneAvoidedRoad, SceneDataset, SceneKnowledge } from './types'
 
@@ -24,7 +25,7 @@ function nearestRoutePoint(knowledge: Knowledge, route: RouteResult | undefined)
 
 function sceneKnowledge(snapshot: TownSnapshot, route?: RouteResult): SceneKnowledge[] {
   const avoidedById = new Map(route?.avoided.map((item) => [item.knowledge_id, item]) ?? [])
-  return snapshot.knowledge.map((item) => {
+  return snapshot.knowledge.filter((item) => isObservationVisible(item)).map((item) => {
     const avoided = avoidedById.get(item.id)
     const state: Knowledge3DState = avoided ? 'AFFECTING_ROUTE' : isKnowledgeVerified(item) ? 'VERIFIED' : 'PENDING'
     return {

@@ -323,6 +323,34 @@ livingtown/
 - [ ] Phase 8 migrationの実DB適用、A/B CRUD／RLS／Realtime gate、5本MAP surfaceのNative WebMCP実機再確認。
 - [ ] 実Supabase projectへのmigration適用、Auth insert／counter bypass denial／duplicate verification／Browser A/B Realtimeの実証。
 
+## 12. Phase 10 Living Observation Layer
+
+Phase 10は既存Knowledgeをcommunity observation / local knowledgeとして拡張する。新しい永続Observationテーブルは作らず、Knowledge、Verification、knowledge_owner、Realtime、TownRepository、MapLibre、Navara、既存の5本MAP WebMCP surfaceを再利用する。対象カテゴリは既存値を維持したまま、flood、fire、explosion、road_block、darkness、narrow_path、barrier、safe_spot、theft、harassment、violence、conflict、infrastructure、accessibility、crowding、otherへ拡張する。
+
+### 12.1 One-line input and interpretation
+
+MAPの一行composerは「この場所で何がありましたか？」／「What's happening here?」を表示し、EnterまたはSendで投稿する。JA/ENのキーワードを使うRuleBasedObservationInterpreterがcategory、report_type、condition、confidence、observed_atを決定的に導出し、曖昧な入力はotherへ送る。これはAI理解の主張ではなく、画面には必要に応じて「LivingTownが投稿内容を整理しました」と表示できる単純な構造化処理である。既存の5段階フォームはAdvancedの補正とowner editに残す。
+
+位置は明示的な地図選択、明示取得した現在地、地図中心の順で解決する。ブラウザのgeolocation permissionは自動要求しない。incidentはobserved_atをnowへ補完し、policyでroad_block 12h、fire/explosion/conflict 24h、crowding 6h、theft/harassment 30d、violence 7dのexpires_atを決める。期限切れはcurrent layerから隠すだけで、履歴の否定ではない。
+
+### 12.2 Trust, privacy, and route policy
+
+net scoreが2未満なら「地域からの報告 / Community report」、2以上なら「みんなが確認済み / Community confirmed」とする。どちらもOfficialではない。source_kindは将来のofficial ingestionのための型だけを持ち、browserとWebMCPからはcommunity固定で作成する。
+
+UIとrepositoryはemail、電話、URL/handle、住所形状、車両番号、個人名の明白なパターンを投稿前に拒否し、SQL RPCもemail/URL/phoneの最小検査を再実施する。theft/harassmentは150m、violenceは200m、explosionは500m、conflictは750mの決定的gridへ粗化してから保存する。精密座標を別private tableへ保存しない。conflictで軍人・部隊・装備・作戦と精密位置が同時に疑われる入力は拒否し、generic explosionは許可するがneutral markerだけを表示する。
+
+routeImpactPolicyはnone、safety、blockingのpure policyで、callerが値を指定できない。未検証はnone、theft/harassment/conflict/safe_spot/otherはmap-only、verified flood/fire/road_block/barrier/explosionはblocking候補とする。既存route engineが意味のあるdarkness、narrow_path、violence、accessibility、crowding、infrastructureはsafety候補として扱うが、theft/harassment/conflictは避難routeを変更しない。weather visualは観測データから独立させる。
+
+### 12.3 Trusted persistence and rendering
+
+shared modeではHuman UIとWebMCPが同じTownRepositoryを通り、authenticated-only create_knowledge RPCがowner、source、timestamps、counters、expiry、precisionをserver-sideで導出する。direct Knowledge INSERT/UPDATE/DELETEはPhase 10 migration draftでrevokeする。update RPCはcategory、location、description、confidence、condition、report_type、observed_atの変更時にgeoprivacyとexpiryを再計算し、票があれば明示確認後にreverification resetを行う。新しいmigrationはレビュー用で、既存migrationをrewriteせず、適用しない。
+
+MapLibre 2DとNavara 3Dは同じsnapshotを描画し、pendingは半透明、community confirmedは強い表示、expired incidentはcurrent overlayから除外する。conflictはneutral alert marker、未対応categoryはgeneric community markerへfallbackする。MAP toolはcontribute_knowledge、delete_knowledge、query_area、update_knowledge、verify_knowledgeの5本で固定し、report_observationは追加しない。
+
+### 12.4 Phase 10 verification boundary
+
+Phase 10のローカル根拠は [LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md](./evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) に記録する。Native WebMCPの既存証跡、Supabase実DB、Netlify production、Devpost提出、動画はPhase 10の完了根拠へ流用しない。migration apply、pgTAP実行、Native WebMCP実機ゲートは未実施のまま、ChatGPTによるコード／セキュリティレビューへ戻す。
+
 ## 11. Devpost用要約
 
 **LivingTown — neighborhood small talk that changes evacuation routes**。日常会話を検証可能な街の知識へ変換し、世帯の制約enumと組み合わせて説明可能な避難経路を返す。WebMCPのphase連動dynamic registrationにより、今できる操作だけがagentに見える。React + Vite + TypeScript、MapLibre 2D、遅延ロードするNavara 3D、Supabase/RLS境界、Dijkstraを使用し、同じTownRepository snapshotを平面／立体の両方へ投影する。

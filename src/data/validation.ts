@@ -4,7 +4,10 @@ import type {
   KnowledgeCategory,
   KnowledgeCondition,
   KnowledgeConfidence,
+  ReportType,
 } from '../sim/types'
+import { KNOWLEDGE_CATEGORIES } from '../sim/types'
+import { assertObservationTextSafe } from '../observations/privacyGuard'
 import type {
   ContributeKnowledgeInput,
   DeleteKnowledgeInput,
@@ -122,16 +125,20 @@ export function assertAnonymousHouseholdLabel(value: unknown) {
 }
 
 export function validateContributeKnowledgeInput(input: ContributeKnowledgeInput) {
-  const categories: KnowledgeCategory[] = ['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other']
+  const categories: KnowledgeCategory[] = KNOWLEDGE_CATEGORIES
   const conditions: KnowledgeCondition[] = ['always', 'rain', 'night', 'crowded']
   const confidence: KnowledgeConfidence[] = ['experienced', 'heard', 'guess']
+  const reportTypes: ReportType[] = ['persistent_condition', 'incident']
   if (!categories.includes(input.category)) throw new Error('カテゴリが不正です。')
   if (!conditions.includes(input.condition)) throw new Error('条件が不正です。')
   if (!confidence.includes(input.confidence)) throw new Error('確度が不正です。')
+  if (input.report_type !== undefined && !reportTypes.includes(input.report_type)) throw new Error('報告種別が不正です。')
   assertFiniteNumber('lat', input.lat)
   assertFiniteNumber('lng', input.lng)
   assertWorldKnowledgeCoordinate(input.lat, input.lng)
   assertString('description', input.description, 200)
+  assertObservationTextSafe(input.description, 'ja', input.category)
+  if (input.observed_at !== undefined && !Number.isFinite(Date.parse(input.observed_at))) throw new Error('observed_at が不正です。')
 }
 
 export function validateUpdateKnowledgeInput(input: UpdateKnowledgeInput) {
@@ -147,12 +154,13 @@ export function validateDeleteKnowledgeInput(input: DeleteKnowledgeInput) {
   if (input.confirm_delete !== true) throw new Error('削除確認が必要です。')
 }
 
-export function validateQueryAreaInput(input: { lat: number; lng: number; radius_m: number }) {
+export function validateQueryAreaInput(input: { lat: number; lng: number; radius_m: number; report_type?: ReportType }) {
   assertFiniteNumber('lat', input.lat)
   assertFiniteNumber('lng', input.lng)
   assertWorldKnowledgeCoordinate(input.lat, input.lng, '検索地点')
   assertFiniteNumber('radius_m', input.radius_m)
   if (input.radius_m < 0 || input.radius_m > 2000) throw new Error('radius_m は0〜2000で指定してください。')
+  if (input.report_type !== undefined && input.report_type !== 'persistent_condition' && input.report_type !== 'incident') throw new Error('報告種別が不正です。')
 }
 
 export function validateVerificationInput(input: VerifyKnowledgeInput, requireVerifier = true) {

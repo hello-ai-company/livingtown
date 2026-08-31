@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
 import type { KnowledgeVisualView } from './knowledgeVisuals'
+import { getKnowledgeSafeDescription } from './knowledgeVisuals'
 
 interface KnowledgeVisualProps {
   view: KnowledgeVisualView
@@ -81,13 +82,9 @@ function KnowledgeShape({ view }: { view: KnowledgeVisualView }) {
 
 export function KnowledgeVisual({ view, x, y, selected, isNew, isTransitioning, onSelect, locale = 'ja', mode = 'advanced' }: KnowledgeVisualProps) {
   const t = createTranslator(locale)
-  const statusLabel = view.state === 'pending'
-    ? t(mode === 'simple' ? 'status.simplePending' : 'status.pending')
-    : view.state === 'verified'
-      ? t(mode === 'simple' ? 'status.simpleVerified' : 'status.verified')
-      : t(mode === 'simple' ? 'status.simpleAffecting' : 'status.affecting')
+  const statusLabel = view.trustState === 'community_confirmed' ? t('trust.communityConfirmed') : t('trust.communityReport')
   const categoryLabel = t(`category.${view.item.category}`)
-  const accessibleLabel = `${categoryLabel}。${statusLabel}。${view.item.description}`
+  const accessibleLabel = `${categoryLabel}。${statusLabel}。${getKnowledgeSafeDescription(view.item, locale)}`
   const motionClassName = [
     'knowledge-visual__motion',
     `knowledge-visual--${view.state}`,

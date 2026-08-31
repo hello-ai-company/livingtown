@@ -2,14 +2,26 @@ export type Phase = 'map' | 'drill' | 'replay'
 
 export type KnowledgeCategory =
   | 'flood'
+  | 'fire'
+  | 'explosion'
+  | 'road_block'
   | 'darkness'
   | 'narrow_path'
   | 'barrier'
   | 'safe_spot'
+  | 'theft'
+  | 'harassment'
+  | 'violence'
+  | 'conflict'
+  | 'infrastructure'
+  | 'accessibility'
+  | 'crowding'
   | 'other'
 
 export type KnowledgeCondition = 'always' | 'rain' | 'night' | 'crowded'
 export type KnowledgeConfidence = 'experienced' | 'heard' | 'guess'
+export type ReportType = 'persistent_condition' | 'incident'
+export type KnowledgeSourceKind = 'community' | 'official'
 export type HouseholdConstraint = 'wheelchair' | 'infant' | 'elderly' | 'pet'
 export type HouseholdLocationScope = 'demo' | 'temporary_drill'
 export type Scenario = 'earthquake' | 'flood'
@@ -28,6 +40,13 @@ export interface Knowledge {
   disagree_count: number
   created_at: string
   updated_at?: string
+  /** Defaults are supplied by the repository for rows created before Phase 10. */
+  report_type?: ReportType
+  observed_at?: string
+  expires_at?: string
+  source_kind?: KnowledgeSourceKind
+  /** Zero means the source was not coarsened (general, non-sensitive report). */
+  location_precision_m?: number
   /** Derived by the trusted repository boundary; never an owner id. */
   can_edit?: boolean
 }
@@ -147,9 +166,19 @@ export const HOUSEHOLD_CONSTRAINTS: HouseholdConstraint[] = [
 
 export const KNOWLEDGE_CATEGORIES: KnowledgeCategory[] = [
   'flood',
+  'fire',
+  'explosion',
+  'road_block',
   'darkness',
   'narrow_path',
   'barrier',
   'safe_spot',
+  'theft',
+  'harassment',
+  'violence',
+  'conflict',
+  'infrastructure',
+  'accessibility',
+  'crowding',
   'other',
 ]

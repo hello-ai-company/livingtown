@@ -41,6 +41,13 @@ describe('phase tool surface', () => {
       required: ['knowledge_id', 'confirm_delete'],
       properties: { confirm_delete: { const: true } },
     })
+    expect(getToolNames('map')).toHaveLength(5)
+    const contributeProperties = contribute.inputSchema.properties as Record<string, { enum?: unknown[] }>
+    expect(contributeProperties.category?.enum).toEqual(expect.arrayContaining(['theft', 'harassment', 'violence', 'conflict', 'infrastructure', 'accessibility', 'crowding']))
+    expect(contribute.inputSchema.properties).toHaveProperty('report_type')
+    expect(contribute.inputSchema.properties).toHaveProperty('observed_at')
+    expect(contribute.description).toMatch(/community observation/i)
+    expect(query.inputSchema.properties).toHaveProperty('report_type')
   })
 
   it('keeps every machine-readable metadata string in English and deterministic', () => {

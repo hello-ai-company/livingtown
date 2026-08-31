@@ -9,6 +9,8 @@ import type {
   TimeOfDay,
   Weather,
 } from './types'
+import { isObservationVisible } from '../observations/observationPolicy'
+import { deriveRouteImpactPolicy } from '../observations/routeImpactPolicy'
 
 export interface RouteContext {
   household: Household
@@ -88,7 +90,8 @@ function relevantKnowledgeForEdge(edge: GraphEdge, context: RouteContext) {
   if (!from || !to) return []
 
   return context.knowledge.filter((item) => {
-    if (!isVerified(item) || !conditionMatches(item, context) || !appliesToHousehold(item, context.household)) return false
+    const verified = isVerified(item)
+    if (!verified || !isObservationVisible(item, new Date()) || deriveRouteImpactPolicy({ category: item.category, verified, scenario: context.scenario }) === 'none' || !conditionMatches(item, context) || !appliesToHousehold(item, context.household)) return false
     // Keep the matching radius tight for this compact demo graph. A new
     // observation at a node (the primary challenge flow) still attaches to
     // adjacent edges, while nearby landmarks do not accidentally close every
@@ -126,8 +129,14 @@ export function weightFor(edge: GraphEdge, context: RouteContext): EdgeWeight {
       weight = Number.POSITIVE_INFINITY
       continue
     }
+    if (item.category === 'fire' || item.category === 'road_block' || item.category === 'explosion') {
+      blocked.push(item)
+      weight = Number.POSITIVE_INFINITY
+      continue
+    }
     if (item.category === 'darkness') weight *= 1.5
     if (item.category === 'narrow_path') weight *= 2
+    if (item.category === 'crowding' || item.category === 'infrastructure' || item.category === 'accessibility') weight *= 1.25
   }
 
   const edgeMidpoint = {
@@ -223,8 +232,9 @@ export function calculateEvacuationRoute(context: RouteContext): RouteResult {
   // individual item avoids attributing a detour to a knowledge item that was
   // not actually necessary because of another warning.
   const avoided = context.knowledge
-    .filter((item) => isVerified(item) && conditionMatches(item, context) && appliesToHousehold(item, context.household))
-    .filter((item) => ['flood', 'darkness', 'narrow_path', 'barrier'].includes(item.category))
+    .filter((item) => isVerified(item) && isObservationVisible(item, new Date()) && conditionMatches(item, context) && appliesToHousehold(item, context.household))
+    .filter((item) => deriveRouteImpactPolicy({ category: item.category, verified: true, scenario: context.scenario }) !== 'none')
+    .filter((item) => ['flood', 'fire', 'road_block', 'explosion', 'darkness', 'narrow_path', 'barrier'].includes(item.category))
     .map((item) => {
       const routeWithoutItem = shortestPath(start.id, goal.id, {
         ...context,

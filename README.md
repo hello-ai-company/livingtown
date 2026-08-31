@@ -124,3 +124,13 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 - 検証済み（追認−反証が2以上）の知識だけを経路計算へ反映。
 - `avoided[].edge_ids` は、その知識を除いた経路から外れた実際のグラフ辺を指す。
 - 3Dは加点要素であり、2Dフォールバックを壊さない。
+
+## Phase 10: Living Observation Layer
+
+Phase 10では、MAPに一行投稿欄「この場所で何がありましたか？」を常時表示します。JA/ENの短い自由文をEnterまたは送信で投稿でき、ルールベースのinterpreterがカテゴリ、persistent condition / incident、条件、確度、観測時刻を決定的に整理します。外部LLM APIや新しい有料APIは必須ではありません。投稿場所は、明示的に選択した地図位置、明示取得した現在地、地図の中心の順で、現在地の取得は自動実行しません。
+
+既存Knowledgeの検証・所有権・Realtime・route・WebMCP・MapLibre・Navaraを再利用し、地域からの報告とみんなが確認済みを公式情報と分離します。盗難、ハラスメント、暴力、紛争関連は断定的な文言を避け、盗難／ハラスメントは避難routeへ影響させません。紛争は中立的な地図表示に留め、軍人・部隊・装備・作戦の精密位置はブロックします。Sensitive reportの座標は保存前に粗化し、一般的な浸水・段差・バリアフリー情報の地図位置は維持します。
+
+MAPのWebMCP surfaceは5本（contribute_knowledge、delete_knowledge、query_area、update_knowledge、verify_knowledge）のままです。新しいreport_observation toolは追加せず、既存contribute_knowledgeを新カテゴリと任意のreport_type / observed_atへ後方互換に拡張します。詳細な設計、制約、未実施ゲートは [docs/LIVING_OBSERVATION_LAYER.md](./docs/LIVING_OBSERVATION_LAYER.md) と [Phase 10 local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) を参照してください。
+
+Phase 10のSupabase migrationとpgTAPはレビュー用ドラフトで、まだ適用・実行していません。feature branchは本番Netlifyへデプロイせず、Phase 10のNative WebMCP実機ゲートも再利用・流用していません。

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEMO_KNOWLEDGE } from '../data/demoData'
 import type { Knowledge, RouteResult } from '../sim/types'
+import { KNOWLEDGE_CATEGORIES } from '../sim/types'
 import {
   deriveKnowledgeVisuals,
   filterKnowledgeVisuals,
@@ -9,6 +10,7 @@ import {
   getKnowledgeVisualView,
   isKnowledgeSelectionVisible,
   KNOWLEDGE_VISUAL_REGISTRY,
+  matchesKnowledgeTime,
 } from './knowledgeVisuals'
 
 function knowledge(id: string, overrides: Partial<Knowledge> = {}): Knowledge {
@@ -38,7 +40,7 @@ function routeAvoiding(knowledgeItem: Knowledge): RouteResult {
 
 describe('knowledge visual registry', () => {
   it('defines visual rules for every existing Knowledge category', () => {
-    expect(Object.keys(KNOWLEDGE_VISUAL_REGISTRY).sort()).toEqual(['barrier', 'darkness', 'flood', 'narrow_path', 'other', 'safe_spot'])
+    expect(Object.keys(KNOWLEDGE_VISUAL_REGISTRY).sort()).toEqual([...KNOWLEDGE_CATEGORIES].sort())
     for (const config of Object.values(KNOWLEDGE_VISUAL_REGISTRY)) {
       expect(config.icon).toBeTruthy()
       expect(config.symbol).toBeTruthy()
@@ -145,6 +147,24 @@ describe('knowledge visual route linkage and filters', () => {
     expect(filterKnowledgeVisuals(views, { status: 'verified', category: 'all' }).map((view) => view.item.id)).toEqual(['k-dark-park', 'k-barrier-community'])
     expect(filterKnowledgeVisuals(views, { status: 'affecting_route', category: 'all' }).map((view) => view.item.id)).toEqual(['k-barrier-community'])
     expect(filterKnowledgeVisuals(views, { status: 'all', category: 'barrier' }).map((view) => view.item.id)).toEqual(['k-barrier-community'])
+  })
+
+  it('groups sensitive and neutral community observations and keeps expired incidents historical-only', () => {
+    const theft = knowledge('k-theft', {
+      id: 'k-theft',
+      category: 'theft',
+      report_type: 'incident',
+      observed_at: '2026-08-30T10:00:00.000Z',
+      expires_at: '2026-08-30T11:00:00.000Z',
+    })
+    const conflict = knowledge('k-conflict', { category: 'conflict', report_type: 'incident' })
+    const views = deriveKnowledgeVisuals([theft, conflict])
+
+    expect(filterKnowledgeVisuals(views, { status: 'all', category: 'all', group: 'crime_harassment', time: 'all' }).map((view) => view.item.id)).toEqual(['k-theft'])
+    expect(filterKnowledgeVisuals(views, { status: 'all', category: 'all', group: 'community', time: 'all' }).map((view) => view.item.id)).toEqual(['k-conflict'])
+    expect(filterKnowledgeVisuals(views, { status: 'all', category: 'all', group: 'all', time: 'now' }).map((view) => view.item.id)).toEqual(['k-conflict'])
+    expect(filterKnowledgeVisuals(views, { status: 'all', category: 'all', group: 'all', time: 'all' }).map((view) => view.item.id)).toEqual(['k-theft', 'k-conflict'])
+    expect(matchesKnowledgeTime(theft, 'today', new Date('2026-08-30T12:00:00.000Z'))).toBe(true)
   })
 
   it('does not keep a detail selection when its visual is filtered out', () => {

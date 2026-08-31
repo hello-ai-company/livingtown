@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES } from '../sim/graph'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { DEMO_AREA, DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES } from '../sim/graph'
 import type { Household, RouteResult, TownSnapshot } from '../sim/types'
 import { KnowledgeDetailCard } from './KnowledgeDetailCard'
 import { KnowledgeVisual } from './KnowledgeVisual'
@@ -14,7 +14,9 @@ import {
   MAP_CATEGORY_ORDER,
   KNOWLEDGE_CATEGORY_ORDER,
   type KnowledgeCategoryFilter,
+  type KnowledgeGroupFilter,
   type KnowledgeStatusFilter,
+  type KnowledgeTimeFilter,
   type KnowledgeVisualState,
   type KnowledgeVisualView,
 } from './knowledgeVisuals'
@@ -27,7 +29,7 @@ export interface Map2DProps {
   onSelectHousehold?: (householdId: string) => void
   onSelectKnowledge?: (knowledgeId: string) => void
   onClearKnowledge?: () => void
-  onRequestContribution?: (location: { lat: number; lng: number }) => void
+  onRequestContribution?: (location: { lat: number; lng: number }, source?: 'map' | 'current' | 'center') => void
   onLocationPicked?: (location: { lat: number; lng: number }) => void
   locationPickerActive?: boolean
   onEditKnowledge?: (knowledge: import('../sim/types').Knowledge) => void
@@ -95,9 +97,10 @@ function overlapOffset(view: KnowledgeVisualView, views: KnowledgeVisualView[]) 
   return { x: Math.cos(angle) * 18, y: Math.sin(angle) * 18 }
 }
 
-function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onClearKnowledge, onEditKnowledge, onDeleteKnowledge, locale = 'ja', mode = 'simple', compact = false }: Map2DProps) {
+function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, onEditKnowledge, onDeleteKnowledge, locale = 'ja', mode = 'simple', compact = false }: Map2DProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
-  const [filters, setFilters] = useState<{ status: KnowledgeStatusFilter; category: KnowledgeCategoryFilter | 'bottleneck' }>({ status: 'all', category: 'all' })
+  const [filters, setFilters] = useState<{ status: KnowledgeStatusFilter; category: KnowledgeCategoryFilter | 'bottleneck'; group: KnowledgeGroupFilter; time: KnowledgeTimeFilter }>({ status: 'all', category: 'all', group: 'all', time: 'now' })
+  const [postingMode, setPostingMode] = useState(false)
   const [internalSelectedKnowledgeId, setInternalSelectedKnowledgeId] = useState<string>()
   const previousStates = useRef(new Map<string, KnowledgeVisualState>())
   const [transitioningKnowledgeIds, setTransitioningKnowledgeIds] = useState<Set<string>>(new Set())
@@ -122,8 +125,8 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
     [selectedRoute, snapshot.knowledge],
   )
   const visibleKnowledge = useMemo(
-    () => filters.category === 'bottleneck' ? [] : filterKnowledgeVisuals(visualViews, { status: filters.status, category: filters.category }),
-    [filters.category, filters.status, visualViews],
+    () => filters.category === 'bottleneck' ? [] : filterKnowledgeVisuals(visualViews, { ...filters, category: filters.category as KnowledgeCategoryFilter }),
+    [filters, visualViews],
   )
   const visibleBottlenecks = useMemo(
     () => (filters.category === 'all' || filters.category === 'bottleneck') && filters.status === 'all' ? snapshot.bottlenecks : [],
@@ -188,6 +191,30 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
     else setInternalSelectedKnowledgeId(undefined)
   }
 
+  const handleMapClick = (event: MouseEvent<SVGSVGElement>) => {
+    if (!postingMode && !locationPickerActive) return
+    event.stopPropagation()
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = Math.min(830, Math.max(70, ((event.clientX - rect.left) / rect.width) * 900))
+    const y = Math.min(470, Math.max(80, ((event.clientY - rect.top) / rect.height) * 540))
+    const location = {
+      lng: bounds.minLng + ((x - 70) / 760) * (bounds.maxLng - bounds.minLng),
+      lat: bounds.minLat + ((470 - y) / 390) * (bounds.maxLat - bounds.minLat),
+    }
+    if (locationPickerActive) onLocationPicked?.(location)
+    else onRequestContribution?.(location, 'map')
+    setPostingMode(false)
+  }
+
+  const togglePostingMode = () => {
+    if (postingMode) {
+      setPostingMode(false)
+      return
+    }
+    onRequestContribution?.(DEMO_AREA.center, 'center')
+    setPostingMode(true)
+  }
+
   return (
     <div className={`map-frame${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`}>
       <div className="map-frame__topline">
@@ -209,15 +236,25 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
             <button key={value} type="button" className={filters.status === value ? 'is-active' : ''} onClick={() => setFilters((current) => ({ ...current, status: value }))}>{label}</button>
           ))}
         </div>
-        <label className="map-filter-bar__category">{t('map.category')}
+        {mode === 'advanced' && <label className="map-filter-bar__category">{t('map.category')}
           <select aria-label={t('map.category')} value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value as KnowledgeCategoryFilter | 'bottleneck' }))}>
             <option value="all">{t('map.allSignals')}</option>
             {MAP_CATEGORY_ORDER.map((category) => <option key={category} value={category}>{category === 'bottleneck' ? t('map.bottleneck') : t(`category.${category}`)}</option>)}
           </select>
+        </label>}
+        <label className="map-filter-bar__category">{t('map.group')}
+          <select aria-label={t('map.group')} value={filters.group} onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value as KnowledgeGroupFilter }))}>
+            <option value="all">{t('map.groupAll')}</option><option value="disaster">{t('map.groupDisaster')}</option><option value="safety">{t('map.groupSafety')}</option><option value="crime_harassment">{t('map.groupCrime')}</option><option value="community">{t('map.groupCommunity')}</option>
+          </select>
+        </label>
+        <label className="map-filter-bar__category">{t('map.time')}
+          <select aria-label={t('map.time')} value={filters.time} onChange={(event) => setFilters((current) => ({ ...current, time: event.target.value as KnowledgeTimeFilter }))}>
+            <option value="now">{t('map.now')}</option><option value="today">{t('map.today')}</option><option value="this_week">{t('map.thisWeek')}</option><option value="all">{t('map.allTime')}</option>
+          </select>
         </label>
       </div>
 
-        <svg className="town-map" viewBox="0 0 900 540" role="region" aria-label={t('map.knowledgeMapAlt')}>
+        <svg className="town-map" viewBox="0 0 900 540" role="region" aria-label={t('map.knowledgeMapAlt')} onClickCapture={handleMapClick}>
         <defs>
           <pattern id="map-grid" width="42" height="42" patternUnits="userSpaceOnUse">
             <path d="M 42 0 L 0 0 0 42" fill="none" stroke="rgba(70, 95, 104, 0.17)" strokeWidth="1" />
@@ -311,16 +348,23 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
         })}
       </svg>
 
+      <div className="map-posting-controls">
+        <button type="button" className={`map-post-button${postingMode ? ' is-active' : ''}`} aria-pressed={postingMode} onClick={togglePostingMode}>
+          <span aria-hidden="true">{postingMode ? '×' : '+'}</span>{postingMode ? t('map.cancelPost') : t('map.post')}
+        </button>
+        {(postingMode || locationPickerActive) && <span className="map-post-hint" role="status">{locationPickerActive ? t('map.changeLocationHint') : t('map.postHint')}</span>}
+      </div>
+
       <div className="map-frame__legend knowledge-legend" aria-label={t('map.knowledgeMapAlt')}>
         <div className="knowledge-legend__row">
           <span><i className="legend-state legend-state--pending" />{t('map.legendPending')}</span>
           <span><i className="legend-state legend-state--verified" />{t('map.legendVerified')}</span>
           <span><i className="legend-state legend-state--affecting" />{t('map.legendAffecting')}</span>
         </div>
-        <div className="knowledge-legend__row knowledge-legend__categories">
+        {mode === 'advanced' && <div className="knowledge-legend__row knowledge-legend__categories">
           {KNOWLEDGE_CATEGORY_ORDER.map((category) => <span key={category}><i className={`legend-category legend-category--${category}`} />{t(`category.${category}`)}</span>)}
           <span><i className="legend-category legend-category--bottleneck" />{t('map.legendBottleneck')}</span>
-        </div>
+        </div>}
       </div>
 
       {selectedRoute && (

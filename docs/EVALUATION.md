@@ -51,7 +51,7 @@ Previous HEAD: `5fc9ad7221d8d120ce76c34d0f38ca6db70e6d45`
 - Tokyo uses GSI raster and GSI DEM terrain with the installed official `JAPAN_GSI_ELEVATION_DECODER()` export. Chiyoda PLATEAU 3D Tiles is reachability-checked and optional; a failed probe or layer add marks it `BLOCKED` without failing the scene. The global path uses API-key-free OpenStreetMap raster and ellipsoid terrain.
 - Visual weather is `clear`, `rain`, `heavy_rain`, or `night`, bound to the existing route conditions by default and explicitly labeled `Simulation / Visual only`. No current-weather API or water-depth measurement is used. Rain, RainDrop, and optional cloud effects are quality/device gated.
 - Guided camera is a pure six-stop route tour with pause/resume/overview/exit. 2D↔3D camera state uses the shared `GeoCamera` bridge for Tokyo and San Francisco. Resource/event disposal covers normal dimension changes, quality changes, unmount, partial initialization, and context loss fallback.
-- Automated Phase 9 coverage adds loader success/failure, capabilities, camera, weather, shared dataset projection, guided tour, and i18n assertions. The local suite currently passes with 19 files / 99 tests. `LOCAL_3D_GATE` is recorded separately and does not imply Native WebMCP.
+- Automated Phase 9 coverage adds loader success/failure, capabilities, camera, weather, shared dataset projection, guided tour, and i18n assertions. Phase 10 adds interpreter, privacy, expiry, route-policy, new-category, tool-schema, current-overlay, and one-line composer assertions. The local suite currently passes with 21 files / 126 tests. `LOCAL_3D_GATE` is recorded separately and does not imply Native WebMCP.
 - `LOCAL_3D_GATE: PASS` on the local Codex in-app browser: Tokyo WebGL2 Navara scene, GSI terrain, reachable Chiyoda PLATEAU, visual weather presets, route/household projection, three 2D↔3D cycles, guided camera controls, JA/EN, and reduced-motion behavior were observed. Full details are in [docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md](./evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md).
 - `PHASE9_NATIVE_WEBMCP_GATE: NOT RUN`. WebMCP tool names, schemas, `control_replay`, and `get_debrief_summary` are unchanged.
 
@@ -94,7 +94,7 @@ Previous HEAD: `5fc9ad7221d8d120ce76c34d0f38ca6db70e6d45`
 - WebMCPオブジェクトがない通常Node/Vitest環境でも、同じtool definitionをfake adapterで検証できる。
 - MapLibre primary renderer and the existing SVG fallback both preserve the map → drill → replay vertical slice.
 - `npm run seed` は外部APIなしで決定的なdemo dataを生成する。
-- 既存テストを維持し、trust-boundary／Realtime／GeoJSON projection／i18n／CRUD／worldwide basemap／geolocation testsを追加した。現在は14 files / 88 tests。
+- 既存テストを維持し、trust-boundary／Realtime／GeoJSON projection／i18n／CRUD／worldwide basemap／geolocation／living observation testsを追加した。現在は21 files / 126 tests。
 
 ### Living Knowledge Visual World
 
@@ -147,6 +147,16 @@ this native result.
 
 初期4 migrationと `20260830162803_function_execute_boundary.sql` の実Livingtown projectへのapply、schema／RLS／基本権限／Knowledge-only Realtime、Security Advisor再確認は [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) のとおり確認済みで、`HOSTED_DB_SECURITY_GATE: PASS` とする。記録済みBrowser A/B/C相互作用とfresh browser raw Verification SELECT DENIEDは [`docs/evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md`](./evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md) にある。pgTAPはローカル環境のDocker／CLI不足で未実行、A/B/C再実行とfailure injectionも未実行であり、full end-to-end gateはまだ完了していない。
 
+## Phase 10 current feature-branch evaluation
+
+Phase 10のfeature branchは `feat/living-observation-layer` で、`feat/navara-immersive-disaster-map` のHEADから派生している。既存PR #10／#11、本番Netlify、Supabase real data、Devpost、動画は変更していない。
+
+The local suite passes with 21 test files and 126 tests. Coverage includes the bilingual one-line composer, interpreter, ambiguous-to-other fallback, incident lifecycle and expiry, sensitive-coordinate coarsening, localized PII/tactical guards, theft/harassment/conflict route isolation, fire/road_block/explosion blocking candidates, expanded visual groups/time filters, Navara current-overlay projection, and the exact five-tool MAP schema.
+
+The Phase 10 migration `supabase/migrations/20260831142006_living_observation_layer.sql` and pgTAP draft `supabase/tests/0006_living_observation_layer.sql` are present for review only. Neither has been applied or executed. `PHASE10_NATIVE_WEBMCP_GATE: NOT RUN`; existing Native WebMCP evidence is not reused for the changed schema.
+
+The local result is code-review ready, not merge/deploy ready. Shared Supabase CRUD/Realtime behavior after the new migration, production build behavior, and a native WebMCP browser gate remain external verification items.
+
 ### GitHub Actions
 
 `CI_INFRA_BLOCKED`: PR #1の指定run `33295537735` はGitHub API上で `conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。Phase 4AのPR #2 run `33302362702` / job `99232743694` も、`conclusion=failure`、`runner_id=0`、`runner_name=""`、`steps=[]`、`gh run view --log-failed` は `log not found` だった。checkout／Node／npmのstep開始証跡がないため、いずれもコードのtest failureとは判定していない。
@@ -169,7 +179,7 @@ Phase 6のPR #4 run `33310283020` / job `99253976986` とPR #6のlatest run `333
 | Command | Result |
 |---|---|
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 19 files / 99 tests |
+| `npm test` | PASS — 21 files / 126 tests |
 | `npm run build` | PASS — Vite production build succeeded |
 | `npm run seed` | PASS — 6 nodes / 7 edges / 10 knowledge / 13 pseudonymous votes / 3 households |
 | `git diff --check` | PASS |

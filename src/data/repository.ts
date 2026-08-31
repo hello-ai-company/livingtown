@@ -7,6 +7,7 @@ import type {
   KnowledgeCategory,
   KnowledgeCondition,
   KnowledgeConfidence,
+  ReportType,
   RouteResult,
   Scenario,
   TimeOfDay,
@@ -26,6 +27,8 @@ export interface ContributeKnowledgeInput {
   condition: KnowledgeCondition
   description: string
   confidence: KnowledgeConfidence
+  report_type?: ReportType
+  observed_at?: string
 }
 
 export interface UpdateKnowledgeInput extends ContributeKnowledgeInput {
@@ -63,6 +66,7 @@ export interface QueryAreaInput {
   radius_m: number
   category?: KnowledgeCategory
   condition?: KnowledgeCondition
+  report_type?: ReportType
 }
 
 export interface RegisterHouseholdInput {

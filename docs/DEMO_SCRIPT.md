@@ -80,3 +80,12 @@
 ## 評価者向け注意
 
 実機Chromeでの `getTools()`／`toolchange`／実行中phase変更のログが取得できていない場合、WebMCP lifecycleは `PARTIAL` と記録する。実機操作を担当者へ引き継ぐ場合は `REAL_DEVICE_MANUAL_ACTION_REQUIRED` と記録する。`docs/EVALUATION.md` のPASS／PARTIAL／PENDINGを更新するときも、fake adapterや通常ブラウザの成功を実機PASSへ繰り上げない。
+
+## Phase 10 — 一行の地域報告（ローカル確認のみ）
+
+1. MAPをSimple／日本語で開き、常時表示される「この場所で何がありましたか？」へ「この駅の近くで自転車が盗まれたみたい」と入力してEnterで送信する。カテゴリが盗難、種別がincident、表示が「地域からの報告」、位置が粗化された中立マーカーになり、routeが変わらないことを確認する。
+2. 「駅の東口で痴漢があったみたい」を投稿し、ハラスメント・痴漢の地域報告として表示され、個人や容疑者を特定する文言がなく、避難routeへ影響しないことを確認する。
+3. 「この道は雨の日に水がたまる」を投稿し、浸水のpersistent conditionとして表示されることを確認する。投稿直後は「地域からの報告」で、確認が2票に届くまではrouteへ影響しない。
+4. Englishへ切り替え、「An explosion was reported in this area.」を投稿する。爆発のincident、Community report、粗化位置、neutral markerを確認する。天候やfire simulationは開始しない。軍人・部隊・装備・作戦の精密位置を含む入力は投稿せず、機能として拒否されることだけを説明する。
+5. Advancedの詳細欄でreport type、observed at、expiry、location precision、route impact policyを確認し、All／Today／This week／NowとDisaster／Safety／Crime & harassment／Communityのフィルタを切り替える。投稿直後のUndoはowner-only deleteへ接続される。
+6. 2Dと明示選択したNavara 3Dで同じsnapshotのcommunity markerを確認する。expired incidentはcurrent overlayから消えるが、履歴の否定ではない。Phase 10のNative WebMCP、Supabase migration、production URLの証拠とは扱わない。

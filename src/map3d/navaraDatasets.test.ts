@@ -42,4 +42,17 @@ describe('shared snapshot projection for Navara', () => {
     expect(dataset.avoidedRoads[0]).toMatchObject({ knowledgeId: 'k-flood-crosswalk', reason: '雨天時の水没報告を回避' })
     expect(dataset.avoidedRoads[0].coordinates).toEqual([[139.761, 35.6811], [139.7611, 35.6819]])
   })
+
+  it('uses the current-observation view by omitting expired incidents from the 3D overlay', () => {
+    const expired = {
+      ...DEMO_KNOWLEDGE[0],
+      id: 'expired-observation',
+      category: 'road_block' as const,
+      report_type: 'incident' as const,
+      observed_at: '2026-08-30T00:00:00.000Z',
+      expires_at: '2026-08-30T12:00:00.000Z',
+    }
+    const dataset = buildSceneDataset({ ...snapshot, knowledge: [...snapshot.knowledge, expired] }, 'h-wheelchair')
+    expect(dataset.knowledge.some((item) => item.item.id === expired.id)).toBe(false)
+  })
 })

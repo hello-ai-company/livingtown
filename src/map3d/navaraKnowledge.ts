@@ -11,5 +11,9 @@ export function knowledgeStateLabelKey(state: Knowledge3DState) {
 }
 
 export function knowledgeMarkerColor(knowledge: SceneKnowledge) {
+  // Conflict-related observations stay neutral and map-only. Their trust
+  // state still controls opacity/strength, but never turns them into a
+  // tactical or route-blocking hazard visual.
+  if (knowledge.item.category === 'conflict') return 0xa4a9b0
   return KNOWLEDGE_MARKER_COLORS[knowledge.state]
 }

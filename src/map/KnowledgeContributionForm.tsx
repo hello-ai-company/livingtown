@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { UpdateKnowledgeInput, ContributeKnowledgeInput } from '../data/repository'
-import type { Knowledge, KnowledgeCategory, KnowledgeCondition, KnowledgeConfidence } from '../sim/types'
+import type { Knowledge, KnowledgeCategory, KnowledgeCondition, KnowledgeConfidence, ReportType } from '../sim/types'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
 import { KNOWLEDGE_CATEGORY_ORDER } from './knowledgeVisuals'
+import { defaultReportType } from '../observations/observationPolicy'
 
 interface KnowledgeContributionFormProps {
   locale: Locale
@@ -18,13 +19,32 @@ interface KnowledgeContributionFormProps {
 
 const CONDITIONS: KnowledgeCondition[] = ['always', 'rain', 'night', 'crowded']
 const CONFIDENCES: KnowledgeConfidence[] = ['experienced', 'heard', 'guess']
+const REPORT_TYPES: ReportType[] = ['persistent_condition', 'incident']
 const CATEGORY_ICONS: Record<KnowledgeCategory, string> = {
   barrier: '🚧',
   flood: '🌊',
+  fire: '🔥',
+  explosion: '💥',
+  road_block: '⛔',
   darkness: '🌙',
   narrow_path: '↔️',
   safe_spot: '✅',
+  theft: '🚲',
+  harassment: '🛡️',
+  violence: '⚠️',
+  conflict: '⚠️',
+  infrastructure: '🏗️',
+  accessibility: '♿',
+  crowding: '👥',
   other: '💬',
+}
+
+function toDateTimeLocal(value?: string) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return ''
+  const pad = (part: number) => String(part).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 export function KnowledgeContributionForm({ locale, mode, initialLocation, knowledge, onSubmit, onCancel, onRequestLocationChange, onCancelLocationPicker, locationPickerActive = false }: KnowledgeContributionFormProps) {
@@ -36,6 +56,8 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
   const [lng, setLng] = useState(String(knowledge?.lng ?? initialLocation?.lng ?? ''))
   const [description, setDescription] = useState(knowledge?.description ?? '')
   const [confidence, setConfidence] = useState<KnowledgeConfidence>(knowledge?.confidence ?? 'experienced')
+  const [reportType, setReportType] = useState<ReportType>(knowledge?.report_type ?? defaultReportType(knowledge?.category ?? 'flood'))
+  const [observedAt, setObservedAt] = useState(toDateTimeLocal(knowledge?.observed_at))
   const [privacyConfirmed, setPrivacyConfirmed] = useState(false)
   const [confirmReverification, setConfirmReverification] = useState(false)
   const [error, setError] = useState<string>()
@@ -112,7 +134,16 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
     }
     setSubmitting(true)
     try {
-      const base = { category, lat: Number(lat), lng: Number(lng), condition, description, confidence }
+      const base = {
+        category,
+        lat: Number(lat),
+        lng: Number(lng),
+        condition,
+        description,
+        confidence,
+        report_type: reportType,
+        ...(observedAt ? { observed_at: new Date(observedAt).toISOString() } : {}),
+      }
       await onSubmit(knowledge ? { ...base, knowledge_id: knowledge.id, confirm_reverification_reset: confirmReverification } : base)
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : (locale === 'ja' ? '記憶を保存できません。' : 'Unable to save this memory.'))
@@ -159,8 +190,12 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
           <h3>{t('form.descriptionTitle')}</h3><p>{t('form.descriptionBody')}</p>
           <textarea aria-label={t('form.descriptionTitle')} maxLength={200} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t('form.descriptionPlaceholder')} rows={5} />
           <div className="form-character-count" aria-live="polite">{t('form.characters', { count: description.length })}</div>
+          {mode === 'advanced' && <div className="form-coordinate-grid form-observation-metadata">
+            <label>{t('form.reportType')}<select value={reportType} onChange={(event) => setReportType(event.target.value as ReportType)}>{REPORT_TYPES.map((item) => <option key={item} value={item}>{t(`reportType.${item}`)}</option>)}</select></label>
+            <label>{t('form.observedAt')}<input type="datetime-local" value={observedAt} onChange={(event) => setObservedAt(event.target.value)} /></label>
+          </div>}
           <div className="form-review-heading"><strong>{t('form.reviewTitle')}</strong><p>{t('form.reviewBody')}</p></div>
-          <dl className="form-review"><div><dt>{t('form.categoryTitle')}</dt><dd>{CATEGORY_ICONS[category]} {t(`category.${category}`)}</dd></div><div><dt>{t('form.conditionTitle')}</dt><dd>{t(`condition.${condition}`)}</dd></div><div><dt>{t('form.confidenceTitle')}</dt><dd>{t(`confidence.${confidence}`)}</dd></div>{mode === 'advanced' && <div><dt>{t('form.locationTitle')}</dt><dd>{Number(lat).toFixed(4)}, {Number(lng).toFixed(4)}</dd></div>}</dl>
+          <dl className="form-review"><div><dt>{t('form.categoryTitle')}</dt><dd>{CATEGORY_ICONS[category]} {t(`category.${category}`)}</dd></div><div><dt>{t('form.conditionTitle')}</dt><dd>{t(`condition.${condition}`)}</dd></div><div><dt>{t('form.confidenceTitle')}</dt><dd>{t(`confidence.${confidence}`)}</dd></div>{mode === 'advanced' && <><div><dt>{t('form.reportType')}</dt><dd>{t(`reportType.${reportType}`)}</dd></div><div><dt>{t('form.observedAt')}</dt><dd>{observedAt || t('common.noRecord')}</dd></div><div><dt>{t('form.locationTitle')}</dt><dd>{Number(lat).toFixed(4)}, {Number(lng).toFixed(4)}</dd></div></>}</dl>
           {hasVotes && <label className="form-checkbox form-checkbox--warning"><input type="checkbox" checked={confirmReverification} onChange={(event) => setConfirmReverification(event.target.checked)} /><span>{t('form.reverifyWarning')}<small>{t('form.reverify')}</small></span></label>}
           <label className="form-checkbox"><input type="checkbox" checked={privacyConfirmed} onChange={(event) => setPrivacyConfirmed(event.target.checked)} /><span>{t('form.privacy')}<small>{t('form.privacyBody')}</small></span></label>
         </div>}

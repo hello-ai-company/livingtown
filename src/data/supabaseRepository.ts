@@ -39,11 +39,10 @@ import {
   validateUpdateKnowledgeInput,
   validateVerificationInput,
 } from './validation'
+import { isObservationVisible } from '../observations/observationPolicy'
+import { KNOWLEDGE_CATEGORIES } from '../sim/types'
 
-// Keep the public read path compatible with the pre-Phase-8 schema while the
-// ownership/CRUD migration is still a draft. `updated_at` is optional on the
-// domain type and is returned by the update RPC after the migration lands.
-const KNOWLEDGE_COLUMNS = 'id,category,lat,lng,condition,description,confidence,agree_count,disagree_count,created_at'
+const KNOWLEDGE_COLUMNS = 'id,category,lat,lng,condition,description,confidence,agree_count,disagree_count,created_at,updated_at,report_type,observed_at,expires_at,source_kind,location_precision_m'
 const HOUSEHOLD_COLUMNS = 'id,label,constraints,start_lat,start_lng,location_scope,expires_at,created_at'
 const BOTTLENECK_COLUMNS = 'id,lat,lng,severity,description,household_id,created_at'
 
@@ -115,7 +114,7 @@ function mapKnowledgeRow(value: unknown, canEdit = false): Knowledge {
   const category = row.category
   const condition = row.condition
   const confidence = row.confidence
-  if (!['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'].includes(String(category))) throw new Error('Supabase returned an invalid knowledge category.')
+  if (!KNOWLEDGE_CATEGORIES.includes(String(category) as Knowledge['category'])) throw new Error('Supabase returned an invalid knowledge category.')
   if (!['always', 'rain', 'night', 'crowded'].includes(String(condition))) throw new Error('Supabase returned an invalid knowledge condition.')
   if (!['experienced', 'heard', 'guess'].includes(String(confidence))) throw new Error('Supabase returned an invalid knowledge confidence.')
   const description = requiredString(row, 'description')
@@ -135,6 +134,11 @@ function mapKnowledgeRow(value: unknown, canEdit = false): Knowledge {
     disagree_count: requiredCounter(row, 'disagree_count'),
     created_at: requiredString(row, 'created_at'),
     ...(typeof row.updated_at === 'string' ? { updated_at: row.updated_at } : {}),
+    report_type: row.report_type === 'incident' ? 'incident' : 'persistent_condition',
+    observed_at: typeof row.observed_at === 'string' ? row.observed_at : requiredString(row, 'created_at'),
+    ...(typeof row.expires_at === 'string' ? { expires_at: row.expires_at } : {}),
+    source_kind: row.source_kind === 'official' ? 'official' : 'community',
+    location_precision_m: typeof row.location_precision_m === 'number' && Number.isFinite(row.location_precision_m) ? row.location_precision_m : 0,
     can_edit: canEdit,
   }
 }
@@ -490,17 +494,19 @@ export class SupabaseTownRepository implements TownRepository {
       await this.ready
       await this.ensureAuthenticated(true)
       throwIfAborted(options.signal)
-      const query = queryWithSignal(this.client.from('knowledge').insert({
-        category: input.category,
-        lat: input.lat,
-        lng: input.lng,
-        condition: input.condition,
-        description: input.description.trim(),
-        confidence: input.confidence,
-      }).select(KNOWLEDGE_COLUMNS).single(), options.signal)
+      const query = queryWithSignal(this.client.rpc('create_knowledge', {
+        p_category: input.category,
+        p_lat: input.lat,
+        p_lng: input.lng,
+        p_condition: input.condition,
+        p_description: input.description.trim(),
+        p_confidence: input.confidence,
+        p_report_type: input.report_type ?? null,
+        p_observed_at: input.observed_at ?? null,
+      }), options.signal)
       const { data, error } = await query
       if (error) throw error
-      const inserted = mapKnowledgeRow(data)
+      const inserted = mapKnowledgeRow(Array.isArray(data) ? data[0] : data)
       await this.refreshRemoteState(options.signal)
       return this.snapshot.knowledge.find((item) => item.id === inserted.id) ?? inserted
     } catch (error) {
@@ -524,6 +530,8 @@ export class SupabaseTownRepository implements TownRepository {
         p_condition: input.condition,
         p_description: input.description.trim(),
         p_confidence: input.confidence,
+        p_report_type: input.report_type ?? null,
+        p_observed_at: input.observed_at ?? null,
         p_confirm_reverification_reset: input.confirm_reverification_reset === true,
       }), options.signal)
       const { data, error } = await query
@@ -613,7 +621,7 @@ export class SupabaseTownRepository implements TownRepository {
     const lngScale = 111_320 * Math.cos((input.lat * Math.PI) / 180)
     return this.snapshot.knowledge.filter((item) => {
       const distance = Math.sqrt(((item.lat - input.lat) * latScale) ** 2 + ((item.lng - input.lng) * lngScale) ** 2)
-      return distance <= input.radius_m && (!input.category || item.category === input.category) && (!input.condition || item.condition === input.condition)
+      return distance <= input.radius_m && isObservationVisible(item, this.now()) && (!input.category || item.category === input.category) && (!input.condition || item.condition === input.condition) && (!input.report_type || (item.report_type ?? 'persistent_condition') === input.report_type)
     }).map((item) => ({ ...clone(item), verified: item.agree_count - item.disagree_count >= 2 }))
   }
 

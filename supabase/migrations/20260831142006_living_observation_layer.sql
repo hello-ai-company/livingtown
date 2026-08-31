@@ -1,0 +1,347 @@
+-- Phase 10 draft only. Do not apply this migration from the browser, CI, or
+-- production. It is intentionally stacked after the Phase 8 ownership CRUD
+-- migration and must first be reviewed and exercised against a disposable
+-- Supabase database.
+
+alter table public.knowledge
+  add column if not exists report_type text,
+  add column if not exists observed_at timestamptz,
+  add column if not exists expires_at timestamptz,
+  add column if not exists source_kind text,
+  add column if not exists location_precision_m double precision;
+
+-- The initial schema used an unnamed column check for category. Remove only
+-- checks whose definition mentions category, then install one named check so
+-- future migrations and pgTAP can address it deterministically.
+do $$
+declare
+  constraint_name text;
+begin
+  for constraint_name in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.knowledge'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%category%'
+      and conname <> 'knowledge_category_allowed'
+  loop
+    execute format('alter table public.knowledge drop constraint if exists %I', constraint_name);
+  end loop;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.knowledge'::regclass
+      and conname = 'knowledge_category_allowed'
+  ) then
+    alter table public.knowledge add constraint knowledge_category_allowed
+      check (category in (
+        'flood','fire','explosion','road_block','darkness','narrow_path',
+        'barrier','safe_spot','theft','harassment','violence','conflict',
+        'infrastructure','accessibility','crowding','other'
+      ));
+  end if;
+end $$;
+
+update public.knowledge
+set report_type = 'persistent_condition'
+where report_type is null;
+
+update public.knowledge
+set source_kind = 'community'
+where source_kind is null;
+
+update public.knowledge
+set location_precision_m = 0
+where location_precision_m is null;
+
+alter table public.knowledge
+  alter column report_type set default 'persistent_condition',
+  alter column report_type set not null,
+  alter column source_kind set default 'community',
+  alter column source_kind set not null,
+  alter column location_precision_m set default 0,
+  alter column location_precision_m set not null;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.knowledge'::regclass and conname = 'knowledge_report_type_allowed') then
+    alter table public.knowledge add constraint knowledge_report_type_allowed
+      check (report_type in ('persistent_condition','incident'));
+  end if;
+  if not exists (select 1 from pg_constraint where conrelid = 'public.knowledge'::regclass and conname = 'knowledge_source_kind_allowed') then
+    alter table public.knowledge add constraint knowledge_source_kind_allowed
+      check (source_kind in ('community','official'));
+  end if;
+  if not exists (select 1 from pg_constraint where conrelid = 'public.knowledge'::regclass and conname = 'knowledge_location_precision_allowed') then
+    alter table public.knowledge add constraint knowledge_location_precision_allowed
+      check (location_precision_m between 0 and 10000);
+  end if;
+end $$;
+
+-- This is a minimum database-side guard. The client has a richer localized
+-- guard, but the trusted RPC repeats the check so a hand-written RPC caller
+-- cannot bypass the publish boundary.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.knowledge'::regclass and conname = 'knowledge_description_basic_privacy') then
+    alter table public.knowledge add constraint knowledge_description_basic_privacy
+      check (
+        description !~* '[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}'
+        and description !~* 'https?://'
+        and description !~ '[0-9][0-9 ()-]{7,}[0-9]'
+      );
+  end if;
+end $$;
+
+create index if not exists knowledge_observation_expiry_idx on public.knowledge (expires_at);
+create index if not exists knowledge_observation_category_idx on public.knowledge (category, report_type);
+create index if not exists knowledge_observation_source_idx on public.knowledge (source_kind);
+
+create or replace function public.create_knowledge(
+  p_category text,
+  p_lat double precision,
+  p_lng double precision,
+  p_condition text,
+  p_description text,
+  p_confidence text,
+  p_report_type text default null,
+  p_observed_at timestamptz default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  actor uuid;
+  resolved_report_type text;
+  resolved_observed_at timestamptz;
+  resolved_expires_at timestamptz;
+  resolved_precision double precision;
+  stored_lat double precision;
+  stored_lng double precision;
+  inserted public.knowledge;
+begin
+  actor := auth.uid();
+  if actor is null then
+    raise exception 'authenticated identity is required';
+  end if;
+  if p_category not in (
+    'flood','fire','explosion','road_block','darkness','narrow_path',
+    'barrier','safe_spot','theft','harassment','violence','conflict',
+    'infrastructure','accessibility','crowding','other'
+  ) then
+    raise exception 'invalid knowledge category';
+  end if;
+  if p_condition not in ('always','rain','night','crowded') then
+    raise exception 'invalid knowledge condition';
+  end if;
+  if p_confidence not in ('experienced','heard','guess') then
+    raise exception 'invalid knowledge confidence';
+  end if;
+  if p_report_type is not null and p_report_type not in ('persistent_condition','incident') then
+    raise exception 'invalid knowledge report type';
+  end if;
+  if p_lat is null or p_lng is null
+    or p_lat not between -85.051129 and 85.051129
+    or p_lng not between -180 and 180 then
+    raise exception 'knowledge coordinate is outside the supported world bounds';
+  end if;
+  if p_description is null or char_length(trim(p_description)) not between 1 and 200 then
+    raise exception 'knowledge description must be 1-200 characters';
+  end if;
+  if p_description ~* '[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}'
+    or p_description ~* 'https?://'
+    or p_description ~ '[0-9][0-9 ()-]{7,}[0-9]' then
+    raise exception 'report may contain identifying information';
+  end if;
+  if p_description ~* '(military|soldier|troop|unit|weapon|tank|artillery|base|operation|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備)'
+    and p_description ~* '(coordinate|coordinates|latitude|longitude|\blat\b|\blng\b|exact|precise|location|at[[:space:]]+[0-9]|座標|緯度|経度|正確|位置|地点|番地|丁目|東口|西口|南口|北口|[0-9]{2,})' then
+    raise exception 'precise tactical information is not publishable';
+  end if;
+
+  resolved_report_type := coalesce(p_report_type, case when p_category in ('road_block','crowding','fire','explosion','theft','harassment','violence','conflict') then 'incident' else 'persistent_condition' end);
+  resolved_observed_at := case when resolved_report_type = 'incident' then coalesce(p_observed_at, now()) else p_observed_at end;
+  resolved_expires_at := case
+    when resolved_report_type <> 'incident' then null
+    when p_category = 'road_block' then coalesce(resolved_observed_at, now()) + interval '12 hours'
+    when p_category in ('fire','explosion','conflict') then coalesce(resolved_observed_at, now()) + interval '24 hours'
+    when p_category = 'crowding' then coalesce(resolved_observed_at, now()) + interval '6 hours'
+    when p_category in ('theft','harassment') then coalesce(resolved_observed_at, now()) + interval '30 days'
+    when p_category = 'violence' then coalesce(resolved_observed_at, now()) + interval '7 days'
+    else null
+  end;
+  resolved_precision := case
+    when p_category in ('theft','harassment') then 150
+    when p_category = 'violence' then 200
+    when p_category = 'explosion' then 500
+    when p_category = 'conflict' then 750
+    else 0
+  end;
+  stored_lat := case when resolved_precision = 0 then p_lat else round(p_lat / (resolved_precision / 110540.0)) * (resolved_precision / 110540.0) end;
+  stored_lng := case when resolved_precision = 0 then p_lng else round(p_lng / (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01)))) * (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01))) end;
+
+  insert into public.knowledge (
+    category, lat, lng, condition, description, confidence,
+    report_type, observed_at, expires_at, source_kind, location_precision_m
+  ) values (
+    p_category, stored_lat, stored_lng, p_condition, trim(p_description), p_confidence,
+    resolved_report_type, resolved_observed_at, resolved_expires_at, 'community', resolved_precision
+  ) returning * into inserted;
+
+  return jsonb_build_object(
+    'id', inserted.id,
+    'category', inserted.category,
+    'lat', inserted.lat,
+    'lng', inserted.lng,
+    'condition', inserted.condition,
+    'description', inserted.description,
+    'confidence', inserted.confidence,
+    'agree_count', inserted.agree_count,
+    'disagree_count', inserted.disagree_count,
+    'created_at', inserted.created_at,
+    'updated_at', inserted.updated_at,
+    'report_type', inserted.report_type,
+    'observed_at', inserted.observed_at,
+    'expires_at', inserted.expires_at,
+    'source_kind', inserted.source_kind,
+    'location_precision_m', inserted.location_precision_m
+  );
+end;
+$$;
+
+revoke all on function public.create_knowledge(text, double precision, double precision, text, text, text, text, timestamptz) from public, anon, authenticated;
+grant execute on function public.create_knowledge(text, double precision, double precision, text, text, text, text, timestamptz) to authenticated;
+
+-- Phase 8 temporarily granted authenticated INSERT on domain columns. Phase
+-- 10 closes that path so the RPC is the only authenticated write boundary.
+revoke insert, update, delete on table public.knowledge from anon, authenticated;
+
+drop function if exists public.update_knowledge(uuid, text, double precision, double precision, text, text, text, boolean);
+
+create function public.update_knowledge(
+  p_knowledge_id uuid,
+  p_category text,
+  p_lat double precision,
+  p_lng double precision,
+  p_condition text,
+  p_description text,
+  p_confidence text,
+  p_confirm_reverification_reset boolean,
+  p_report_type text,
+  p_observed_at timestamptz
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  actor uuid;
+  locked public.knowledge;
+  resolved_report_type text;
+  resolved_observed_at timestamptz;
+  resolved_expires_at timestamptz;
+  resolved_precision double precision;
+  stored_lat double precision;
+  stored_lng double precision;
+  has_votes boolean;
+  updated public.knowledge;
+begin
+  actor := auth.uid();
+  if actor is null then raise exception 'authenticated identity is required'; end if;
+  if p_category not in ('flood','fire','explosion','road_block','darkness','narrow_path','barrier','safe_spot','theft','harassment','violence','conflict','infrastructure','accessibility','crowding','other') then raise exception 'invalid knowledge category'; end if;
+  if p_condition not in ('always','rain','night','crowded') then raise exception 'invalid knowledge condition'; end if;
+  if p_confidence not in ('experienced','heard','guess') then raise exception 'invalid knowledge confidence'; end if;
+  if p_report_type is not null and p_report_type not in ('persistent_condition','incident') then raise exception 'invalid knowledge report type'; end if;
+  if p_lat is null or p_lng is null or p_lat not between -85.051129 and 85.051129 or p_lng not between -180 and 180 then raise exception 'knowledge coordinate is outside the supported world bounds'; end if;
+  if p_description is null or char_length(trim(p_description)) not between 1 and 200 then raise exception 'knowledge description must be 1-200 characters'; end if;
+  if p_description ~* '[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}' or p_description ~* 'https?://' or p_description ~ '[0-9][0-9 ()-]{7,}[0-9]' then raise exception 'report may contain identifying information'; end if;
+  if p_description ~* '(military|soldier|troop|unit|weapon|tank|artillery|base|operation|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備)' and p_description ~* '(coordinate|coordinates|latitude|longitude|\blat\b|\blng\b|exact|precise|location|at[[:space:]]+[0-9]|座標|緯度|経度|正確|位置|地点|番地|丁目|東口|西口|南口|北口|[0-9]{2,})' then raise exception 'precise tactical information is not publishable'; end if;
+
+  select k.* into locked
+  from public.knowledge as k
+  join public.knowledge_owner as ko on ko.knowledge_id = k.id and ko.owner_id = actor
+  where k.id = p_knowledge_id
+  for update;
+  if not found then raise exception 'knowledge not found or not owned by the current identity'; end if;
+  has_votes := locked.agree_count + locked.disagree_count > 0;
+  if has_votes and p_confirm_reverification_reset is not true then raise exception 'reverification confirmation is required'; end if;
+
+  resolved_report_type := coalesce(p_report_type, locked.report_type, case when p_category in ('road_block','crowding','fire','explosion','theft','harassment','violence','conflict') then 'incident' else 'persistent_condition' end);
+  resolved_observed_at := case when resolved_report_type = 'incident' then coalesce(p_observed_at, locked.observed_at, now()) else p_observed_at end;
+  resolved_expires_at := case
+    when resolved_report_type <> 'incident' then null
+    when p_category = 'road_block' then coalesce(resolved_observed_at, now()) + interval '12 hours'
+    when p_category in ('fire','explosion','conflict') then coalesce(resolved_observed_at, now()) + interval '24 hours'
+    when p_category = 'crowding' then coalesce(resolved_observed_at, now()) + interval '6 hours'
+    when p_category in ('theft','harassment') then coalesce(resolved_observed_at, now()) + interval '30 days'
+    when p_category = 'violence' then coalesce(resolved_observed_at, now()) + interval '7 days'
+    else null
+  end;
+  resolved_precision := case when p_category in ('theft','harassment') then 150 when p_category = 'violence' then 200 when p_category = 'explosion' then 500 when p_category = 'conflict' then 750 else 0 end;
+  stored_lat := case when resolved_precision = 0 then p_lat else round(p_lat / (resolved_precision / 110540.0)) * (resolved_precision / 110540.0) end;
+  stored_lng := case when resolved_precision = 0 then p_lng else round(p_lng / (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01)))) * (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01))) end;
+
+  if has_votes then delete from public.verification where knowledge_id = p_knowledge_id; end if;
+  update public.knowledge set
+    category = p_category, lat = stored_lat, lng = stored_lng, condition = p_condition,
+    description = trim(p_description), confidence = p_confidence,
+    report_type = resolved_report_type, observed_at = resolved_observed_at,
+    expires_at = resolved_expires_at, source_kind = 'community', location_precision_m = resolved_precision,
+    agree_count = case when has_votes then 0 else agree_count end,
+    disagree_count = case when has_votes then 0 else disagree_count end,
+    updated_at = now()
+  where id = p_knowledge_id returning * into updated;
+
+  return jsonb_build_object(
+    'id', updated.id, 'category', updated.category, 'lat', updated.lat, 'lng', updated.lng,
+    'condition', updated.condition, 'description', updated.description, 'confidence', updated.confidence,
+    'agree_count', updated.agree_count, 'disagree_count', updated.disagree_count,
+    'created_at', updated.created_at, 'updated_at', updated.updated_at,
+    'report_type', updated.report_type, 'observed_at', updated.observed_at, 'expires_at', updated.expires_at,
+    'source_kind', updated.source_kind, 'location_precision_m', updated.location_precision_m,
+    'reverification_required', has_votes, 'route_invalidated', true
+  );
+end;
+$$;
+
+-- Preserve the pre-Phase-10 positional RPC for old clients while routing it
+-- through the same trusted implementation and new metadata defaults.
+create function public.update_knowledge(
+  p_knowledge_id uuid,
+  p_category text,
+  p_lat double precision,
+  p_lng double precision,
+  p_condition text,
+  p_description text,
+  p_confidence text,
+  p_confirm_reverification_reset boolean
+)
+returns jsonb
+language sql
+security definer
+set search_path = ''
+as $$
+  select public.update_knowledge($1,$2,$3,$4,$5,$6,$7,$8,null,null);
+$$;
+
+revoke all on function public.update_knowledge(uuid, text, double precision, double precision, text, text, text, boolean, text, timestamptz) from public, anon, authenticated;
+grant execute on function public.update_knowledge(uuid, text, double precision, double precision, text, text, text, boolean, text, timestamptz) to authenticated;
+revoke all on function public.update_knowledge(uuid, text, double precision, double precision, text, text, text, boolean) from public, anon, authenticated;
+grant execute on function public.update_knowledge(uuid, text, double precision, double precision, text, text, text, boolean) to authenticated;
+
+comment on table public.knowledge is 'Community observations and local knowledge. User reports remain community-sourced until the existing verification threshold is reached; official source rows are not writable by browser roles.';
+comment on column public.knowledge.report_type is 'persistent_condition or incident; incident rows receive a category-specific current-map expiry.';
+comment on column public.knowledge.observed_at is 'When the community observation was seen or reported; incident writes default to now.';
+comment on column public.knowledge.expires_at is 'Current-map visibility expiry for incidents. Expiry does not erase historical occurrence.';
+comment on column public.knowledge.source_kind is 'Trusted source label. Browser-created rows are always community.';
+comment on column public.knowledge.location_precision_m is 'Approximate precision applied before storing sensitive community coordinates.';
+comment on function public.create_knowledge(text, double precision, double precision, text, text, text, text, timestamptz) is 'Authenticated-only community observation write boundary. Derives ownership, source, privacy precision, counters, timestamps, and expiry.';
+comment on function public.update_knowledge(uuid, text, double precision, double precision, text, text, text, boolean, text, timestamptz) is 'Owner-only observation update. Reapplies geoprivacy and resets verification only with explicit confirmation.';
+
+-- Realtime remains limited to public Knowledge rows. No new table or channel
+-- is introduced for observations; the existing adapter refetches Knowledge.

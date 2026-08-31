@@ -134,6 +134,26 @@ describe('calculateEvacuationRoute', () => {
     ]))
   })
 
+  it.each(['fire', 'road_block', 'explosion'] as const)('treats verified %s reports as blocking route candidates', (category) => {
+    const household = DEMO_HOUSEHOLDS.find((item) => item.id === 'h-wheelchair')!
+    const hazard: Knowledge = {
+      ...DEMO_KNOWLEDGE.find((item) => item.id === 'k-flood-crosswalk')!,
+      id: 'k-test-' + category,
+      category,
+      report_type: 'persistent_condition',
+      condition: 'always',
+      agree_count: 2,
+      disagree_count: 0,
+    }
+    const baseline = calculateEvacuationRoute({ household, knowledge: [], scenario: 'earthquake', weather: 'clear', time_of_day: 'day' })
+    const changed = calculateEvacuationRoute({ household, knowledge: [hazard], scenario: 'earthquake', weather: 'clear', time_of_day: 'day' })
+
+    expect(changed.route.coordinates).not.toEqual(baseline.route.coordinates)
+    expect(changed.avoided).toEqual(expect.arrayContaining([
+      expect.objectContaining({ knowledge_id: hazard.id, category }),
+    ]))
+  })
+
   it('reports avoided reasons with exactly the graph edges omitted from the selected route', () => {
     const household = DEMO_HOUSEHOLDS.find((item) => item.id === 'h-wheelchair')!
     const knowledge = DEMO_KNOWLEDGE.find((item) => item.id === 'k-flood-crosswalk')!

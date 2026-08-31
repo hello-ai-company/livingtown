@@ -121,6 +121,7 @@ class FakeSupabaseClient {
     this.rpcCalls.push({ name, args })
     return new FakeQuery(() => {
       if (this.failRpc) return { data: null, error: new Error('fake rpc failure') }
+      if (name === 'create_knowledge') return this.createKnowledge(args)
       if (name === 'submit_verification') return this.submitVerification(args)
       if (name === 'get_my_knowledge_ids') return { data: [...this.knowledgeOwners].map((knowledge_id) => ({ knowledge_id })), error: null }
       if (name === 'update_knowledge') return this.updateKnowledge(args)
@@ -150,6 +151,25 @@ class FakeSupabaseClient {
     this.rows[table].unshift(row)
     if (table === 'knowledge' && typeof row.id === 'string' && this.user) this.knowledgeOwners.add(row.id)
     return row
+  }
+
+  private createKnowledge(args: Row): Response {
+    if (this.failWrites) return { data: null, error: new Error('fake write failure') }
+    const category = String(args.p_category)
+    const sensitivePrecision = category === 'theft' || category === 'harassment' ? 150 : category === 'violence' ? 200 : category === 'explosion' ? 500 : category === 'conflict' ? 750 : 0
+    const row = this.insertRow('knowledge', {
+      category,
+      lat: args.p_lat,
+      lng: args.p_lng,
+      condition: args.p_condition,
+      description: args.p_description,
+      confidence: args.p_confidence,
+      report_type: args.p_report_type ?? (['road_block', 'crowding', 'fire', 'explosion', 'theft', 'harassment', 'violence', 'conflict'].includes(category) ? 'incident' : 'persistent_condition'),
+      ...(args.p_observed_at ? { observed_at: args.p_observed_at } : {}),
+      source_kind: 'community',
+      location_precision_m: sensitivePrecision,
+    })
+    return { data: row, error: null }
   }
 
   private updateKnowledge(args: Record<string, unknown>): Response {
@@ -319,7 +339,7 @@ describe('SupabaseTownRepository', () => {
     repository.dispose()
   })
 
-  it('sends only domain columns for a shared knowledge write', async () => {
+  it('uses the trusted create RPC for a shared knowledge write', async () => {
     const fake = new FakeSupabaseClient()
     const repository = sharedRepository(fake)
     await repository.ready
@@ -334,17 +354,17 @@ describe('SupabaseTownRepository', () => {
     })
 
     expect(knowledge).toMatchObject({ category: 'barrier', agree_count: 0, disagree_count: 0 })
-    expect(fake.insertPayloads).toEqual([{
-      table: 'knowledge',
-      payload: {
-        category: 'barrier',
-        lat: 35.681,
-        lng: 139.76,
-        condition: 'always',
-        description: 'shared write columns',
-        confidence: 'heard',
-      },
-    }])
+    expect(fake.insertPayloads).toEqual([])
+    expect(fake.rpcCalls.find((call) => call.name === 'create_knowledge')?.args).toMatchObject({
+      p_category: 'barrier',
+      p_lat: 35.681,
+      p_lng: 139.76,
+      p_condition: 'always',
+      p_description: 'shared write columns',
+      p_confidence: 'heard',
+      p_report_type: null,
+      p_observed_at: null,
+    })
     repository.dispose()
   })
 

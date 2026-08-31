@@ -1,5 +1,6 @@
 import type { DeleteKnowledgeInput, QueryAreaInput, ContributeKnowledgeInput, UpdateKnowledgeInput, VerifyKnowledgeInput, TownRepository } from '../../data/repository'
 import { WORLD_MAP_BOUNDS } from '../../map/basemaps'
+import { KNOWLEDGE_CATEGORIES } from '../../sim/types'
 import type { ToolDefinition } from '../types'
 
 export function mapTools(store: TownRepository): ToolDefinition[] {
@@ -8,16 +9,18 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
     {
       name: 'contribute_knowledge',
       title: 'Contribute community knowledge',
-      description: 'Create one community knowledge report at any supported location worldwide. Keep personal data out of free text and label the source as experienced, heard, or guess.',
+      description: 'Create one community observation at any supported location worldwide. The server labels it as community-sourced, applies privacy precision, derives expiry and route impact, and keeps it unconfirmed until community verification. Keep personal data, accusations, and precise tactical details out of free text.',
       inputSchema: {
         type: 'object',
         properties: {
-          category: { type: 'string', enum: ['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'] },
+          category: { type: 'string', enum: KNOWLEDGE_CATEGORIES },
           lat: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLat, maximum: WORLD_MAP_BOUNDS.maxLat, description: 'Latitude in Web Mercator-supported world bounds.' },
           lng: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLng, maximum: WORLD_MAP_BOUNDS.maxLng, description: 'Longitude in world bounds.' },
           condition: { type: 'string', enum: ['always', 'rain', 'night', 'crowded'] },
           description: { type: 'string', maxLength: 200 },
           confidence: { type: 'string', enum: ['experienced', 'heard', 'guess'] },
+          report_type: { type: 'string', enum: ['persistent_condition', 'incident'], description: 'Optional temporal shape. Incident observations receive a category-specific expiry window.' },
+          observed_at: { type: 'string', format: 'date-time', description: 'Optional observation time. Incident observations default to the current time.' },
         },
         required: ['category', 'lat', 'lng', 'condition', 'description', 'confidence'],
       },
@@ -51,7 +54,7 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
       name: 'verify_knowledge',
       title: 'Verify community knowledge',
       description: sharedMode
-        ? 'Confirm or dispute an existing report. In shared mode the server derives an opaque verifier identity from the authenticated session; do not provide verifier_id. Duplicate votes from the same identity are ignored.'
+        ? 'Confirm or dispute an existing community observation. In shared mode the server derives an opaque verifier identity from the authenticated session; do not provide verifier_id. Duplicate votes from the same identity are ignored and a vote never promotes a report to official status.'
         : 'Confirm or dispute an existing report in the local demo using a pseudonymous verifier fixture. Duplicate votes from the same fixture are ignored; the format alone does not prove identity or prevent personal data.',
       inputSchema: {
         type: 'object',
@@ -78,15 +81,16 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
     {
       name: 'query_area',
       title: 'Query community knowledge',
-      description: 'Search community observations around a geographic point anywhere in the supported world, optionally filtering by category and condition.',
+      description: 'Search community observations around a geographic point anywhere in the supported world, optionally filtering by category, report type, and condition. Expired incident observations are omitted from current results but are not treated as never having happened.',
       inputSchema: {
         type: 'object',
         properties: {
           lat: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLat, maximum: WORLD_MAP_BOUNDS.maxLat, description: 'Latitude in Web Mercator-supported world bounds.' },
           lng: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLng, maximum: WORLD_MAP_BOUNDS.maxLng, description: 'Longitude in world bounds.' },
           radius_m: { type: 'number', maximum: 2000 },
-          category: { type: 'string', enum: ['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'] },
+          category: { type: 'string', enum: KNOWLEDGE_CATEGORIES },
           condition: { type: 'string', enum: ['always', 'rain', 'night', 'crowded'] },
+          report_type: { type: 'string', enum: ['persistent_condition', 'incident'] },
         },
         required: ['lat', 'lng', 'radius_m'],
       },
@@ -100,17 +104,19 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
     {
       name: 'update_knowledge',
       title: 'Update community knowledge',
-      description: 'Update only a report owned by the current authenticated identity. The server checks ownership, accepts worldwide coordinates, and requires confirm_reverification_reset=true when existing votes must be reset. Never send owner_id.',
+      description: 'Update only a community observation owned by the current authenticated identity. The server checks ownership, reapplies privacy precision and expiry, accepts worldwide coordinates, and requires confirm_reverification_reset=true when existing votes must be reset. Never send owner_id, source_kind, counters, or verifier ids.',
       inputSchema: {
         type: 'object',
         properties: {
           knowledge_id: { type: 'string' },
-          category: { type: 'string', enum: ['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'] },
+          category: { type: 'string', enum: KNOWLEDGE_CATEGORIES },
           lat: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLat, maximum: WORLD_MAP_BOUNDS.maxLat, description: 'Latitude in Web Mercator-supported world bounds.' },
           lng: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLng, maximum: WORLD_MAP_BOUNDS.maxLng, description: 'Longitude in world bounds.' },
           condition: { type: 'string', enum: ['always', 'rain', 'night', 'crowded'] },
           description: { type: 'string', maxLength: 200 },
           confidence: { type: 'string', enum: ['experienced', 'heard', 'guess'] },
+          report_type: { type: 'string', enum: ['persistent_condition', 'incident'] },
+          observed_at: { type: 'string', format: 'date-time' },
           confirm_reverification_reset: { type: 'boolean', description: 'Set true to reset existing votes and require fresh verification.' },
         },
         required: ['knowledge_id', 'category', 'lat', 'lng', 'condition', 'description', 'confidence'],

@@ -21,7 +21,9 @@ import {
   MAP_CATEGORY_ORDER,
   KNOWLEDGE_CATEGORY_ORDER,
   type KnowledgeCategoryFilter,
+  type KnowledgeGroupFilter,
   type KnowledgeStatusFilter,
+  type KnowledgeTimeFilter,
 } from './knowledgeVisuals'
 import type { Map2DProps } from './Map2D'
 import {
@@ -104,7 +106,7 @@ function addOverlayLayers(map: MapLibreInstance, overlayData: ReturnType<typeof 
   map.addLayer({ id: 'route-line', type: 'line', source: 'route-overlay', paint: { 'line-color': '#c1e06e', 'line-width': 4, 'line-opacity': 0.9 } })
   map.addLayer({ id: 'avoided-lines', type: 'line', source: 'avoided-overlay', paint: { 'line-color': '#ef7772', 'line-width': 5, 'line-opacity': 0.84, 'line-dasharray': [1, 1.4] } })
   map.addLayer({ id: 'knowledge-halo', type: 'circle', source: 'knowledge-overlay', paint: { 'circle-color': 'transparent', 'circle-radius': ['match', ['get', 'state'], 'affecting_route', 18, 'verified', 14, 11], 'circle-stroke-color': ['match', ['get', 'state'], 'affecting_route', '#f6a064', 'verified', '#c1e06e', '#9fb4a6'], 'circle-stroke-width': ['match', ['get', 'state'], 'affecting_route', 3, 1], 'circle-opacity': 0, 'circle-stroke-opacity': 0.75 } })
-  map.addLayer({ id: 'knowledge-points', type: 'circle', source: 'knowledge-overlay', paint: { 'circle-color': ['match', ['get', 'state'], 'affecting_route', '#f6a064', 'verified', '#c1e06e', '#77b9d1'], 'circle-radius': ['case', ['boolean', ['get', 'selected'], false], 10, 7], 'circle-opacity': ['match', ['get', 'state'], 'pending', 0.66, 0.96], 'circle-stroke-color': ['match', ['get', 'state'], 'affecting_route', '#ffe1bc', 'verified', '#e9f8a5', '#dcebe3'], 'circle-stroke-width': ['case', ['boolean', ['get', 'selected'], false], 3, 1.5] } })
+  map.addLayer({ id: 'knowledge-points', type: 'circle', source: 'knowledge-overlay', paint: { 'circle-color': ['match', ['get', 'category'], 'flood', '#5fb9d2', 'fire', '#e87963', 'explosion', '#d5ad71', 'road_block', '#e28e62', 'darkness', '#8e86c9', 'narrow_path', '#d6b266', 'barrier', '#d6a16a', 'safe_spot', '#86c79b', 'theft', '#9c9bc8', 'harassment', '#9c9bc8', 'violence', '#b6a0a0', 'conflict', '#a4a9b0', 'accessibility', '#8fc1ca', 'crowding', '#c3a96c', 'infrastructure', '#9eb39c', '#77b9d1'], 'circle-radius': ['case', ['boolean', ['get', 'selected'], false], 10, 7], 'circle-opacity': ['case', ['boolean', ['get', 'expired'], false], 0.24, ['match', ['get', 'state'], 'pending', 0.66, 0.96]], 'circle-stroke-color': ['match', ['get', 'state'], 'affecting_route', '#ffe1bc', 'verified', '#e9f8a5', '#dcebe3'], 'circle-stroke-width': ['case', ['boolean', ['get', 'selected'], false], 3, 1.5] } })
   map.addLayer({ id: 'household-points', type: 'circle', source: 'household-overlay', paint: { 'circle-color': ['case', ['boolean', ['get', 'selected'], false], '#edf0e7', '#f6a064'], 'circle-radius': ['case', ['boolean', ['get', 'selected'], false], 10, 7], 'circle-stroke-color': '#c1e06e', 'circle-stroke-width': 2 } })
   map.addLayer({ id: 'bottleneck-points', type: 'circle', source: 'bottleneck-overlay', paint: { 'circle-color': '#f6a064', 'circle-radius': 8, 'circle-stroke-color': '#ffe1bc', 'circle-stroke-width': 2 } })
 }
@@ -140,15 +142,15 @@ export function MapLibreMap({
   const [postingMode, setPostingMode] = useState(false)
   const [basemapMode, setBasemapMode] = useState<BasemapMode>('auto')
   const [provider, setProvider] = useState<BasemapProvider>(() => resolveBasemapProvider('auto', { lat: DEMO_AREA.center.lat, lng: DEMO_AREA.center.lng }).provider)
-  const [filters, setFilters] = useState<{ status: KnowledgeStatusFilter; category: KnowledgeCategoryFilter | 'bottleneck' }>({ status: 'all', category: 'all' })
+  const [filters, setFilters] = useState<{ status: KnowledgeStatusFilter; category: KnowledgeCategoryFilter | 'bottleneck'; group: KnowledgeGroupFilter; time: KnowledgeTimeFilter }>({ status: 'all', category: 'all', group: 'all', time: 'now' })
   const [mapNotice, setMapNotice] = useState<string>()
   const previousSelectedKnowledgeId = useRef(selectedKnowledgeId)
   const selectedRoute = focusHouseholdId ? snapshot.routes[focusHouseholdId] : Object.values(snapshot.routes)[0]
   const selectedHousehold = snapshot.households.find((household) => household.id === focusHouseholdId)
   const views = useMemo(() => deriveKnowledgeVisuals(snapshot.knowledge, selectedRoute), [selectedRoute, snapshot.knowledge])
   const visibleViews = useMemo(
-    () => filters.category === 'bottleneck' ? [] : filterKnowledgeVisuals(views, { status: filters.status, category: filters.category }),
-    [filters.category, filters.status, views],
+    () => filters.category === 'bottleneck' ? [] : filterKnowledgeVisuals(views, { ...filters, category: filters.category as KnowledgeCategoryFilter }),
+    [filters, views],
   )
   const selectedView = selectedKnowledgeId && isKnowledgeSelectionVisible(selectedKnowledgeId, visibleViews)
     ? views.find((view) => view.item.id === selectedKnowledgeId)
@@ -259,7 +261,7 @@ export function MapLibreMap({
         return
       }
       if (postingModeRef.current) {
-        callbacksRef.current.onRequestContribution?.({ lat: event.lngLat.lat, lng: event.lngLat.lng })
+        callbacksRef.current.onRequestContribution?.({ lat: event.lngLat.lat, lng: event.lngLat.lng }, 'map')
         setPostingMode(false)
         setMapNotice(t('notice.locationSelected'))
         return
@@ -339,7 +341,7 @@ export function MapLibreMap({
         cameraRef.current = captureCamera(map, cameraRef.current)
         map.flyTo({ center: [location.lng, location.lat], zoom: Math.max(map.getZoom(), 12), duration: 700 })
       }
-      callbacksRef.current.onRequestContribution?.(location)
+        callbacksRef.current.onRequestContribution?.(location, 'current')
       setMapNotice(t('map.currentLocationReady'))
     } catch {
       setMapNotice(t('map.locationError'))
@@ -347,6 +349,20 @@ export function MapLibreMap({
   }
 
   const isPickingLocation = locationPickerActive || postingMode
+
+  const togglePostingMode = () => {
+    if (postingMode) {
+      setPostingMode(false)
+      return
+    }
+    const map = mapInstance.current
+    const center = map?.getCenter()
+    callbacksRef.current.onRequestContribution?.(
+      center ? { lat: center.lat, lng: center.lng } : { lat: DEMO_AREA.center.lat, lng: DEMO_AREA.center.lng },
+      'center',
+    )
+    setPostingMode(true)
+  }
 
   return (
     <div className={`map-frame map-frame--maplibre${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-basemap-provider={provider} data-basemap-mode={basemapMode}>
@@ -365,10 +381,20 @@ export function MapLibreMap({
             <button key={value} type="button" className={filters.status === value ? 'is-active' : ''} onClick={() => setFilters((current) => ({ ...current, status: value }))}>{label}</button>
           ))}
         </div>
-        <label className="map-filter-bar__category">{t('map.category')}
+        {mode === 'advanced' && <label className="map-filter-bar__category">{t('map.category')}
           <select aria-label={t('map.category')} value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value as KnowledgeCategoryFilter | 'bottleneck' }))}>
             <option value="all">{t('map.allSignals')}</option>
             {MAP_CATEGORY_ORDER.map((category) => <option key={category} value={category}>{category === 'bottleneck' ? t('map.bottleneck') : categoryLabel(category, t)}</option>)}
+          </select>
+        </label>}
+        <label className="map-filter-bar__category">{t('map.group')}
+          <select aria-label={t('map.group')} value={filters.group} onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value as KnowledgeGroupFilter }))}>
+            <option value="all">{t('map.groupAll')}</option><option value="disaster">{t('map.groupDisaster')}</option><option value="safety">{t('map.groupSafety')}</option><option value="crime_harassment">{t('map.groupCrime')}</option><option value="community">{t('map.groupCommunity')}</option>
+          </select>
+        </label>
+        <label className="map-filter-bar__category">{t('map.time')}
+          <select aria-label={t('map.time')} value={filters.time} onChange={(event) => setFilters((current) => ({ ...current, time: event.target.value as KnowledgeTimeFilter }))}>
+            <option value="now">{t('map.now')}</option><option value="today">{t('map.today')}</option><option value="this_week">{t('map.thisWeek')}</option><option value="all">{t('map.allTime')}</option>
           </select>
         </label>
         {mode === 'advanced' && <label className="map-filter-bar__category">{t('map.basemap')}
@@ -381,7 +407,7 @@ export function MapLibreMap({
       </div>
       <div ref={mapContainer} className="maplibre-canvas" role="region" aria-label={t('map.knowledgeMapAlt')} aria-busy={!mapReady} />
       <div className="map-posting-controls">
-        <button type="button" className={`map-post-button${postingMode ? ' is-active' : ''}`} aria-pressed={postingMode} onClick={() => setPostingMode((current) => !current)}>
+        <button type="button" className={`map-post-button${postingMode ? ' is-active' : ''}`} aria-pressed={postingMode} onClick={togglePostingMode}>
           <span aria-hidden="true">{postingMode ? '×' : '+'}</span>{postingMode ? t('map.cancelPost') : t('map.post')}
         </button>
         <button type="button" className="map-location-button" onClick={() => void reportCurrentLocation()}>
@@ -397,9 +423,9 @@ export function MapLibreMap({
           <span><i className="legend-state legend-state--affecting" />{t('map.legendAffecting')}</span>
           <span><i className="legend-category legend-category--bottleneck" />{t('map.legendBottleneck')}</span>
         </div>
-        <div className="knowledge-legend__row knowledge-legend__categories">
+        {mode === 'advanced' && <div className="knowledge-legend__row knowledge-legend__categories">
           {KNOWLEDGE_CATEGORY_ORDER.map((category) => <span key={category}><i className={`legend-category legend-category--${category}`} />{categoryLabel(category, t)}</span>)}
-        </div>
+        </div>}
       </div>
       {selectedRoute && <div className={`map-route-callout${selectedView ? ' map-route-callout--hidden' : ''}`}>
         <div><span className="eyebrow">{t(mode === 'simple' ? 'map.simpleRouteNow' : 'map.routeNow')}</span><strong>{selectedHousehold?.label ?? t('common.selectedHousehold')} · {selectedRoute.eta_minutes} min</strong></div>

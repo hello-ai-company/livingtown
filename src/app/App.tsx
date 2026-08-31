@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { MapExperience } from '../map/MapExperience'
 import { KnowledgeContributionForm } from '../map/KnowledgeContributionForm'
+import { ObservationComposer } from '../map/ObservationComposer'
 import { Replay3D } from '../map/Replay3D'
 import { ReplayKnowledgePanel } from '../map/ReplayKnowledgePanel'
 import { townRepository } from '../data/townRepository'
@@ -8,6 +9,7 @@ import { useRepositoryStatus, useTownSnapshot } from '../data/useTownSnapshot'
 import { dataModeLabel, switchToLocalDemo } from '../data/townRepository'
 import { PhaseProvider, usePhase } from '../phases/PhaseContext'
 import { isKnowledgeVerified } from '../sim/route'
+import { communityTrustState } from '../observations/observationPolicy'
 import type { Household, Knowledge, Phase, RouteResult, TownSnapshot } from '../sim/types'
 import type { ContributeKnowledgeInput, UpdateKnowledgeInput } from '../data/repository'
 import { getKnowledgeVisualConfig } from '../map/knowledgeVisuals'
@@ -60,6 +62,10 @@ function AppShell() {
   const [notice, setNotice] = useState<string | undefined>()
   const [evidenceByPhase, setEvidenceByPhase] = useState<Partial<Record<Phase, WebMcpEvidenceSnapshot>>>({})
   const [contributionLocation, setContributionLocation] = useState<{ lat: number; lng: number }>()
+  const [observationMapLocation, setObservationMapLocation] = useState<{ lat: number; lng: number }>()
+  const [observationCurrentLocation, setObservationCurrentLocation] = useState<{ lat: number; lng: number }>()
+  const [observationLocationSource, setObservationLocationSource] = useState<'map' | 'current' | 'center'>('center')
+  const [observationComposerOpen, setObservationComposerOpen] = useState(true)
   const [editingKnowledge, setEditingKnowledge] = useState<Knowledge>()
   const [editingLocation, setEditingLocation] = useState<{ lat: number; lng: number }>()
   const [locationPickerActive, setLocationPickerActive] = useState(false)
@@ -234,12 +240,28 @@ function AppShell() {
       if (!isUpdate && result?.id) {
         setLastKnowledgeId(result.id)
         setSelectedKnowledgeId(result.id)
+        setObservationComposerOpen(true)
       }
-      setNotice(hadRoute ? t('notice.routeInvalidated') : isUpdate ? t('notice.updated') : t('notice.contributed'))
+      setNotice(isUpdate
+        ? (hadRoute ? t('notice.routeInvalidated') : t('notice.updated'))
+        : `${t('notice.communityAdded')} ${t('notice.communityPending')}${hadRoute ? ` ${t('notice.routeInvalidated')}` : ''}`)
     } catch (error) {
       const message = error instanceof Error ? error.message : t('notice.saveFailed')
       await townRepository.recordActivity(toolName, message, 'error')
       throw error
+    }
+  }
+
+  const undoLastObservation = async () => {
+    if (!lastKnowledgeId) return
+    try {
+      await townRepository.deleteKnowledge({ knowledge_id: lastKnowledgeId, confirm_delete: true })
+      await townRepository.recordActivity('delete_knowledge', t('activity.deleted'))
+      setLastKnowledgeId(undefined)
+      setSelectedKnowledgeId(undefined)
+      setNotice(t('composer.undoDone'))
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : t('notice.deleteFailed'))
     }
   }
 
@@ -329,7 +351,8 @@ function AppShell() {
 
         <div className="main-grid">
           <section className="map-column">
-            <MapExperience snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} dimension={mapDimension} camera={mapCamera} onDimensionChange={setMapDimension} onCameraChange={setMapCamera} onNotice={setNotice} weatherMode={weatherVisualMode} onWeatherModeChange={setWeatherVisualMode} locationPickerActive={locationPickerActive} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onRequestContribution={(location) => setContributionLocation(location)} onLocationPicked={(location) => { setLocationPickerActive(false); if (editingKnowledge) setEditingLocation(location); else setContributionLocation(location); setNotice(t('notice.locationSelected')) }} onEditKnowledge={(knowledge) => { setEditingKnowledge(knowledge); setEditingLocation({ lat: knowledge.lat, lng: knowledge.lng }); setContributionLocation(undefined) }} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />
+            {panel === 'map' && observationComposerOpen && <ObservationComposer locale={locale} mode={mode} location={observationMapLocation ?? observationCurrentLocation ?? { lat: mapCamera.lat, lng: mapCamera.lng }} locationSource={observationMapLocation ? 'map' : observationCurrentLocation ? 'current' : observationLocationSource} onRequestLocationChange={() => { setObservationMapLocation(undefined); setObservationLocationSource(observationCurrentLocation ? 'current' : 'center'); setLocationPickerActive(true) }} onSubmit={submitKnowledge} lastPostedKnowledgeId={lastKnowledgeId} onUndo={() => void undoLastObservation()} />}
+            <MapExperience snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} dimension={mapDimension} camera={mapCamera} onDimensionChange={setMapDimension} onCameraChange={setMapCamera} onNotice={setNotice} weatherMode={weatherVisualMode} onWeatherModeChange={setWeatherVisualMode} locationPickerActive={locationPickerActive} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onRequestContribution={(location, source = 'map') => { if (source === 'current') setObservationCurrentLocation(location); if (source === 'map') setObservationMapLocation(location); setObservationLocationSource(source); setObservationComposerOpen(true) }} onLocationPicked={(location) => { setLocationPickerActive(false); if (editingKnowledge) setEditingLocation(location); else setObservationMapLocation(location); setObservationLocationSource('map'); setObservationComposerOpen(true); setNotice(t('notice.locationSelected')) }} onEditKnowledge={(knowledge) => { setEditingKnowledge(knowledge); setEditingLocation({ lat: knowledge.lat, lng: knowledge.lng }); setContributionLocation(undefined); setObservationComposerOpen(false) }} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />
             {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
             {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
             {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} onView3D={open3D} />}
@@ -391,14 +414,15 @@ function MapStage({ snapshot, lastKnowledgeId, selectedKnowledgeId, locale, mode
 }
 
 function MemoryRow({ item, locale, mode }: { item: Knowledge; locale: Locale; mode: ExperienceMode }) {
-  const t = useTranslator(locale)
-  const verified = isKnowledgeVerified(item)
-  const visual = getKnowledgeVisualConfig(item.category)
+ const t = useTranslator(locale)
+ const verified = isKnowledgeVerified(item)
+  const trustState = communityTrustState(item.agree_count, item.disagree_count)
+ const visual = getKnowledgeVisualConfig(item.category)
   return (
     <article className={`memory-row${verified ? ' memory-row--verified' : ''}`}>
       <span className={`memory-row__marker memory-row__marker--${item.category}`} aria-hidden="true">{visual.icon}</span>
       <div className="memory-row__body"><div className="memory-row__meta"><span>{t(`category.${item.category}`)}</span><span>·</span><span>{t(`condition.${item.condition}`)}</span><span className="confidence-label">{t(`confidence.${item.confidence}`)}</span></div><p>{item.description}</p></div>
-      <div className={`verification-badge${verified ? ' verification-badge--verified' : ''}`}><span>{verified ? '●' : '○'}</span>{verified ? t(mode === 'simple' ? 'status.simpleVerified' : 'status.verified') : `${item.agree_count}/2 ${mode === 'simple' ? (locale === 'ja' ? '確認' : 'confirmations') : (locale === 'ja' ? '追認' : 'confirmations')}`}</div>
+      <div className={`verification-badge${verified ? ' verification-badge--verified' : ''}`}><span>{verified ? '●' : '○'}</span><span>{t(trustState === 'community_confirmed' ? 'trust.communityConfirmed' : 'trust.communityReport')}</span>{!verified && <small>{item.agree_count}/2</small>}</div>
     </article>
   )
 }
