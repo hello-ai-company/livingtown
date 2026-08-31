@@ -5,7 +5,7 @@ Repository: `hello-ai-company/livingtown`
 Branch: `feat/living-observation-layer`
 Base branch: `feat/navara-immersive-disaster-map`
 Base HEAD: `6c176af31f9b0849094062443d3601ffcc1da93f`
-Feature HEAD: pending final commit
+Feature HEAD at the implementation/test gate: `a7972f3` (`feat: add one-line living observation layer`)
 
 ## Local quality gate
 
@@ -19,6 +19,7 @@ Feature HEAD: pending final commit
 
 - One-line composer labels: JA `この場所で何がありましたか？`; EN `What's happening here?`.
 - Submit path: Enter or Send, visible location source, map-selected/current/map-center priority, expandable details, community-pending feedback, and owner-only Undo.
+- Advanced correction form exposes `report_type` and `observed_at`; meaningful edits continue to use the existing vote-reset confirmation boundary.
 - Rule-based JA/EN interpretation covers theft, harassment, flood, fire, explosion, road block, darkness, accessibility, crowding, conflict, and other; ambiguous text falls back to `other`.
 - `theft`, `harassment`, `violence`, `conflict`, and `explosion` use deterministic pre-persistence coordinate coarsening: 150m, 150m, 200m, 750m, and 500m respectively. General flood coordinates remain exact.
 - Email, phone, URL/handle, address-like, vehicle-like, and person-identifying patterns are blocked with localized messages. Conflict tactical terms combined with precise-location terms are blocked; generic explosion wording is allowed.
