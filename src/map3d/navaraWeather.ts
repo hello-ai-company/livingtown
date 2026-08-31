@@ -21,4 +21,3 @@ export function resolveWeatherVisualState(route?: RouteResult, requestedMode?: W
 export function weatherModeLabelKey(mode: WeatherVisualMode) {
   return mode === 'heavy_rain' ? 'map.heavyRain' : mode === 'night' ? 'map.night' : mode === 'rain' ? 'map.rain' : 'map.clear'
 }
-

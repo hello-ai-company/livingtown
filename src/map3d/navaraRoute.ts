@@ -8,4 +8,3 @@ export function routeCoordinates(route?: RouteResult): Array<[number, number]> {
 export function avoidedRoadCoordinates(roads: SceneAvoidedRoad[]) {
   return roads.map((road) => road.coordinates)
 }
-

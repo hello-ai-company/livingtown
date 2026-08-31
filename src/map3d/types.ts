@@ -85,4 +85,3 @@ export interface RouteCameraTour {
 export type NavaraSceneStatus =
   | { type: 'diagnostics'; diagnostics: NavaraSceneDiagnostics }
   | { type: 'error'; reason: string }
-

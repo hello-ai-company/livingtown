@@ -13,4 +13,3 @@ export function knowledgeStateLabelKey(state: Knowledge3DState) {
 export function knowledgeMarkerColor(knowledge: SceneKnowledge) {
   return KNOWLEDGE_MARKER_COLORS[knowledge.state]
 }
-

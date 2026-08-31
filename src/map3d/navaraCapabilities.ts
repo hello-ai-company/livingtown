@@ -89,4 +89,3 @@ export function persistMapDimension(dimension: MapDimension) {
     // A locked-down browser can still use the in-memory React state.
   }
 }
-

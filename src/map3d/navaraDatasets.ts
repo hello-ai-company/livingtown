@@ -71,4 +71,3 @@ export function getSceneKnowledgeState(item: Knowledge, route?: RouteResult): Kn
     ? 'AFFECTING_ROUTE'
     : isKnowledgeVerified(item) ? 'VERIFIED' : 'PENDING'
 }
-

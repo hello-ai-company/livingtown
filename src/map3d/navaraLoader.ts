@@ -32,4 +32,3 @@ export function loadNavara(importers: NavaraImporters = defaultImporters): Promi
 export function resetNavaraLoaderForTests() {
   runtimePromise = undefined
 }
-
