@@ -24,7 +24,7 @@ For a production build:
 npm run build
 ```
 
-The static output is written to `dist/`. The primary verified free public production deployment is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/). It deploys `main` (`27a303f`) with `npm run build` and `dist/`, and runs `SUPABASE_SHARED` using the existing project's browser-safe Supabase configuration. A newly opened browser tab confirmed HTTPS, anonymous Auth, `CONNECTED`, Realtime `CONNECTED`, and the MAP → DRILL → REPLAY flow. The GitHub Pages URL [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) remains as a fallback. Native WebMCP is still an external manual gate and is not claimed by the current `SIMULATED` browser run.
+The static output is written to `dist/`. The primary verified free public production deployment is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/). It deploys `main` (`27a303f`) with `npm run build` and `dist/`, and runs `SUPABASE_SHARED` using the existing project's browser-safe Supabase configuration. A newly opened browser tab confirmed HTTPS, anonymous Auth, `CONNECTED`, Realtime `CONNECTED`, and the MAP → DRILL → REPLAY flow. The GitHub Pages URL [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) remains as a fallback. Native WebMCP agent validation also passed on this public URL with Chrome 152.0.7977.64, Codex, and Chrome DevTools for agents; evidence is recorded in [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md). The `SIMULATED` fallback remains available for browsers without Native WebMCP.
 
 ## Three-minute demo
 
@@ -61,7 +61,7 @@ Direct access to the browser API is isolated in [`src/webmcp/register.ts`](./src
 - `getTools()` and `toolchange` for native-surface inspection
 - explicit `readOnlyHint` and `untrustedContentHint` annotations
 
-When the browser does not expose WebMCP, the same tool definitions run through the local simulator. The UI labels this mode `SIMULATED` and explicitly says that it is not real-device WebMCP evidence.
+When the browser does not expose WebMCP, the same tool definitions run through the local simulator. The UI labels this mode `SIMULATED` and explicitly says that it is not real-device WebMCP evidence. The native gate was verified separately through Codex agent → Chrome DevTools for agents → live WebMCP discovery and execution on the Netlify URL.
 
 ## Security and privacy boundaries
 
@@ -88,10 +88,10 @@ The current local gate passes with 10 test files and 63 tests. GitHub Actions is
 
 ## Challenge submission readiness
 
-The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. The remaining submission gates are external:
+The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. The remaining submission gate is external:
 
 - record a public YouTube demo under three minutes with audio covering the product and WebMCP use;
-- run the native WebMCP MAP → DRILL → REPLAY checks and save evidence; and
+- the native WebMCP MAP → DRILL → REPLAY gate is PASS, with evidence saved in [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md); and
 - the public repository default branch now contains the readiness documentation and MIT license; keep the final submission link pointed at that public repository.
 
 The status and exact evidence requirements are tracked in [docs/SUBMISSION_CHECKLIST.md](./docs/SUBMISSION_CHECKLIST.md).

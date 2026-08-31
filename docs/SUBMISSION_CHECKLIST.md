@@ -13,13 +13,13 @@ This checklist maps the repository to the official [Devpost rules](https://webmc
 - **Public-code preparation:** the repository includes source, deterministic seed data, setup instructions, the WebMCP runbook, and [`LICENSE`](../LICENSE).
 - **English testing guidance:** see [`README.en.md`](../README.en.md) and [`DEMO_SCRIPT.en.md`](./DEMO_SCRIPT.en.md).
 
-## Still required before final submission
+## Pre-submit status
 
-- **Live URL:** [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) is the public Netlify Free production deployment from `main@27a303f`; HTTPS, same-origin assets, `SUPABASE_SHARED`, anonymous Auth, database connection, Realtime, and MAP → DRILL → REPLAY are verified. [GitHub Pages](https://hello-ai-company.github.io/livingtown/) remains a fallback. Native WebMCP validation on the primary URL remains required.
+- **Live URL:** [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) is the public Netlify Free production deployment from `main@27a303f`; HTTPS, same-origin assets, `SUPABASE_SHARED`, anonymous Auth, database connection, Realtime, and MAP → DRILL → REPLAY are verified. [GitHub Pages](https://hello-ai-company.github.io/livingtown/) remains a fallback. Native WebMCP validation on the primary URL is PASS.
 - **Demo video:** publish a YouTube video under three minutes, with audio, showing the working product and how WebMCP is used. No video URL is present yet.
-- **Native WebMCP evidence:** run the MAP → DRILL → REPLAY checks on a supported native WebMCP browser. The connected ordinary Chrome run recorded in `docs/EVALUATION.md` is `SIMULATED`, not native evidence.
+- **Native WebMCP evidence:** PASS — Chrome 152.0.7977.64 with Codex and Chrome DevTools for agents discovered and invoked the live MAP tools, verified the DRILL and REPLAY exact surfaces, and confirmed removal of old phase tools. See [WEBMCP_NATIVE_GATE_2026-08-31.md](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md).
 - **Public repository state:** PASS — the repository is public, main is the judge-visible default branch, and GitHub detects the MIT license.
-- **Devpost form:** Country=Japan and the Netlify live URL are saved in the draft. Only the video/native-WebMCP gates and the explicitly deferred final submission remain.
+- **Devpost form:** Country=Japan and the Netlify live URL are saved in the draft. Only the video and the explicitly deferred final submission remain.
 
 ## Pre-submit verification
 

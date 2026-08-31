@@ -21,7 +21,7 @@ npm run dev
 
 審査員向けのPrimary Live URLは [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) です。公開GitHubリポジトリの `main`（`27a303f`）から、Netlify Free planで `npm run build` → `dist/` を継続デプロイしています。Production buildには `VITE_LIVINGTOWN_DATA_MODE=shared` と既存Livingtown Supabaseのブラウザ公開可能な設定をNetlifyのEnvironment variablesへ登録しています。値はこのrepositoryへcommitしていません。
 
-新しいブラウザタブで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録と説明可能な経路計算を確認済みです。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` を維持し、Native WebMCPのPASSとは扱いません。
+新しいブラウザタブで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録と説明可能な経路計算を確認済みです。Chrome 152.0.7977.64とCodex + Chrome DevTools for agentsによるNative WebMCPの実agent検証も本番URLで完了し、証跡は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) にあります。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` を維持し、Native WebMCPのPASSとは扱いません。
 
 GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) はfallbackとして残しています。Netlifyの詳細な確認結果は [docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md](./docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md) を参照してください。
 
@@ -88,7 +88,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 右上の `管理ビュー` にある `WebMCP Diagnostics` では、ブラウザAPIの有無、`NATIVE` / `SIMULATED` mode、現在phase、transition、phase AbortSignal、`getTools()` から分離したLivingTown toolと外部tool、exact surface match、`toolchange` の状態を確認できます。`Evidence JSONをコピー` または `Evidence JSONを保存` で、現在の診断と確認済みphaseのメタデータを一つに出力できます。Evidence JSONにはknowledge本文やhousehold profileを含めません。
 
-`SIMULATED` は通常ブラウザ用の動作確認であり、**This is not real-device WebMCP evidence.** と表示されます。実機WebMCPの判定は、対応Chromeで `getTools()`、phase切替、tool実行、旧toolの消滅を確認した記録だけを対象にします。手順は [docs/WEBMCP_REAL_DEVICE.md](./docs/WEBMCP_REAL_DEVICE.md) を参照してください。
+`SIMULATED` は通常ブラウザ用の動作確認であり、**This is not real-device WebMCP evidence.** と表示されます。今回のNative判定は、対応ChromeでCodex agentがChrome DevTools for agents経由で `getTools()`相当のtool discovery、live schema、tool実行、phase切替、旧toolの消滅を確認した記録を対象にしています。詳細は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) と [docs/WEBMCP_REAL_DEVICE.md](./docs/WEBMCP_REAL_DEVICE.md) を参照してください。
 
 ## Privacy and verification boundary
 

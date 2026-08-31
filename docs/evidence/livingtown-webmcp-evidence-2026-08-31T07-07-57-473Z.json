@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-08-31T07:07:39.692Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+  "nativeAvailable": true,
+  "mode": "NATIVE",
+  "phase": "replay",
+  "transitionId": 3,
+  "expectedLivingTownTools": [
+    "control_replay",
+    "get_debrief_summary"
+  ],
+  "actualLivingTownTools": [
+    "control_replay",
+    "get_debrief_summary"
+  ],
+  "externalTools": [],
+  "exactMatch": true,
+  "nativeRegistered": true,
+  "toolchangeCount": 14,
+  "lastToolchangeAt": "2026-08-31T07:07:39.684Z",
+  "phaseSignalAborted": false,
+  "phases": {
+    "map": {
+      "timestamp": "2026-08-31T06:59:25.186Z",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+      "nativeAvailable": true,
+      "mode": "NATIVE",
+      "phase": "map",
+      "transitionId": 1,
+      "expectedLivingTownTools": [
+        "contribute_knowledge",
+        "verify_knowledge",
+        "query_area"
+      ],
+      "actualLivingTownTools": [
+        "contribute_knowledge",
+        "query_area",
+        "verify_knowledge"
+      ],
+      "externalTools": [],
+      "exactMatch": true,
+      "nativeRegistered": true,
+      "toolchangeCount": 3,
+      "lastToolchangeAt": "2026-08-31T06:59:25.178Z",
+      "phaseSignalAborted": false
+    },
+    "drill": {
+      "timestamp": "2026-08-31T07:07:28.845Z",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+      "nativeAvailable": true,
+      "mode": "NATIVE",
+      "phase": "drill",
+      "transitionId": 2,
+      "expectedLivingTownTools": [
+        "register_household",
+        "get_evacuation_route",
+        "report_bottleneck"
+      ],
+      "actualLivingTownTools": [
+        "get_evacuation_route",
+        "register_household",
+        "report_bottleneck"
+      ],
+      "externalTools": [],
+      "exactMatch": true,
+      "nativeRegistered": true,
+      "toolchangeCount": 9,
+      "lastToolchangeAt": "2026-08-31T07:07:28.841Z",
+      "phaseSignalAborted": false
+    },
+    "replay": {
+      "timestamp": "2026-08-31T07:07:39.691Z",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+      "nativeAvailable": true,
+      "mode": "NATIVE",
+      "phase": "replay",
+      "transitionId": 3,
+      "expectedLivingTownTools": [
+        "control_replay",
+        "get_debrief_summary"
+      ],
+      "actualLivingTownTools": [
+        "control_replay",
+        "get_debrief_summary"
+      ],
+      "externalTools": [],
+      "exactMatch": true,
+      "nativeRegistered": true,
+      "toolchangeCount": 14,
+      "lastToolchangeAt": "2026-08-31T07:07:39.684Z",
+      "phaseSignalAborted": false
+    }
+  }
+}

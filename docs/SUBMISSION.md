@@ -21,7 +21,7 @@ under-three-minute video exists.
 - **Environment:** `VITE_LIVINGTOWN_DATA_MODE=shared`, existing Livingtown Supabase URL, and a browser-safe publishable/anon key are configured in Netlify Environment variables. No value is committed here.
 - **Smoke test:** fresh browser tab loaded over HTTPS; `SUPABASE_SHARED`, Supabase configured `YES`, Anonymous Auth `YES`, `CONNECTED`, and Realtime `CONNECTED`; MAP → DRILL → REPLAY, temporary wheelchair household registration, route calculation, and Replay debrief were observed.
 - **Fallback:** GitHub Pages remains available at https://hello-ai-company.github.io/livingtown/.
-- **Native WebMCP:** not verified in the connected browser; the UI remains explicitly `SIMULATED`.
+- **Native WebMCP:** PASS on Chrome 152.0.7977.64 through Codex and Chrome DevTools for agents. The public Netlify page exposed the expected MAP, DRILL, and REPLAY surfaces, and one non-PII contribution completed and appeared in Activity.
 
 ## What is LivingTown?
 
@@ -106,17 +106,20 @@ External evidence:
 - Shared snapshot raw Verification: NOT EXPOSED.
 - LOCAL_PGTAP: BLOCKED because Docker is unavailable.
 - Network failure injection and A/B/C re-execution: NOT RUN.
-- NATIVE_WEBMCP_GATE: BLOCKED / REAL_DEVICE_MANUAL_ACTION_REQUIRED.
+- NATIVE_WEBMCP_GATE: PASS.
+- NATIVE_WEBMCP_AGENT_INVOCATION: PASS for query_area and contribute_knowledge.
+- NATIVE_WEBMCP_LIVE_URL_GATE: PASS for the public Netlify production URL.
 
 Detailed records are in
 [docs/evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md](./evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md),
 [docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md),
 and [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md).
+The saved native metadata is
+[docs/evidence/livingtown-webmcp-evidence-2026-08-31T07-07-57-473Z.json](./evidence/livingtown-webmcp-evidence-2026-08-31T07-07-57-473Z.json).
 
 ## Remaining external gates
 
-Before final submission, run the native WebMCP gate on a supported Chrome
-surface, publish the required YouTube demo with audio, and re-check the
-Devpost form. The public GitHub default branch already contains the MIT
-license and readiness documentation.
+Before final submission, publish the required YouTube demo with audio and
+re-check the Devpost form. The public GitHub default branch already contains
+the MIT license, readiness documentation, and native WebMCP evidence.
 This task deliberately does not publish a video or perform the final submit.

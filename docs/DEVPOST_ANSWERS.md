@@ -2,8 +2,8 @@
 
 Draft only. These answers are not a final submission. The video field remains
 blank by instruction. The live URL below is a verified free Netlify production
-deployment; GitHub Pages remains a fallback, and native WebMCP validation is
-still pending.
+deployment; GitHub Pages remains a fallback, and native WebMCP validation has
+now been verified on the public URL.
 
 ## Project fields
 
@@ -46,10 +46,12 @@ Verification records private and sends only derived Knowledge counters to the
 browser.
 
 The repository includes the setup instructions, English test runbook, MIT
-license, deterministic seed data, and explicit evidence for both the hosted DB
-security boundary and the recorded real Supabase browser sequence. Native
-WebMCP invocation is still a required external gate and is not claimed by the
-current ordinary-Chrome SIMULATED run.
+license, deterministic seed data, and explicit evidence for the hosted DB
+security boundary, the recorded real Supabase browser sequence, and a native
+WebMCP real-agent run. Codex connected to Chrome DevTools for agents on Chrome
+152.0.7977.64, discovered the live phase-scoped schemas, invoked query_area
+and contribute_knowledge, and verified the MAP → DRILL → REPLAY tool
+surfaces on the public Netlify deployment.
 
 ## Custom questions
 
@@ -64,9 +66,9 @@ for this challenge.
 | 28252 | Is this app new or existing? | New |
 | 28253 | If existing, explain | *(blank — app is new)* |
 | 28254 | Live URL | https://livingtown-webmcp.netlify.app/ |
-| 28255 | Testing instructions | Open the Netlify live URL in ChatGPT's in-app browser or WebMCP-enabled Chrome. Confirm `SUPABASE_SHARED`, Anonymous Auth, `CONNECTED`, and Realtime `CONNECTED` in Data diagnostics, then use MAP → DRILL → REPLAY. Follow [README.en.md](../README.en.md) and [docs/DEMO_SCRIPT.en.md](./DEMO_SCRIPT.en.md). Native WebMCP evidence is required before final submission. |
+| 28255 | Testing instructions | Open the Netlify live URL in WebMCP-enabled Google Chrome with the WebMCP testing and DevTools WebMCP support flags enabled. Confirm SUPABASE_SHARED, configured YES, CONNECTED, and Realtime CONNECTED in Data diagnostics. Through Chrome DevTools for agents, discover the live MAP tools and schema, invoke read-only query_area, invoke the single non-PII contribute_knowledge demo, then switch to DRILL and REPLAY to confirm exact tool-surface changes and disappearance of old tools. Native evidence is recorded in [WEBMCP_NATIVE_GATE_2026-08-31.md](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md). |
 | 28256 | Public code repository | https://github.com/hello-ai-company/livingtown |
-| 28257 | Agent/client tested | Google Chrome with the SIMULATED fallback; native WebMCP real-device validation is pending. |
+| 28257 | Agent/client tested | OpenAI Codex connected to Google Chrome 152.0.7977.64 (Stable) through Chrome DevTools for agents, using chrome-devtools-mcp 1.8.0 with the experimental WebMCP category enabled. Codex discovered and invoked LivingTown's native WebMCP tools on the public Netlify deployment. |
 | 28258 | AI tools used | OpenAI Codex |
 | 28259 | Learning level | Significant |
 | 28260 | Career value | Yes |
@@ -76,6 +78,6 @@ for this challenge.
 - Project overview and details have been saved to the Devpost draft.
 - Non-sensitive additional-info values were saved in the Devpost draft.
 - Country `Japan` is saved in the Devpost draft.
-- The verified Netlify live URL is filled; native WebMCP validation on that URL remains pending.
+- The verified Netlify live URL is filled; native WebMCP validation on that URL passed and is recorded in [WEBMCP_NATIVE_GATE_2026-08-31.md](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md).
 - Video URL is intentionally blank.
 - No final Devpost submission is authorized by this document.

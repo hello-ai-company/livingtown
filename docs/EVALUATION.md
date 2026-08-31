@@ -1,7 +1,7 @@
 # LivingTown 実装評価
 
 評価日: 2026-08-31
-対象: `chore/netlify-production-deploy`（PR #6 merge後）
+対象: `chore/netlify-production-deploy`（PR #9 docs/evidence follow-up、PR #6 merge後）
 Base SHA: `27a303f7450b8a85c71aba978b316eb0b80895f7`
 
 ## 判定ルール
@@ -20,7 +20,18 @@ Base SHA: `27a303f7450b8a85c71aba978b316eb0b80895f7`
 - Netlify Free plan uses repository-root `npm run build` and publishes `dist`. The GitHub repository is connected for continuous deployment; GitHub Pages remains a fallback.
 - A fresh browser tab loaded the site without a prior LivingTown origin state. Data diagnostics showed `SUPABASE_SHARED`, configured `YES`, authenticated `YES`, `CONNECTED`, and Realtime `CONNECTED`.
 - The public production smoke test covered MAP → DRILL → REPLAY, one safe temporary wheelchair household registration, an explainable route calculation, and the Replay debrief. Runtime assets were same-origin; no GitHub Pages or localhost resource was required.
-- `NATIVE_WEBMCP_LIVE_URL_GATE: NOT VERIFIED`: this browser did not expose `document.modelContext`; the UI correctly remained `SIMULATED`.
+- NATIVE_WEBMCP_LIVE_URL_GATE: PASS on Chrome 152.0.7977.64 with Codex connected through Chrome DevTools for agents to the public Netlify deployment.
+- NATIVE_WEBMCP_AGENT_INVOCATION: PASS. The agent discovered the live schemas, completed query_area and one confirmed non-PII contribute_knowledge invocation, and observed the application reflection.
+
+### Native WebMCP real-agent gate
+
+- Native Evidence JSON reports nativeAvailable=true, mode=NATIVE, nativeRegistered=true, and exactMatch=true.
+- MAP exact surface: PASS — contribute_knowledge, query_area, verify_knowledge.
+- DRILL exact surface: PASS — register_household, get_evacuation_route, report_bottleneck.
+- REPLAY exact surface: PASS — control_replay, get_debrief_summary.
+- The agent observed transition IDs 1, 2, and 3 with toolchange counts 3, 9, and 14. MAP tools disappeared in DRILL, and DRILL tools disappeared in REPLAY.
+- The live contribute_knowledge schema exposed category, lat, lng, condition, description, and confidence with the expected constraints. The completed invocation returned pending_verification and was reflected in Activity and the shared Knowledge count.
+- Detailed environment, invocation, and phase records are in [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) and [docs/evidence/livingtown-webmcp-evidence-2026-08-31T07-07-57-473Z.json](./evidence/livingtown-webmcp-evidence-2026-08-31T07-07-57-473Z.json).
 
 ### Core routing
 
@@ -88,18 +99,15 @@ Base SHA: `27a303f7450b8a85c71aba978b316eb0b80895f7`
 
 狭いviewportのlayoutはresponsive CSSとbottom-sheet定義をコード確認したが、実機WebMCPの証拠とは別であり、端末別の視覚回帰は未取得である。
 
-### WebMCP real-device evidence
+### Native WebMCP follow-up boundaries
 
-`src/webmcp/register.ts` は公式Imperative APIの境界として、registration用AbortSignal、execute用signal、`getTools()`、`toolchange`、phaseごとのexact known-tool判定を実装している。合成signalは正常終了時もdisposeする。
-
-この作業環境に接続されたChromeでは `document.modelContext` が公開されず、画面は `SIMULATED` だった。したがって次は実機で未確認であり、WebMCP evidence gateは **PARTIAL** とする。
-
-- MAP: 実機 `contribute_knowledge`, `verify_knowledge`, `query_area` のexact surface未確認。
-- DRILL: 実機 `register_household`, `get_evacuation_route`, `report_bottleneck` のexact surface未確認。
-- REPLAY: 実機 `control_replay`, `get_debrief_summary` のexact surface未確認。
-- 実機Inspector／agentからのtool発見、schema認識、`contribute_knowledge`の成功、Activity反映、phase切替後の旧tool消滅未確認。
-
-手動確認は [`docs/WEBMCP_REAL_DEVICE.md`](./WEBMCP_REAL_DEVICE.md) に従い、結果を `REAL_DEVICE_MANUAL_ACTION_REQUIRED` から実機証跡付きの判定へ更新する。
+The Native WebMCP gate is PASS. NATIVE_IN_FLIGHT_ABORT remains NOT TESTED,
+because the minimum gate did not require an in-flight phase-change
+cancellation test. The separate DevTools Application → WebMCP pane screenshot
+was not retained; Chrome DevTools for agents provided the primary discovery
+and invocation evidence. The implementation boundary remains in
+src/webmcp/register.ts and the simulator remains explicitly separate from
+this native result.
 
 ### Supabase security design
 
@@ -114,15 +122,14 @@ Phase 6のPR #4 run `33310283020` / job `99253976986` とPR #6のlatest run `333
 
 ## PENDING
 
-- 対応Chrome／WebMCP実機でのMAP、DRILL、REPLAYの `getTools()` exact surface、`toolchange`、registration／execute AbortSignal、実行中phase変更の証跡。
-- 実機 `contribute_knowledge` のtool発見、input schema認識、execute成功、Activity反映。
+- Native WebMCP in-flight AbortSignal cancellation: NOT TESTED.
 - community knowledge free textとknowledge座標に含まれ得るPIIの投稿防止、moderation、retention、削除、再識別リスク評価。
 - shared RPC内でauthenticated identityからopaque pseudonymous verifier idを発行する仕組みはコード化した。ただしanonymous AuthやWebMCP agentが複数identityを作る可能性があるため、Sybil resistance／distinct-human verificationは未達。
 - **共有環境で完全に匿名であること。** 認証主体、アクセスログ、バックアップ、削除、鍵管理、再識別評価を含む運用がないため、Privacyの匿名性はPASSにしない。
 - pgTAP、A/B/Cの再実行、network failure injection、temporary drill sessionの削除ジョブ。function EXECUTE hardeningの実適用、Security Advisor再確認、authenticated insert／anon denial／counter protection／duplicate verification、記録済みBrowser A/B Realtimeは完了済みだが、運用上の再検証は別途必要。
 - Cesium／PLATEAUの本格実装と対象都市・tilesetの固定。
 
-## Phase 6 quality gate
+## Quality gate
 
 最終commitで次を実行し、結果をPR本文とこの表へ記録する。既存57 testsを削除・弱体化しない。
 
@@ -136,4 +143,10 @@ Phase 6のPR #4 run `33310283020` / job `99253976986` とPR #6のlatest run `333
 
 ## 現時点の結論
 
-Phase 6は、Phase 5のvisual worldを維持したまま、local deterministic demoとSupabase shared stateをrepository boundaryで分離する。初期4 migrationとfunction EXECUTE hardeningの実DB apply、Security Advisor再確認、記録済みBrowser A/B/C相互作用、fresh browser raw Verification SELECT DENIEDは確認済みだが、pgTAP、A/B/C再実行、failure injection、実機WebMCP、共有環境で完全匿名の運用、moderation、Cesium／PLATEAUは未確認・未完了なので、LivingTown全体を最終PASSとは扱わない。
+Phase 6でlocal deterministic demoとSupabase shared stateをrepository
+boundaryで分離し、Phase 7で公開Netlify URL上のNative WebMCP real-agent
+gateをPASSにした。品質ゲート、Hosted DB security、Netlify production、
+Native MAP → DRILL → REPLAY evidenceは確認済みである。一方、動画、
+Devpost最終提出、pgTAP、A/B/C再実行、failure injection、共有環境で
+完全匿名の運用、moderation、Cesium／PLATEAU、in-flight AbortSignalは
+未確認・未完了なので、LivingTown全体を最終提出済みとは扱わない。
