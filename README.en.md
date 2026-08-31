@@ -92,7 +92,7 @@ The repository includes the required public-code ingredients: source, setup inst
 
 - record a public YouTube demo under three minutes with audio covering the product and WebMCP use;
 - run the native WebMCP MAP → DRILL → REPLAY checks and save evidence; and
-- ensure the readiness documentation and license are on the repository's judge-visible default branch before relying on them in the submission.
+- the public repository default branch now contains the readiness documentation and MIT license; keep the final submission link pointed at that public repository.
 
 The status and exact evidence requirements are tracked in [docs/SUBMISSION_CHECKLIST.md](./docs/SUBMISSION_CHECKLIST.md).
 

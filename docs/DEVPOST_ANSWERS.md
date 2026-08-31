@@ -73,7 +73,7 @@ for this challenge.
 ## Save/submit boundary
 
 - Project overview and details have been saved to the Devpost draft.
-- Non-sensitive additional-info values can be saved once the form is open.
+- Non-sensitive additional-info values were saved in the Devpost draft.
 - Country is user-provided but remains pending website confirmation before it
   is typed into the external form.
 - The verified live URL is filled; native WebMCP validation on that URL remains pending.

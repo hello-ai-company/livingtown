@@ -18,7 +18,7 @@ This checklist maps the repository to the official [Devpost rules](https://webmc
 - **Live URL:** [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) is deployed from the static Vite build; HTTP 200 and asset delivery are verified. Native WebMCP validation on the URL remains required.
 - **Demo video:** publish a YouTube video under three minutes, with audio, showing the working product and how WebMCP is used. No video URL is present yet.
 - **Native WebMCP evidence:** run the MAP → DRILL → REPLAY checks on a supported native WebMCP browser. The connected ordinary Chrome run recorded in `docs/EVALUATION.md` is `SIMULATED`, not native evidence.
-- **Public repository state:** the repository is public and the license/documentation are pushed on the readiness branch; merge or otherwise expose them on the judge-visible default branch before final submission.
+- **Public repository state:** PASS — the repository is public, main is the judge-visible default branch, and GitHub detects the MIT license.
 - **Devpost form:** complete the remaining participant and submission fields, including the live URL and video URL, before final submission.
 
 ## Pre-submit verification

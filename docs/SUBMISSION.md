@@ -105,7 +105,7 @@ and [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./evidence/WEBMCP_NATIVE_GA
 ## Remaining external gates
 
 Before final submission, run the native WebMCP gate on a supported Chrome
-surface, publish the required YouTube demo with audio, confirm the GitHub
-repository's judge-visible default branch shows the MIT license and readiness
-documentation, and re-check the Devpost form.
+surface, publish the required YouTube demo with audio, and re-check the
+Devpost form. The public GitHub default branch already contains the MIT
+license and readiness documentation.
 This task deliberately does not publish a video or perform the final submit.
