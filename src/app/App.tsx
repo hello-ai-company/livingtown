@@ -12,7 +12,7 @@ import { isKnowledgeVerified } from '../sim/route'
 import { communityTrustState } from '../observations/observationPolicy'
 import type { Household, Knowledge, Phase, RouteResult, TownSnapshot } from '../sim/types'
 import type { ContributeKnowledgeInput, UpdateKnowledgeInput } from '../data/repository'
-import { getKnowledgeVisualConfig } from '../map/knowledgeVisuals'
+import { getKnowledgeSafeDescription, getKnowledgeVisualConfig } from '../map/knowledgeVisuals'
 import { createEvidenceBundle, createEvidenceSnapshot, diagnosticsModeMessage, type WebMcpEvidenceSnapshot } from '../webmcp/diagnostics'
 import type { RegistryStatus } from '../webmcp/register'
 import { getToolDefinitions } from '../webmcp/tools'
@@ -421,8 +421,8 @@ function MemoryRow({ item, locale, mode }: { item: Knowledge; locale: Locale; mo
   return (
     <article className={`memory-row${verified ? ' memory-row--verified' : ''}`}>
       <span className={`memory-row__marker memory-row__marker--${item.category}`} aria-hidden="true">{visual.icon}</span>
-      <div className="memory-row__body"><div className="memory-row__meta"><span>{t(`category.${item.category}`)}</span><span>·</span><span>{t(`condition.${item.condition}`)}</span><span className="confidence-label">{t(`confidence.${item.confidence}`)}</span></div><p>{item.description}</p></div>
-      <div className={`verification-badge${verified ? ' verification-badge--verified' : ''}`}><span>{verified ? '●' : '○'}</span><span>{t(trustState === 'community_confirmed' ? 'trust.communityConfirmed' : 'trust.communityReport')}</span>{!verified && <small>{item.agree_count}/2</small>}</div>
+      <div className="memory-row__body"><div className="memory-row__meta"><span>{t(`category.${item.category}`)}</span><span>·</span><span>{t(`condition.${item.condition}`)}</span><span className="confidence-label">{t(`confidence.${item.confidence}`)}</span></div><p>{getKnowledgeSafeDescription(item, locale)}</p></div>
+      <div className={`verification-badge${verified ? ' verification-badge--verified' : ''}`}><span>{verified ? '●' : '○'}</span><span>{item.source_kind === 'official' ? t('trust.official') : t(trustState === 'community_confirmed' ? 'trust.communityConfirmed' : 'trust.communityReport')}</span>{!verified && <small>{item.agree_count}/2</small>}<small className="verification-badge__disclaimer">{item.source_kind === 'official' ? t('trust.official') : t('trust.notOfficial')}</small></div>
     </article>
   )
 }

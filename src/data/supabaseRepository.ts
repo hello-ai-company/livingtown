@@ -39,7 +39,8 @@ import {
   validateUpdateKnowledgeInput,
   validateVerificationInput,
 } from './validation'
-import { isObservationVisible } from '../observations/observationPolicy'
+import { getObservationPrivacyPrecisionForText, isObservationVisible } from '../observations/observationPolicy'
+import { assertObservationTextSafe, coarsenObservationCoordinateForText, getPublicObservationDescription } from '../observations/privacyGuard'
 import { KNOWLEDGE_CATEGORIES } from '../sim/types'
 
 const KNOWLEDGE_COLUMNS = 'id,category,lat,lng,condition,description,confidence,agree_count,disagree_count,created_at,updated_at,report_type,observed_at,expires_at,source_kind,location_precision_m'
@@ -122,13 +123,18 @@ function mapKnowledgeRow(value: unknown, canEdit = false): Knowledge {
   const lat = requiredFiniteNumber(row, 'lat')
   const lng = requiredFiniteNumber(row, 'lng')
   assertWorldKnowledgeCoordinate(lat, lng, 'Knowledgeの座標')
+  assertObservationTextSafe(description, 'ja', category as Knowledge['category'])
+  const publicDescription = getPublicObservationDescription(category as Knowledge['category'], description)
+  const publicLocation = coarsenObservationCoordinateForText(category as Knowledge['category'], lat, lng, description)
+  const persistedPrecision = typeof row.location_precision_m === 'number' && Number.isFinite(row.location_precision_m) ? row.location_precision_m : 0
+  const derivedPrecision = getObservationPrivacyPrecisionForText(category as Knowledge['category'], description)
   return {
     id: requiredString(row, 'id'),
     category: category as Knowledge['category'],
-    lat,
-    lng,
+    lat: publicLocation.lat,
+    lng: publicLocation.lng,
     condition: condition as Knowledge['condition'],
-    description,
+    description: publicDescription,
     confidence: confidence as Knowledge['confidence'],
     agree_count: requiredCounter(row, 'agree_count'),
     disagree_count: requiredCounter(row, 'disagree_count'),
@@ -138,7 +144,7 @@ function mapKnowledgeRow(value: unknown, canEdit = false): Knowledge {
     observed_at: typeof row.observed_at === 'string' ? row.observed_at : requiredString(row, 'created_at'),
     ...(typeof row.expires_at === 'string' ? { expires_at: row.expires_at } : {}),
     source_kind: row.source_kind === 'official' ? 'official' : 'community',
-    location_precision_m: typeof row.location_precision_m === 'number' && Number.isFinite(row.location_precision_m) ? row.location_precision_m : 0,
+    location_precision_m: Math.max(persistedPrecision, derivedPrecision),
     can_edit: canEdit,
   }
 }
@@ -499,6 +505,10 @@ export class SupabaseTownRepository implements TownRepository {
         p_lat: input.lat,
         p_lng: input.lng,
         p_condition: input.condition,
+        // Keep the raw text inside the authenticated RPC call so the database
+        // can independently classify suspicious wording before it stores only
+        // the safe public summary. It never goes through a table insert or a
+        // browser-visible response.
         p_description: input.description.trim(),
         p_confidence: input.confidence,
         p_report_type: input.report_type ?? null,
@@ -528,6 +538,8 @@ export class SupabaseTownRepository implements TownRepository {
         p_lat: input.lat,
         p_lng: input.lng,
         p_condition: input.condition,
+        // The trusted RPC must see the submitted wording to apply its own
+        // potentially-sensitive fallback; the returned row is normalized.
         p_description: input.description.trim(),
         p_confidence: input.confidence,
         p_report_type: input.report_type ?? null,

@@ -309,6 +309,7 @@ button:focus-visible, select:focus-visible, [role="button"]:focus-visible {
 .memory-row__body p { overflow: hidden; margin: 5px 0 0; color: var(--paper-soft); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .verification-badge { white-space: nowrap; color: var(--text-quiet); font-size: 9px; }
 .verification-badge span { margin-right: 4px; }
+.verification-badge__disclaimer { display: block; margin-top: 3px; color: var(--text-quiet); font-size: 8px; }
 .verification-badge--verified { color: var(--lime); }
 
 .tool-surface { padding: 20px; border: 1px solid rgba(193, 224, 110, 0.24); background: rgba(193, 224, 110, 0.045); }

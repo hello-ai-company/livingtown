@@ -66,6 +66,48 @@ describe('TownRepository mode boundary', () => {
     expect(() => repository.reportBottleneck({ lat: 35.7, lng: 139.761, severity: 1 })).toThrow('デモエリア')
   })
 
+  it('stores only a safe public summary and coarse fallback location for suspicious text', () => {
+    const repository = new LocalTownRepository({ persist: false })
+    const knowledge = repository.contributeKnowledge({
+      category: 'other',
+      lat: 35.681234,
+      lng: 139.761234,
+      condition: 'always',
+      description: 'Someone groped me near the station.',
+      confidence: 'experienced',
+    })
+
+    expect(knowledge.description).toBe('Community report: a sensitive safety concern was reported nearby.')
+    expect(knowledge.description).not.toContain('groped')
+    expect(knowledge.location_precision_m).toBe(2_000)
+    expect({ lat: knowledge.lat, lng: knowledge.lng }).not.toEqual({ lat: 35.681234, lng: 139.761234 })
+  })
+
+  it('re-derives local report metadata when an edit changes category', () => {
+    const repository = new LocalTownRepository({ persist: false })
+    const knowledge = repository.contributeKnowledge({
+      category: 'flood',
+      lat: 35.6811,
+      lng: 139.761,
+      condition: 'rain',
+      description: 'Water collects after heavy rain.',
+      confidence: 'experienced',
+    })
+
+    const updated = repository.updateKnowledge({
+      knowledge_id: knowledge.id,
+      category: 'theft',
+      lat: 35.6811,
+      lng: 139.761,
+      condition: 'always',
+      description: 'A bicycle was stolen nearby.',
+      confidence: 'heard',
+    })
+
+    expect(updated).toMatchObject({ report_type: 'incident', location_precision_m: 150, description: 'Community report: possible theft reported nearby.' })
+    expect(updated.expires_at).toBeDefined()
+  })
+
   it('supports owner-only local update/delete and invalidates derived routes', () => {
     const repository = new LocalTownRepository({ persist: false })
     const knowledge = repository.contributeKnowledge({

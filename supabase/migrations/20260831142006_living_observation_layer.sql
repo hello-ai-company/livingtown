@@ -81,6 +81,46 @@ begin
   end if;
 end $$;
 
+-- Existing rows must cross the same public boundary as new writes. Sensitive
+-- categories and suspicious text are reduced to a category-level summary and
+-- their stored coordinates are coarsened before the public privacy check is
+-- installed. This intentionally discards raw sensitive wording.
+with normalized as (
+  select
+    k.id,
+    case
+      when k.category in ('theft','harassment') then 150::double precision
+      when k.category = 'violence' then 200::double precision
+      when k.category = 'explosion' then 500::double precision
+      when k.category = 'conflict' then 2000::double precision
+      when k.description ~* '(\m(stole|stolen|theft|robbed|harassment|molest|stalking|assault|attacked|attack|violence|hit|punched|conflict|war|fighting|shelling|battle|military|soldier|troop|unit|weapon|tank|artillery|base|operation|explosion|blast)\M|\mgrop(e|ed|ing)\M|unwanted[[:space:]]+(touch|touching|contact)|sexual[[:space:]]+(harassment|contact|assault)|盗まれ|盗難|窃盗|痴漢|触られ|触った|性的接触|嫌がらせ|つきまとい|暴力|殴ら|襲わ|トラブル|紛争|戦闘|衝突|武力|砲撃|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備|爆発|爆発音|大きな衝撃)' then 2000::double precision
+      else coalesce(k.location_precision_m, 0)::double precision
+    end as precision_m,
+    case
+      when k.category = 'theft' then 'Community report: possible theft reported nearby.'
+      when k.category = 'harassment' then 'Community report: possible harassment reported nearby.'
+      when k.category = 'violence' then 'Community report: a possible violence-related event was reported nearby.'
+      when k.category = 'conflict' then 'Community report: a possible conflict-related event was reported nearby.'
+      when k.category = 'explosion' then 'Community report: a possible explosion or impact was reported nearby.'
+      when k.description ~* '(\m(stole|stolen|theft|robbed|harassment|molest|stalking|assault|attacked|attack|violence|hit|punched|conflict|war|fighting|shelling|battle|military|soldier|troop|unit|weapon|tank|artillery|base|operation|explosion|blast)\M|\mgrop(e|ed|ing)\M|unwanted[[:space:]]+(touch|touching|contact)|sexual[[:space:]]+(harassment|contact|assault)|盗まれ|盗難|窃盗|痴漢|触られ|触った|性的接触|嫌がらせ|つきまとい|暴力|殴ら|襲わ|トラブル|紛争|戦闘|衝突|武力|砲撃|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備|爆発|爆発音|大きな衝撃)' then 'Community report: a sensitive safety concern was reported nearby.'
+      else k.description
+    end as public_description
+  from public.knowledge as k
+)
+update public.knowledge as k
+set description = normalized.public_description,
+    location_precision_m = normalized.precision_m,
+    lat = case
+      when normalized.precision_m = 0 then k.lat
+      else round(k.lat / (normalized.precision_m / 110540.0)) * (normalized.precision_m / 110540.0)
+    end,
+    lng = case
+      when normalized.precision_m = 0 then k.lng
+      else round(k.lng / (normalized.precision_m / (111320.0 * greatest(abs(cos(radians(k.lat))), 0.01)))) * (normalized.precision_m / (111320.0 * greatest(abs(cos(radians(k.lat))), 0.01)))
+    end
+from normalized
+where k.id = normalized.id;
+
 -- This is a minimum database-side guard. The client has a richer localized
 -- guard, but the trusted RPC repeats the check so a hand-written RPC caller
 -- cannot bypass the publish boundary.
@@ -121,6 +161,8 @@ declare
   resolved_observed_at timestamptz;
   resolved_expires_at timestamptz;
   resolved_precision double precision;
+  resolved_description text;
+  potentially_sensitive boolean;
   stored_lat double precision;
   stored_lng double precision;
   inserted public.knowledge;
@@ -158,10 +200,15 @@ begin
     or p_description ~ '[0-9][0-9 ()-]{7,}[0-9]' then
     raise exception 'report may contain identifying information';
   end if;
-  if p_description ~* '(military|soldier|troop|unit|weapon|tank|artillery|base|operation|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備)'
+  if p_description ~* '(\m(military|soldier|troop|unit|weapon|tank|artillery|base|operation)\M|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備)'
     and p_description ~* '(coordinate|coordinates|latitude|longitude|\blat\b|\blng\b|exact|precise|location|at[[:space:]]+[0-9]|座標|緯度|経度|正確|位置|地点|番地|丁目|東口|西口|南口|北口|[0-9]{2,})' then
     raise exception 'precise tactical information is not publishable';
   end if;
+  if p_observed_at is not null and p_observed_at > now() + interval '5 minutes' then
+    raise exception 'observed_at cannot be materially in the future';
+  end if;
+
+  potentially_sensitive := p_description ~* '(\m(stole|stolen|theft|robbed|harassment|molest|stalking|assault|attacked|attack|violence|hit|punched|conflict|war|fighting|shelling|battle|military|soldier|troop|unit|weapon|tank|artillery|base|operation|explosion|blast)\M|\mgrop(e|ed|ing)\M|unwanted[[:space:]]+(touch|touching|contact)|sexual[[:space:]]+(harassment|contact|assault)|盗まれ|盗難|窃盗|痴漢|触られ|触った|性的接触|嫌がらせ|つきまとい|暴力|殴ら|襲わ|トラブル|紛争|戦闘|衝突|武力|砲撃|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備|爆発|爆発音|大きな衝撃)';
 
   resolved_report_type := coalesce(p_report_type, case when p_category in ('road_block','crowding','fire','explosion','theft','harassment','violence','conflict') then 'incident' else 'persistent_condition' end);
   resolved_observed_at := case when resolved_report_type = 'incident' then coalesce(p_observed_at, now()) else p_observed_at end;
@@ -178,8 +225,18 @@ begin
     when p_category in ('theft','harassment') then 150
     when p_category = 'violence' then 200
     when p_category = 'explosion' then 500
-    when p_category = 'conflict' then 750
+    when p_category = 'conflict' then 2000
+    when potentially_sensitive then 2000
     else 0
+  end;
+  resolved_description := case
+    when p_category = 'theft' then 'Community report: possible theft reported nearby.'
+    when p_category = 'harassment' then 'Community report: possible harassment reported nearby.'
+    when p_category = 'violence' then 'Community report: a possible violence-related event was reported nearby.'
+    when p_category = 'conflict' then 'Community report: a possible conflict-related event was reported nearby.'
+    when p_category = 'explosion' then 'Community report: a possible explosion or impact was reported nearby.'
+    when potentially_sensitive then 'Community report: a sensitive safety concern was reported nearby.'
+    else trim(p_description)
   end;
   stored_lat := case when resolved_precision = 0 then p_lat else round(p_lat / (resolved_precision / 110540.0)) * (resolved_precision / 110540.0) end;
   stored_lng := case when resolved_precision = 0 then p_lng else round(p_lng / (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01)))) * (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01))) end;
@@ -188,7 +245,7 @@ begin
     category, lat, lng, condition, description, confidence,
     report_type, observed_at, expires_at, source_kind, location_precision_m
   ) values (
-    p_category, stored_lat, stored_lng, p_condition, trim(p_description), p_confidence,
+    p_category, stored_lat, stored_lng, p_condition, resolved_description, p_confidence,
     resolved_report_type, resolved_observed_at, resolved_expires_at, 'community', resolved_precision
   ) returning * into inserted;
 
@@ -246,6 +303,8 @@ declare
   resolved_observed_at timestamptz;
   resolved_expires_at timestamptz;
   resolved_precision double precision;
+  resolved_description text;
+  potentially_sensitive boolean;
   stored_lat double precision;
   stored_lng double precision;
   has_votes boolean;
@@ -260,7 +319,9 @@ begin
   if p_lat is null or p_lng is null or p_lat not between -85.051129 and 85.051129 or p_lng not between -180 and 180 then raise exception 'knowledge coordinate is outside the supported world bounds'; end if;
   if p_description is null or char_length(trim(p_description)) not between 1 and 200 then raise exception 'knowledge description must be 1-200 characters'; end if;
   if p_description ~* '[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}' or p_description ~* 'https?://' or p_description ~ '[0-9][0-9 ()-]{7,}[0-9]' then raise exception 'report may contain identifying information'; end if;
-  if p_description ~* '(military|soldier|troop|unit|weapon|tank|artillery|base|operation|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備)' and p_description ~* '(coordinate|coordinates|latitude|longitude|\blat\b|\blng\b|exact|precise|location|at[[:space:]]+[0-9]|座標|緯度|経度|正確|位置|地点|番地|丁目|東口|西口|南口|北口|[0-9]{2,})' then raise exception 'precise tactical information is not publishable'; end if;
+  if p_description ~* '(\m(military|soldier|troop|unit|weapon|tank|artillery|base|operation)\M|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備)' and p_description ~* '(coordinate|coordinates|latitude|longitude|\blat\b|\blng\b|exact|precise|location|at[[:space:]]+[0-9]|座標|緯度|経度|正確|位置|地点|番地|丁目|東口|西口|南口|北口|[0-9]{2,})' then raise exception 'precise tactical information is not publishable'; end if;
+  if p_observed_at is not null and p_observed_at > now() + interval '5 minutes' then raise exception 'observed_at cannot be materially in the future'; end if;
+  potentially_sensitive := p_description ~* '(\m(stole|stolen|theft|robbed|harassment|molest|stalking|assault|attacked|attack|violence|hit|punched|conflict|war|fighting|shelling|battle|military|soldier|troop|unit|weapon|tank|artillery|base|operation|explosion|blast)\M|\mgrop(e|ed|ing)\M|unwanted[[:space:]]+(touch|touching|contact)|sexual[[:space:]]+(harassment|contact|assault)|盗まれ|盗難|窃盗|痴漢|触られ|触った|性的接触|嫌がらせ|つきまとい|暴力|殴ら|襲わ|トラブル|紛争|戦闘|衝突|武力|砲撃|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備|爆発|爆発音|大きな衝撃)';
 
   select k.* into locked
   from public.knowledge as k
@@ -271,8 +332,9 @@ begin
   has_votes := locked.agree_count + locked.disagree_count > 0;
   if has_votes and p_confirm_reverification_reset is not true then raise exception 'reverification confirmation is required'; end if;
 
-  resolved_report_type := coalesce(p_report_type, locked.report_type, case when p_category in ('road_block','crowding','fire','explosion','theft','harassment','violence','conflict') then 'incident' else 'persistent_condition' end);
-  resolved_observed_at := case when resolved_report_type = 'incident' then coalesce(p_observed_at, locked.observed_at, now()) else p_observed_at end;
+  resolved_report_type := coalesce(p_report_type, case when p_category = locked.category then locked.report_type else case when p_category in ('road_block','crowding','fire','explosion','theft','harassment','violence','conflict') then 'incident' else 'persistent_condition' end end);
+  resolved_observed_at := case when resolved_report_type = 'incident' then coalesce(p_observed_at, case when p_category = locked.category then locked.observed_at end, now()) else p_observed_at end;
+  if resolved_observed_at is not null and resolved_observed_at > now() + interval '5 minutes' then raise exception 'observed_at cannot be materially in the future'; end if;
   resolved_expires_at := case
     when resolved_report_type <> 'incident' then null
     when p_category = 'road_block' then coalesce(resolved_observed_at, now()) + interval '12 hours'
@@ -282,14 +344,23 @@ begin
     when p_category = 'violence' then coalesce(resolved_observed_at, now()) + interval '7 days'
     else null
   end;
-  resolved_precision := case when p_category in ('theft','harassment') then 150 when p_category = 'violence' then 200 when p_category = 'explosion' then 500 when p_category = 'conflict' then 750 else 0 end;
+  resolved_precision := case when p_category in ('theft','harassment') then 150 when p_category = 'violence' then 200 when p_category = 'explosion' then 500 when p_category = 'conflict' then 2000 when potentially_sensitive then 2000 else 0 end;
+  resolved_description := case
+    when p_category = 'theft' then 'Community report: possible theft reported nearby.'
+    when p_category = 'harassment' then 'Community report: possible harassment reported nearby.'
+    when p_category = 'violence' then 'Community report: a possible violence-related event was reported nearby.'
+    when p_category = 'conflict' then 'Community report: a possible conflict-related event was reported nearby.'
+    when p_category = 'explosion' then 'Community report: a possible explosion or impact was reported nearby.'
+    when potentially_sensitive then 'Community report: a sensitive safety concern was reported nearby.'
+    else trim(p_description)
+  end;
   stored_lat := case when resolved_precision = 0 then p_lat else round(p_lat / (resolved_precision / 110540.0)) * (resolved_precision / 110540.0) end;
   stored_lng := case when resolved_precision = 0 then p_lng else round(p_lng / (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01)))) * (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01))) end;
 
   if has_votes then delete from public.verification where knowledge_id = p_knowledge_id; end if;
   update public.knowledge set
     category = p_category, lat = stored_lat, lng = stored_lng, condition = p_condition,
-    description = trim(p_description), confidence = p_confidence,
+    description = resolved_description, confidence = p_confidence,
     report_type = resolved_report_type, observed_at = resolved_observed_at,
     expires_at = resolved_expires_at, source_kind = 'community', location_precision_m = resolved_precision,
     agree_count = case when has_votes then 0 else agree_count end,

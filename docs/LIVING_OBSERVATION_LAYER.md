@@ -57,16 +57,20 @@ The existing net threshold remains agree_count - disagree_count >= 2.
 Simple UI labels are intentionally different from official status:
 
 - below the threshold: 地域からの報告 / Community report;
-- at or above the threshold: みんなが確認済み / Community confirmed.
+- at or above the threshold: 地域確認 2件以上 / 2 community confirmations.
 
 No browser or WebMCP caller can set source_kind=official. A community vote
 never promotes a row to official information. Raw owner and verifier IDs are
-not part of the public Knowledge shape.
+not part of the public Knowledge shape, and every community status carries a
+公的確認ではありません / Not official confirmation disclaimer.
 
 The presentation layer replaces sensitive free text with cautious,
 non-accusatory wording for theft, harassment, violence, and conflict. It never
 shows labels such as “molester here” or “criminal here,” and it does not state
-that an alleged event is a proven fact.
+that an alleged event is a proven fact. The trusted write boundary also stores
+only a category-level public summary for those categories; a suspicious phrase
+such as “someone groped me” takes the same safe-summary path even when a caller
+labels it other.
 
 ## Privacy and safety
 
@@ -83,13 +87,16 @@ private exact-coordinate table:
 | theft, harassment | 150m |
 | violence | 200m |
 | explosion | 500m |
-| conflict | 750m |
+| conflict | 2km |
 
 General hazards such as flooding, barriers, and accessibility conditions keep
 their selected map point. Conflict text that combines tactical terms with
 precise-location terms is rejected with the localized tactical-safety message.
 Generic explosion reports are allowed, but the map uses a neutral community
-marker and never simulates weapons, troops, targeting, or blasts.
+marker and never simulates weapons, troops, targeting, or blasts. Text that is
+potentially sensitive but does not match a sensitive category receives a
+conservative 2km fallback precision. Existing sensitive rows are normalized and
+coarsened before the migration installs the public privacy check.
 
 ## Route policy
 
@@ -112,10 +119,11 @@ Both the Human UI and WebMCP call the same TownRepository methods. Shared mode
 calls the authenticated-only create_knowledge RPC; direct browser
 INSERT/UPDATE/DELETE privileges are revoked by the Phase 10 migration draft.
 The RPC derives ownership via the existing owner trigger, fixes the source to
-community, applies coordinate coarsening, creates timestamps, initializes
+community, validates the observation time, applies coordinate coarsening,
+normalizes sensitive public descriptions, creates timestamps, initializes
 counters, and derives incident expiry. The extended owner-only update RPC
-reapplies metadata and geoprivacy and resets votes when a meaningful edit is
-confirmed.
+re-derives the default report type when the category changes, reapplies
+metadata and geoprivacy, and resets votes when a meaningful edit is confirmed.
 
 The migration is intentionally a draft. It has not been applied to Supabase,
 and the pgTAP file has not been executed.
@@ -142,10 +150,12 @@ contract remain valid.
 
 ## Limitations
 
-This layer is a deterministic prototype. The interpreter is keyword based,
-PII detection is not complete moderation, anonymous authentication is not
-proof of a distinct human, and the verification threshold does not provide
-Sybil resistance. Historical search, retention/deletion operations, official
-ingestion, and operational conflict intelligence are out of scope. Phase 10
-local quality checks do not prove Supabase migration safety, production
-deployment, or Native WebMCP behavior.
+This layer is a deterministic prototype. The interpreter is keyword based but
+parses common relative times such as yesterday / 昨日 and conservatively marks
+third-person incidents as heard. PII detection is not complete moderation,
+anonymous authentication is not proof of a distinct human, and the
+verification threshold does not provide Sybil resistance. CAPTCHA/Turnstile,
+rate limiting, delayed/aggregated conflict publication, historical search,
+retention/deletion operations, official ingestion, and operational conflict
+intelligence remain out of scope. Phase 10 local quality checks do not prove
+Supabase migration safety, production deployment, or Native WebMCP behavior.

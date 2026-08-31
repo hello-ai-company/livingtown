@@ -8,6 +8,7 @@ import type {
 } from '../sim/types'
 import { KNOWLEDGE_CATEGORIES } from '../sim/types'
 import { assertObservationTextSafe } from '../observations/privacyGuard'
+import { assertObservationTimestamp } from '../observations/observationPolicy'
 import type {
   ContributeKnowledgeInput,
   DeleteKnowledgeInput,
@@ -138,7 +139,7 @@ export function validateContributeKnowledgeInput(input: ContributeKnowledgeInput
   assertWorldKnowledgeCoordinate(input.lat, input.lng)
   assertString('description', input.description, 200)
   assertObservationTextSafe(input.description, 'ja', input.category)
-  if (input.observed_at !== undefined && !Number.isFinite(Date.parse(input.observed_at))) throw new Error('observed_at が不正です。')
+  if (input.observed_at !== undefined) assertObservationTimestamp(input.observed_at)
 }
 
 export function validateUpdateKnowledgeInput(input: UpdateKnowledgeInput) {

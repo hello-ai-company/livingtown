@@ -9,7 +9,7 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
     {
       name: 'contribute_knowledge',
       title: 'Contribute community knowledge',
-      description: 'Create one community observation at any supported location worldwide. The server labels it as community-sourced, applies privacy precision, derives expiry and route impact, and keeps it unconfirmed until community verification. Keep personal data, accusations, and precise tactical details out of free text.',
+      description: 'Create one community observation at any supported location worldwide. The server labels it as community-sourced, applies privacy precision, stores only a safe public summary for sensitive or suspicious text, derives expiry and route impact, and keeps it unconfirmed until community verification. Keep personal data, accusations, and precise tactical details out of free text.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -20,7 +20,7 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
           description: { type: 'string', maxLength: 200 },
           confidence: { type: 'string', enum: ['experienced', 'heard', 'guess'] },
           report_type: { type: 'string', enum: ['persistent_condition', 'incident'], description: 'Optional temporal shape. Incident observations receive a category-specific expiry window.' },
-          observed_at: { type: 'string', format: 'date-time', description: 'Optional observation time. Incident observations default to the current time.' },
+          observed_at: { type: 'string', format: 'date-time', description: 'Optional observation time. Incident observations default to the current time; materially future times are rejected.' },
         },
         required: ['category', 'lat', 'lng', 'condition', 'description', 'confidence'],
       },
@@ -104,7 +104,7 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
     {
       name: 'update_knowledge',
       title: 'Update community knowledge',
-      description: 'Update only a community observation owned by the current authenticated identity. The server checks ownership, reapplies privacy precision and expiry, accepts worldwide coordinates, and requires confirm_reverification_reset=true when existing votes must be reset. Never send owner_id, source_kind, counters, or verifier ids.',
+      description: 'Update only a community observation owned by the current authenticated identity. The server checks ownership, re-derives category metadata, stores only a safe public summary for sensitive or suspicious text, reapplies privacy precision and expiry, accepts worldwide coordinates, and requires confirm_reverification_reset=true when existing votes must be reset. Never send owner_id, source_kind, counters, or verifier ids.',
       inputSchema: {
         type: 'object',
         properties: {

@@ -235,7 +235,7 @@ local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagre
 - household入力は禁則fieldの再帰検査、anonymous label検証、constraint enum検証、デモエリア検証、ノードスナップを通過しない限り保存しない。
 - Supabase migration `20260830143531_init.sql` は基礎tableとdomain check、`20260830143556_verification_privacy_rls.sql` はverificationのunique制約、householdのscope／expiry／label制約、全tableのRLSを追加する。後続の `20260830143717_knowledge_counter_privileges.sql` はknowledge INSERTのcolumn privilegeを入力列だけに絞り、counterを0へ初期化するtriggerを追加する。`20260830143808_shared_state_trust_boundary.sql` はowner scope、RPC-only verification／household／bottleneck writes、Auth-derived verifier id、Realtime publicationを追加する。`20260830162803_function_execute_boundary.sql` はdefault EXECUTE grantを取り除き、authenticated向け公開RPCだけをgrantする。適用済みmigrationは書き換えず、新migrationとして追加する。
 - `anon` roleにはread-onlyのKnowledge以外のwriteを与えない。authenticated roleにもKnowledgeのcounter列へのINSERT／UPDATE権限を与えず、Verification INSERT後のsecurity-definer triggerだけがcounterを変更する。Verificationはanon／authenticatedのSELECTと直接INSERTをrevokeし、`submit_verification` RPCだけがserver-derived verifier idでinsertする。RealtimeもKnowledgeだけを公開し、household／bottleneckの直接writeをrevokeしてownerをAuth identityから導出するRPCだけをgrantする。
-- `knowledge.description` はcommunity free textで、knowledgeの座標もPIIを投稿・推測できる余地がある。投稿UI／tool descriptionでは注意を促すが、free-textのmoderation、retention、削除・再識別評価はPENDINGである。
+- `knowledge.description` は公開列なので、Phase 10のtrusted write boundaryはsensitive categoryと疑わしい本文をcategory-levelの安全な要約へ正規化し、座標もcoarsenする。UI／tool descriptionのPII guardとSQLの最小guardは別々に残し、free-textの完全なmoderation、retention、削除・再識別評価はPENDINGである。
 - household profileではdirect PIIを保持しない。これはLivingTown全体がPIIを保持しないことや、共有環境で完全に匿名であることを意味しない。認証主体の運用、監査、削除、鍵管理、DB上の既存データ検査は別途必要である。
 - `authenticated identity → server-side trusted boundary → opaque pseudonymous verifier_id` をshared RPCで実装した。ただしanonymous Auth identity自体はdistinct humanではなく、WebMCP agentが複数identityを作る可能性があるため、Sybil resistance／distinct-human verificationはPENDING。
 
@@ -335,17 +335,17 @@ MAPの一行composerは「この場所で何がありましたか？」／「Wha
 
 ### 12.2 Trust, privacy, and route policy
 
-net scoreが2未満なら「地域からの報告 / Community report」、2以上なら「みんなが確認済み / Community confirmed」とする。どちらもOfficialではない。source_kindは将来のofficial ingestionのための型だけを持ち、browserとWebMCPからはcommunity固定で作成する。
+net scoreが2未満なら「地域からの報告 / Community report」、2以上なら「地域確認 2件以上 / 2 community confirmations」とする。どちらもOfficialではなく、UIには公的確認ではありません / Not official confirmationを併記する。source_kindは将来のofficial ingestionのための型だけを持ち、browserとWebMCPからはcommunity固定で作成する。
 
-UIとrepositoryはemail、電話、URL/handle、住所形状、車両番号、個人名の明白なパターンを投稿前に拒否し、SQL RPCもemail/URL/phoneの最小検査を再実施する。theft/harassmentは150m、violenceは200m、explosionは500m、conflictは750mの決定的gridへ粗化してから保存する。精密座標を別private tableへ保存しない。conflictで軍人・部隊・装備・作戦と精密位置が同時に疑われる入力は拒否し、generic explosionは許可するがneutral markerだけを表示する。
+UIとrepositoryはemail、電話、URL/handle、住所形状、車両番号、個人名の明白なパターンを投稿前に拒否し、SQL RPCもemail/URL/phoneの最小検査を再実施する。sensitive categoryではraw descriptionを保存せず、theft/harassmentは150m、violenceは200m、explosionは500m、conflictは2kmの決定的gridへ粗化してから保存する。分類漏れの疑わしい本文は2kmのfallbackを使い、精密座標を別private tableへ保存しない。conflictで軍人・部隊・装備・作戦と精密位置が同時に疑われる入力は拒否し、generic explosionは許可するがneutral markerだけを表示する。
 
 routeImpactPolicyはnone、safety、blockingのpure policyで、callerが値を指定できない。未検証はnone、theft/harassment/conflict/safe_spot/otherはmap-only、verified flood/fire/road_block/barrier/explosionはblocking候補とする。既存route engineが意味のあるdarkness、narrow_path、violence、accessibility、crowding、infrastructureはsafety候補として扱うが、theft/harassment/conflictは避難routeを変更しない。weather visualは観測データから独立させる。
 
 ### 12.3 Trusted persistence and rendering
 
-shared modeではHuman UIとWebMCPが同じTownRepositoryを通り、authenticated-only create_knowledge RPCがowner、source、timestamps、counters、expiry、precisionをserver-sideで導出する。direct Knowledge INSERT/UPDATE/DELETEはPhase 10 migration draftでrevokeする。update RPCはcategory、location、description、confidence、condition、report_type、observed_atの変更時にgeoprivacyとexpiryを再計算し、票があれば明示確認後にreverification resetを行う。新しいmigrationはレビュー用で、既存migrationをrewriteせず、適用しない。
+shared modeではHuman UIとWebMCPが同じTownRepositoryを通り、authenticated-only create_knowledge RPCがowner、source、timestamps、counters、expiry、precision、sensitive public descriptionをserver-sideで導出する。direct Knowledge INSERT/UPDATE/DELETEはPhase 10 migration draftでrevokeする。update RPCはcategory変更時にreport typeとobserved timeの既存値を盲目的に引き継がず、category、location、description、confidence、condition、report_type、observed_atの変更時にgeoprivacyとexpiryを再計算し、票があれば明示確認後にreverification resetを行う。新しいmigrationはレビュー用で、既存migrationをrewriteせず、適用しない。
 
-MapLibre 2DとNavara 3Dは同じsnapshotを描画し、pendingは半透明、community confirmedは強い表示、expired incidentはcurrent overlayから除外する。conflictはneutral alert marker、未対応categoryはgeneric community markerへfallbackする。MAP toolはcontribute_knowledge、delete_knowledge、query_area、update_knowledge、verify_knowledgeの5本で固定し、report_observationは追加しない。
+MapLibre 2DとNavara 3Dは同じsnapshotを描画し、pendingは半透明、2 community confirmationsは強い表示、expired incidentはcurrent overlayから除外する。conflictは2kmのneutral alert marker、未対応categoryはgeneric community markerへfallbackする。MAP toolはcontribute_knowledge、delete_knowledge、query_area、update_knowledge、verify_knowledgeの5本で固定し、report_observationは追加しない。
 
 ### 12.4 Phase 10 verification boundary
 

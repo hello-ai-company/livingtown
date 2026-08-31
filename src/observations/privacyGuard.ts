@@ -1,5 +1,9 @@
 import type { KnowledgeCategory } from '../sim/types'
-import { isSensitiveObservation } from './observationPolicy'
+import {
+  detectPotentiallySensitiveText,
+  getObservationPrivacyPrecisionForText,
+  isSensitiveObservation,
+} from './observationPolicy'
 
 export interface CoordinateInput {
   lat: number
@@ -41,7 +45,7 @@ const PII_PATTERNS = [
   /(?:[一-龯]{1,4}\s*\d{2,4}[-‐－]\d{2,4})/u,
 ]
 
-const TACTICAL_WORDS = /(?:military|soldier|troop|unit|weapon|tank|artillery|base|operation|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備)/iu
+const TACTICAL_WORDS = /(?:\b(?:military|soldier|troop|unit|weapon|tank|artillery|base|operation)\b|軍人|兵士|部隊|武器|戦車|砲|基地|作戦|装備)/iu
 const PRECISE_LOCATION_WORDS = /(?:coordinate|coordinates|latitude|longitude|\blat\b|\blng\b|exact(?:ly)?|precise|location|at\s+\d|near\s+\d|座標|緯度|経度|正確|位置|地点|番地|丁目|東口|西口|南口|北口)/iu
 
 export function hasPersonallyIdentifyingInformation(text: string): boolean {
@@ -68,15 +72,29 @@ export function coarsenCoordinate({ lat, lng, precisionMeters }: CoordinateInput
 }
 
 export function coarsenObservationCoordinate(category: KnowledgeCategory, lat: number, lng: number) {
-  return coarsenCoordinate({ lat, lng, precisionMeters: isSensitiveObservation(category) ? getPrecision(category) : 0 })
+  return coarsenCoordinate({ lat, lng, precisionMeters: getObservationPrivacyPrecisionForText(category, '') })
 }
 
-function getPrecision(category: KnowledgeCategory) {
-  if (category === 'theft' || category === 'harassment') return 150
-  if (category === 'violence') return 200
-  if (category === 'explosion') return 500
-  if (category === 'conflict') return 750
-  return 0
+export function coarsenObservationCoordinateForText(category: KnowledgeCategory, lat: number, lng: number, text: string) {
+  return coarsenCoordinate({ lat, lng, precisionMeters: getObservationPrivacyPrecisionForText(category, text) })
+}
+
+const PUBLIC_SENSITIVE_DESCRIPTIONS: Partial<Record<KnowledgeCategory, string>> = {
+  theft: 'Community report: possible theft reported nearby.',
+  harassment: 'Community report: possible harassment reported nearby.',
+  violence: 'Community report: a possible violence-related event was reported nearby.',
+  conflict: 'Community report: a possible conflict-related event was reported nearby.',
+  explosion: 'Community report: a possible explosion or impact was reported nearby.',
+}
+
+/**
+ * Only this safe summary may cross the public Knowledge boundary for a
+ * sensitive category or suspicious free text. The raw description is still
+ * validated separately so callers receive a clear PII/tactical error.
+ */
+export function getPublicObservationDescription(category: KnowledgeCategory, text: string): string {
+  return PUBLIC_SENSITIVE_DESCRIPTIONS[category]
+    ?? (detectPotentiallySensitiveText(text) ? 'Community report: a sensitive safety concern was reported nearby.' : text.trim())
 }
 
 export function inspectObservationText(text: string, locale: ObservationLocale = 'en', category?: KnowledgeCategory): PrivacyGuardResult {

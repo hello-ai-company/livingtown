@@ -70,4 +70,4 @@ ReplayでもKnowledge visualを消さない。訓練で計算済みのselected r
 
 ## Boundary
 
-household profileに氏名、email、phone、診断名、自由入力医療情報、正確な住所を追加しない。Knowledgeのfree textとcoordinatesにはPII riskが残るため、投稿時の注意表示は行うが、moderation、retention、削除、再識別リスク対策は後続課題である。verifiedはcommunity thresholdを通過したことだけを意味し、行政確認、100%の正確性、distinct humans、Sybil resistanceを意味しない。
+household profileに氏名、email、phone、診断名、自由入力医療情報、正確な住所を追加しない。Knowledgeのsensitive categoryまたは疑わしいfree textは、公開時にcategory-levelの安全な要約へ正規化し、座標もcoarsenする。明白なPIIの投稿拒否は行うが、完全なmoderation、retention、削除、再識別リスク対策は後続課題である。2 community confirmationsはcommunity thresholdを通過したことだけを意味し、行政確認、100%の正確性、distinct humans、Sybil resistanceを意味しない。

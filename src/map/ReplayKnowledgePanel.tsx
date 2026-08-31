@@ -32,7 +32,7 @@ export function ReplayKnowledgePanel({ snapshot, selectedRoute, selectedHousehol
               <button key={view.item.id} className="replay-knowledge-item" type="button" onClick={() => onSelectKnowledge(view.item.id)}>
                 <span className={`replay-knowledge-item__icon replay-knowledge-item__icon--${view.config.visualType}`} aria-hidden="true">{view.config.icon}</span>
                 <span className="replay-knowledge-item__body">
-                <span className="replay-knowledge-item__meta"><strong>{t(`category.${view.item.category}`)}</strong><em>{view.state === 'pending' ? t(mode === 'simple' ? 'status.simplePending' : 'status.pending') : view.state === 'verified' ? t(mode === 'simple' ? 'status.simpleVerified' : 'status.verified') : t(mode === 'simple' ? 'status.simpleAffecting' : 'status.affecting')}</em></span>
+                <span className="replay-knowledge-item__meta"><strong>{t(`category.${view.item.category}`)}</strong><em>{view.state === 'pending' ? t(mode === 'simple' ? 'status.simplePending' : 'status.pending') : view.state === 'verified' ? t(mode === 'simple' ? 'status.simpleVerified' : 'status.verified') : t(mode === 'simple' ? 'status.simpleAffecting' : 'status.affecting')}</em><small>{view.item.source_kind === 'official' ? t('trust.official') : t('trust.notOfficial')}</small></span>
                 <span className="replay-knowledge-item__reason">{view.avoidedReason}</span>
                   <span className="replay-knowledge-item__edges">{t(mode === 'simple' ? 'replay.avoidedEdgeSimple' : 'replay.avoidedEdge')}: {edgeLabels.length > 0 ? edgeLabels.join(' · ') : t('common.noRecord')}</span>
                 </span>

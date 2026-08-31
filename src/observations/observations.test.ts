@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { interpretObservation } from './interpreter'
-import { coarsenCoordinate, coarsenObservationCoordinate, hasConflictTacticalInformation, hasPersonallyIdentifyingInformation, inspectObservationText, PII_GUARD_MESSAGES, TACTICAL_GUARD_MESSAGES } from './privacyGuard'
-import { communityTrustState, isObservationExpired, isObservationVisible, normalizeObservationMetadata, observationExpiryHours } from './observationPolicy'
+import { coarsenCoordinate, coarsenObservationCoordinate, coarsenObservationCoordinateForText, getPublicObservationDescription, hasConflictTacticalInformation, hasPersonallyIdentifyingInformation, inspectObservationText, PII_GUARD_MESSAGES, TACTICAL_GUARD_MESSAGES } from './privacyGuard'
+import { communityTrustState, detectPotentiallySensitiveText, getObservationPrivacyPrecision, isObservationExpired, isObservationVisible, normalizeObservationMetadata, observationExpiryHours } from './observationPolicy'
 import { deriveRouteImpactPolicy } from './routeImpactPolicy'
 
 const NOW = new Date('2026-08-31T12:00:00.000Z')
@@ -9,8 +9,9 @@ const NOW = new Date('2026-08-31T12:00:00.000Z')
 describe('rule-based living observation interpreter', () => {
   it('interprets an English theft report as an incident without confirming it', () => {
     expect(interpretObservation('A bicycle was reportedly stolen near here yesterday.', { now: NOW })).toMatchObject({
-      category: 'theft', report_type: 'incident', confidence: 'heard', observed_at: NOW.toISOString(),
+      category: 'theft', report_type: 'incident', confidence: 'heard', observed_at: new Date(NOW.getTime() - 24 * 60 * 60 * 1000).toISOString(),
     })
+    expect(Date.parse(interpretObservation('A bicycle was stolen last night.', { now: NOW }).observed_at ?? '')).toBeLessThan(NOW.getTime())
   })
 
   it('interprets a Japanese theft report', () => {
@@ -36,6 +37,14 @@ describe('rule-based living observation interpreter', () => {
 
   it('detects Japanese harassment and does not identify a suspect', () => {
     expect(interpretObservation('駅の東口で痴漢があったみたい', { now: NOW })).toMatchObject({ category: 'harassment', report_type: 'incident', confidence: 'heard' })
+  })
+
+  it('classifies an English groping report as harassment and keeps incident confidence conservative', () => {
+    expect(interpretObservation('Someone groped me near the station.', { now: NOW })).toMatchObject({ category: 'harassment', report_type: 'incident', confidence: 'experienced', observed_at: NOW.toISOString() })
+  })
+
+  it('marks an incident without first-person evidence as hearsay', () => {
+    expect(interpretObservation('A bicycle was stolen near the station.', { now: NOW })).toMatchObject({ category: 'theft', report_type: 'incident', confidence: 'heard' })
   })
 
   it('maps uncertainty to guess and hearsay to heard', () => {
@@ -79,6 +88,15 @@ describe('observation privacy and geoprivacy', () => {
     expect(coarsenObservationCoordinate('flood', 35.681234, 139.761234)).toEqual({ lat: 35.681234, lng: 139.761234 })
     expect(coarsenObservationCoordinate('theft', 35.681234, 139.761234)).not.toEqual({ lat: 35.681234, lng: 139.761234 })
     expect(coarsenObservationCoordinate('conflict', 35.681234, 139.761234)).not.toEqual({ lat: 35.681234, lng: 139.761234 })
+    expect(getObservationPrivacyPrecision('conflict')).toBe(2_000)
+  })
+
+  it('uses an independent sensitive-text fallback when classification says other', () => {
+    const raw = 'Someone groped me near the station.'
+    expect(detectPotentiallySensitiveText(raw)).toBe('harassment')
+    expect(coarsenObservationCoordinateForText('other', 35.681234, 139.761234, raw)).not.toEqual({ lat: 35.681234, lng: 139.761234 })
+    expect(getPublicObservationDescription('other', raw)).toBe('Community report: a sensitive safety concern was reported nearby.')
+    expect(getPublicObservationDescription('other', raw)).not.toContain('groped')
   })
 })
 
@@ -89,6 +107,10 @@ describe('observation lifecycle and route policy', () => {
     expect(metadata.expires_at).toBe(new Date(NOW.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString())
     expect(observationExpiryHours('road_block', 'incident')).toBe(12)
     expect(observationExpiryHours('flood', 'persistent_condition')).toBeUndefined()
+  })
+
+  it('rejects materially future observation timestamps', () => {
+    expect(() => normalizeObservationMetadata({ category: 'theft', report_type: 'incident', observed_at: new Date(NOW.getTime() + 60 * 60 * 1000).toISOString() }, NOW)).toThrow('5分')
   })
 
   it('does not erase the meaning of an expired incident', () => {

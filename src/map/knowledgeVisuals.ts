@@ -378,5 +378,7 @@ export function getKnowledgeSafeDescription(item: Knowledge, locale: 'ja' | 'en'
   if (item.category === 'harassment') return locale === 'ja' ? 'この付近でハラスメント・痴漢の可能性に関する地域報告があります。' : 'A community report mentions possible harassment nearby.'
   if (item.category === 'violence') return locale === 'ja' ? 'この付近で暴力・トラブルの可能性に関する地域報告があります。' : 'A community report mentions a possible violence-related event nearby.'
   if (item.category === 'conflict') return locale === 'ja' ? 'この付近で紛争関連の出来事の可能性に関する地域報告があります。' : 'A community report mentions a possible conflict-related event nearby.'
+  if (item.category === 'explosion') return locale === 'ja' ? 'この付近で爆発・大きな衝撃の可能性に関する地域報告があります。' : 'A community report mentions a possible explosion or impact nearby.'
+  if (item.description === 'Community report: a sensitive safety concern was reported nearby.') return locale === 'ja' ? 'この付近に安全上の懸念に関する地域報告があります。' : 'A community report mentions a sensitive safety concern nearby.'
   return item.description
 }

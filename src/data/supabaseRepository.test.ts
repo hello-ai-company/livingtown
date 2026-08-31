@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SupabaseTownRepository } from './supabaseRepository'
+import { coarsenObservationCoordinateForText, getPublicObservationDescription } from '../observations/privacyGuard'
+import { defaultReportType, getObservationPrivacyPrecisionForText } from '../observations/observationPolicy'
+import type { KnowledgeCategory } from '../sim/types'
 
 type Row = Record<string, unknown>
 type Response = { data: unknown; error: Error | null }
@@ -156,15 +159,20 @@ class FakeSupabaseClient {
   private createKnowledge(args: Row): Response {
     if (this.failWrites) return { data: null, error: new Error('fake write failure') }
     const category = String(args.p_category)
-    const sensitivePrecision = category === 'theft' || category === 'harassment' ? 150 : category === 'violence' ? 200 : category === 'explosion' ? 500 : category === 'conflict' ? 750 : 0
+    const description = String(args.p_description)
+    const location = coarsenObservationCoordinateForText(category as KnowledgeCategory, Number(args.p_lat), Number(args.p_lng), description)
+    const sensitivePrecision = getObservationPrivacyPrecisionForText(category as KnowledgeCategory, description)
+    const reportType = args.p_report_type === null || args.p_report_type === undefined
+      ? defaultReportType(category as KnowledgeCategory)
+      : String(args.p_report_type)
     const row = this.insertRow('knowledge', {
       category,
-      lat: args.p_lat,
-      lng: args.p_lng,
+      lat: location.lat,
+      lng: location.lng,
       condition: args.p_condition,
-      description: args.p_description,
+      description: getPublicObservationDescription(category as KnowledgeCategory, description),
       confidence: args.p_confidence,
-      report_type: args.p_report_type ?? (['road_block', 'crowding', 'fire', 'explosion', 'theft', 'harassment', 'violence', 'conflict'].includes(category) ? 'incident' : 'persistent_condition'),
+      report_type: reportType,
       ...(args.p_observed_at ? { observed_at: args.p_observed_at } : {}),
       source_kind: 'community',
       location_precision_m: sensitivePrecision,
@@ -179,13 +187,22 @@ class FakeSupabaseClient {
     const hasVotes = Number(row.agree_count ?? 0) + Number(row.disagree_count ?? 0) > 0
     if (hasVotes && args.p_confirm_reverification_reset !== true) return { data: null, error: new Error('reverification confirmation is required') }
     if (hasVotes) this.rows.verification = this.rows.verification.filter((candidate) => candidate.knowledge_id !== knowledgeId)
+    const category = String(args.p_category) as KnowledgeCategory
+    const previousCategory = String(row.category) as KnowledgeCategory
+    const description = String(args.p_description)
+    const location = coarsenObservationCoordinateForText(category, Number(args.p_lat), Number(args.p_lng), description)
+    const reportType = args.p_report_type === null || args.p_report_type === undefined
+      ? previousCategory === category ? String(row.report_type ?? defaultReportType(category)) : defaultReportType(category)
+      : String(args.p_report_type)
     Object.assign(row, {
-      category: args.p_category,
-      lat: args.p_lat,
-      lng: args.p_lng,
+      category,
+      lat: location.lat,
+      lng: location.lng,
       condition: args.p_condition,
-      description: args.p_description,
+      description: getPublicObservationDescription(category, description),
       confidence: args.p_confidence,
+      report_type: reportType,
+      location_precision_m: getObservationPrivacyPrecisionForText(category, description),
       agree_count: hasVotes ? 0 : row.agree_count,
       disagree_count: hasVotes ? 0 : row.disagree_count,
       updated_at: '2026-08-30T10:04:00.000Z',
@@ -365,6 +382,30 @@ describe('SupabaseTownRepository', () => {
       p_report_type: null,
       p_observed_at: null,
     })
+    repository.dispose()
+  })
+
+  it('keeps raw sensitive wording inside the RPC boundary and hydrates only the safe result', async () => {
+    const fake = new FakeSupabaseClient()
+    const repository = sharedRepository(fake)
+    await repository.ready
+
+    const raw = 'Someone groped me near the station.'
+    const knowledge = await repository.contributeKnowledge({
+      category: 'other',
+      lat: 35.681234,
+      lng: 139.761234,
+      condition: 'always',
+      description: raw,
+      confidence: 'experienced',
+    })
+
+    const createCall = fake.rpcCalls.find((call) => call.name === 'create_knowledge')!
+    expect(createCall.args.p_description).toBe(raw)
+    expect(knowledge.description).toBe('Community report: a sensitive safety concern was reported nearby.')
+    expect(knowledge.description).not.toContain('groped')
+    expect(knowledge.location_precision_m).toBe(2_000)
+    expect({ lat: knowledge.lat, lng: knowledge.lng }).not.toEqual({ lat: 35.681234, lng: 139.761234 })
     repository.dispose()
   })
 

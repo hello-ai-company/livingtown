@@ -12,7 +12,7 @@ import type {
 } from '../sim/types'
 import { KNOWLEDGE_CATEGORIES } from '../sim/types'
 import { calculateEvacuationRoute } from '../sim/route'
-import { assertObservationTextSafe, coarsenObservationCoordinate } from '../observations/privacyGuard'
+import { assertObservationTextSafe, coarsenObservationCoordinateForText, getPublicObservationDescription } from '../observations/privacyGuard'
 import { isObservationVisible, normalizeObservationMetadata } from '../observations/observationPolicy'
 import type {
   ContributeKnowledgeInput,
@@ -109,6 +109,7 @@ function isSafePersistedKnowledge(value: unknown): value is Knowledge {
   try {
     assertWorldKnowledgeCoordinate(knowledge.lat, knowledge.lng)
     assertObservationTextSafe(knowledge.description, 'ja', knowledge.category)
+    if (getPublicObservationDescription(knowledge.category, knowledge.description) !== knowledge.description.trim()) return false
   } catch {
     return false
   }
@@ -300,17 +301,18 @@ export class LocalTownRepository implements TownRepository {
     const now = new Date()
     const metadata = normalizeObservationMetadata({
       category: input.category,
+      description: input.description,
       report_type: input.report_type,
       observed_at: input.observed_at,
     }, now)
-    const location = coarsenObservationCoordinate(input.category, input.lat, input.lng)
+    const location = coarsenObservationCoordinateForText(input.category, input.lat, input.lng, input.description)
     const item: Knowledge = {
       id: `k-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       category: input.category,
       lat: location.lat,
       lng: location.lng,
       condition: input.condition,
-      description: input.description.trim(),
+      description: getPublicObservationDescription(input.category, input.description),
       confidence: input.confidence,
       agree_count: 0,
       disagree_count: 0,
@@ -393,19 +395,21 @@ export class LocalTownRepository implements TownRepository {
       throw new Error('この暗黙知には追認票があります。confirm_reverification_reset=trueで再検証リセットを確認してください。')
     }
     const updatedAt = new Date().toISOString()
+    const categoryChanged = input.category !== current.category
     const metadata = normalizeObservationMetadata({
       category: input.category,
-      report_type: input.report_type ?? current.report_type,
-      observed_at: input.observed_at ?? current.observed_at,
+      description: input.description,
+      report_type: input.report_type ?? (categoryChanged ? undefined : current.report_type),
+      observed_at: input.observed_at ?? (categoryChanged ? undefined : current.observed_at),
     }, new Date(updatedAt))
-    const location = coarsenObservationCoordinate(input.category, input.lat, input.lng)
+    const location = coarsenObservationCoordinateForText(input.category, input.lat, input.lng, input.description)
     const updated: Knowledge = {
       ...current,
       category: input.category,
       lat: location.lat,
       lng: location.lng,
       condition: input.condition,
-      description: input.description.trim(),
+      description: getPublicObservationDescription(input.category, input.description),
       confidence: input.confidence,
       agree_count: hasVotes ? 0 : current.agree_count,
       disagree_count: hasVotes ? 0 : current.disagree_count,

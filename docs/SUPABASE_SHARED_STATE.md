@@ -77,7 +77,7 @@ The household domain stores only:
 
 It rejects names, email, phone, diagnosis, medical free text, exact addresses, and unknown nested fields. In the shared schema, `owner_id` scopes a household to the authenticated drill owner and is not mapped into the application `Household` shape. `20260830143808_shared_state_trust_boundary.sql` repeats the coordinate snap and constraint checks inside an RPC, so the browser-side check is not the only boundary.
 
-`knowledge.description` remains community free text and `knowledge.lat/lng` remains community location data. Those fields can still contain or enable PII. The UI and tool descriptions warn contributors, but moderation, retention, deletion, and re-identification assessment are future work.
+`knowledge.description` is a public field, so the Phase 10 write boundary stores category-level safe summaries for sensitive categories and suspicious text instead of raw wording. The RPC also rejects the minimum known PII/tactical patterns and derives coarse coordinates; this is not complete moderation, and retention, deletion, and re-identification assessment remain future work.
 
 Verification comments and bottleneck descriptions are also user-authored free text. They remain bounded in length, but automated PII prevention, moderation, retention, and deletion workflows are outside this phase.
 

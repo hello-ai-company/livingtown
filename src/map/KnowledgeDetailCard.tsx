@@ -21,7 +21,9 @@ export function KnowledgeDetailCard({ view, selectedHousehold, onClose, locale =
   const affectedEdges = view.affectedEdgeIds.map((edgeId) => DEMO_GRAPH_EDGES.find((edge) => edge.id === edgeId)).filter((edge): edge is (typeof DEMO_GRAPH_EDGES)[number] => Boolean(edge))
   const householdLabel = selectedHousehold?.label ?? (selectedHousehold ? t('common.anonymousHousehold') : t('common.none'))
   const householdConstraints = selectedHousehold?.constraints.map((constraint) => t(`constraint.${constraint}`)).join(' · ') || t('common.none')
-  const statusLabel = view.trustState === 'community_confirmed' ? t('trust.communityConfirmed') : t('trust.communityReport')
+  const statusLabel = item.source_kind === 'official'
+    ? t('trust.official')
+    : view.trustState === 'community_confirmed' ? t('trust.communityConfirmed') : t('trust.communityReport')
   const description = getKnowledgeSafeDescription(item, locale)
   const precision = item.location_precision_m && item.location_precision_m > 0
     ? t('mapDetail.precisionMeters', { meters: item.location_precision_m })
@@ -89,7 +91,7 @@ export function KnowledgeDetailCard({ view, selectedHousehold, onClose, locale =
         {onDelete && <button type="button" className="danger-button" onClick={() => onDelete(item)}>{t('mapDetail.delete')}</button>}
       </div>}
       {mode === 'advanced' && item.can_edit !== true && <p className="knowledge-detail-card__owner-note">{t('mapDetail.ownerOnly')}</p>}
-      <p className="knowledge-detail-card__privacy">{t('mapDetail.communityNote')} {t('mapDetail.privacy')}</p>
+      <p className="knowledge-detail-card__privacy">{item.source_kind === 'official' ? t('trust.official') : `${t('mapDetail.communityNote')} ${t('trust.notOfficial')}`} {t('mapDetail.privacy')}</p>
     </aside>
   )
 }

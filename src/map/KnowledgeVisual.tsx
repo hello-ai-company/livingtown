@@ -82,9 +82,11 @@ function KnowledgeShape({ view }: { view: KnowledgeVisualView }) {
 
 export function KnowledgeVisual({ view, x, y, selected, isNew, isTransitioning, onSelect, locale = 'ja', mode = 'advanced' }: KnowledgeVisualProps) {
   const t = createTranslator(locale)
-  const statusLabel = view.trustState === 'community_confirmed' ? t('trust.communityConfirmed') : t('trust.communityReport')
+  const statusLabel = view.item.source_kind === 'official'
+    ? t('trust.official')
+    : view.trustState === 'community_confirmed' ? t('trust.communityConfirmed') : t('trust.communityReport')
   const categoryLabel = t(`category.${view.item.category}`)
-  const accessibleLabel = `${categoryLabel}。${statusLabel}。${getKnowledgeSafeDescription(view.item, locale)}`
+  const accessibleLabel = `${categoryLabel}。${statusLabel}。${view.item.source_kind === 'official' ? t('trust.official') : t('trust.notOfficial')}。${getKnowledgeSafeDescription(view.item, locale)}`
   const motionClassName = [
     'knowledge-visual__motion',
     `knowledge-visual--${view.state}`,

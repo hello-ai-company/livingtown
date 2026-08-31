@@ -77,7 +77,7 @@ When the browser does not expose WebMCP, the same tool definitions run through t
 - Household inputs are restricted to an anonymous label, the `wheelchair | infant | elderly | pet` constraint enum, and a coordinate snapped to the demo graph.
 - Household input rejects names, email, phone, diagnosis, medical information, and exact-address fields.
 - Shared Supabase mode keeps raw verification records private, exposes only derived counters to the browser, scopes household/bottleneck operations through owner-aware RPCs, and uses RLS and function-execution hardening.
-- Community knowledge remains free text and may still contain identifying information; moderation, retention, and stronger Sybil resistance are not implemented yet. Phase 8 adds an unapplied private owner mapping plus owner-only update/delete RPCs with explicit confirmation; the browser receives only owned knowledge IDs, never raw owner IDs.
+- Sensitive categories and suspicious free text are persisted as category-level public summaries rather than raw descriptions; obvious PII is rejected at the write boundary. Moderation, retention, and stronger Sybil resistance are not implemented yet. Phase 8 adds an unapplied private owner mapping plus owner-only update/delete RPCs with explicit confirmation; the browser receives only owned knowledge IDs, never raw owner IDs.
 
 See [docs/WEBMCP_REAL_DEVICE.md](./docs/WEBMCP_REAL_DEVICE.md) for native-browser verification and [docs/SUPABASE_SHARED_STATE.md](./docs/SUPABASE_SHARED_STATE.md) for the shared-state trust boundary.
 
@@ -91,7 +91,7 @@ npm run seed
 git diff --check
 ```
 
-The current Phase 10 local gate passes with 21 test files and 126 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
+The current Phase 10 local gate passes with 21 test files and 133 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
 
 ## Challenge submission readiness
 
@@ -115,7 +115,7 @@ The status and exact evidence requirements are tracked in [docs/SUBMISSION_CHECK
 
 The MAP screen now keeps a one-line composer visible: “What's happening here?” (JA: “この場所で何がありましたか？”). A user can press Enter or Send after writing one short sentence. A deterministic rule-based interpreter derives category, persistent condition or incident, condition, confidence, and incident observation time. No external LLM or new paid AI API is required. The location priority is explicit map selection, the last explicitly obtained current location, then map center; geolocation is never requested automatically.
 
-The implementation reuses the existing Knowledge verification, ownership, Realtime, route, WebMCP, MapLibre, and Navara paths. Reports remain Community report until the net verification score reaches two, then become Community confirmed; neither state is Official information. Theft and harassment are never allowed to alter evacuation routes. Violence and conflict use cautious non-accusatory wording, conflict stays map-only with a neutral marker, and precise military/tactical details are blocked. Sensitive coordinates are coarsened before persistence, while general flood, barrier, and accessibility points remain usable.
+The implementation reuses the existing Knowledge verification, ownership, Realtime, route, WebMCP, MapLibre, and Navara paths. Reports remain Community report until the net verification score reaches two, then show 2 community confirmations; neither state is Official information, and the UI carries a Not official confirmation disclaimer. Theft and harassment are never allowed to alter evacuation routes. Sensitive categories store safe public summaries, suspicious unclassified text takes a coarse fallback, relative times such as yesterday / last night are interpreted, and third-person incidents are conservatively marked heard. Violence and conflict use cautious non-accusatory wording, conflict is map-only at regional precision with a neutral marker, and precise military/tactical details are blocked. General flood, barrier, and accessibility points remain usable.
 
 The MAP WebMCP surface remains exactly five tools: contribute_knowledge, delete_knowledge, query_area, update_knowledge, and verify_knowledge. There is no report_observation tool. The existing contribute contract remains valid while the category enum and optional report_type / observed_at fields are extended. See [the Phase 10 design](./docs/LIVING_OBSERVATION_LAYER.md) and [local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) for the full safety and gate status.
 

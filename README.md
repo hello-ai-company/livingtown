@@ -107,7 +107,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 - `verification` レコードは `knowledge_id + verifier_id` を一意とし、local demoではpseudonymous identifierをfixtureとして受け付けます。形式だけではPII非保持や本人性を保証しません。shared modeではcallerのverifier_idを信用せず、認証identityからserver-sideでopaqueな値を導出します。Verification recordはDB内に保存されますが、shared browserへraw recordを公開せず、Knowledgeのderived counterだけをhydrateします。
 - household profileに保存できるのは、安全な匿名ラベル、`wheelchair | infant | elderly | pet` の制約enum、デモエリア内でグラフノードへスナップした `start_lat/start_lng`、`demo | temporary_drill` のスコープだけです。氏名・メール・電話・診断名・自由入力医療情報・正確な住所フィールドは保存できません。
 - `start_lat/start_lng` は共有住所ではなく、`demo` または一時的な `temporary_drill` sessionの座標として扱います。新しい訓練世帯は24時間の有効期限を持ちます。共有Supabase向けには [`20260830143556_verification_privacy_rls.sql`](./supabase/migrations/20260830143556_verification_privacy_rls.sql) でRLS、[`20260830143717_knowledge_counter_privileges.sql`](./supabase/migrations/20260830143717_knowledge_counter_privileges.sql) でcounter列のcolumn privilege、[`20260830143808_shared_state_trust_boundary.sql`](./supabase/migrations/20260830143808_shared_state_trust_boundary.sql) でAuth owner／RPC boundary、[`20260830162803_function_execute_boundary.sql`](./supabase/migrations/20260830162803_function_execute_boundary.sql) でfunction EXECUTE boundaryを設定し、匿名キーからのwriteを許可しません。
-- `knowledge.description` はcommunity free textで、座標も含めてPIIを投稿・推測できる余地があります。投稿時に氏名・住所・電話番号・診断名などを含めないよう表示しますが、moderation・retention・再識別評価は未実装です。
+- `knowledge.description` は、sensitive categoryまたは疑わしい本文ではcategory-levelの安全な公開要約だけを保存します。投稿時には氏名・住所・電話番号・診断名などを拒否しますが、moderation・retention・再識別評価は未実装です。未分類の疑わしい本文は安全側の粗い位置精度へfallbackします。
 
 これは「household profileでdirect PIIを保持しない」ためのアプリ境界であり、knowledge全体がPIIを含まないことや、共有環境で完全匿名になること、認証・監査・削除運用まで完了したことを意味しません。匿名Authもdistinct humanの証明ではなく、複数identityを作るSybil resistanceは未達です。評価状態は [docs/EVALUATION.md](./docs/EVALUATION.md) に明示しています。
 
@@ -129,7 +129,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 Phase 10では、MAPに一行投稿欄「この場所で何がありましたか？」を常時表示します。JA/ENの短い自由文をEnterまたは送信で投稿でき、ルールベースのinterpreterがカテゴリ、persistent condition / incident、条件、確度、観測時刻を決定的に整理します。外部LLM APIや新しい有料APIは必須ではありません。投稿場所は、明示的に選択した地図位置、明示取得した現在地、地図の中心の順で、現在地の取得は自動実行しません。
 
-既存Knowledgeの検証・所有権・Realtime・route・WebMCP・MapLibre・Navaraを再利用し、地域からの報告とみんなが確認済みを公式情報と分離します。盗難、ハラスメント、暴力、紛争関連は断定的な文言を避け、盗難／ハラスメントは避難routeへ影響させません。紛争は中立的な地図表示に留め、軍人・部隊・装備・作戦の精密位置はブロックします。Sensitive reportの座標は保存前に粗化し、一般的な浸水・段差・バリアフリー情報の地図位置は維持します。
+既存Knowledgeの検証・所有権・Realtime・route・WebMCP・MapLibre・Navaraを再利用し、地域からの報告と「地域確認 2件以上」を公式情報から分離します。盗難、ハラスメント、暴力、紛争関連は断定的な文言を避け、公開Knowledgeへraw sensitive descriptionを保存しません。盗難／ハラスメントは避難routeへ影響させません。紛争は2kmの地域単位・中立的な地図表示に留め、軍人・部隊・装備・作戦の精密位置はブロックします。昨日／昨夜などのrelative timeを解釈し、第三者視点のincidentは保守的に聞いた話として扱います。一般的な浸水・段差・バリアフリー情報の地図位置は維持します。
 
 MAPのWebMCP surfaceは5本（contribute_knowledge、delete_knowledge、query_area、update_knowledge、verify_knowledge）のままです。新しいreport_observation toolは追加せず、既存contribute_knowledgeを新カテゴリと任意のreport_type / observed_atへ後方互換に拡張します。詳細な設計、制約、未実施ゲートは [docs/LIVING_OBSERVATION_LAYER.md](./docs/LIVING_OBSERVATION_LAYER.md) と [Phase 10 local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) を参照してください。
 
