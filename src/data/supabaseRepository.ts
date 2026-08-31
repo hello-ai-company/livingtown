@@ -28,7 +28,7 @@ import type {
 } from './repository'
 import {
   assertDemoAreaCoordinate,
-  assertJapanKnowledgeCoordinate,
+  assertWorldKnowledgeCoordinate,
   isAllowedHouseholdConstraint,
   isValidHouseholdLabel,
   validateBottleneckInput,
@@ -122,7 +122,7 @@ function mapKnowledgeRow(value: unknown, canEdit = false): Knowledge {
   if (description.trim().length === 0 || description.length > 200) throw new Error('Supabase returned an invalid knowledge description.')
   const lat = requiredFiniteNumber(row, 'lat')
   const lng = requiredFiniteNumber(row, 'lng')
-  assertJapanKnowledgeCoordinate(lat, lng, 'Knowledgeの座標')
+  assertWorldKnowledgeCoordinate(lat, lng, 'Knowledgeの座標')
   return {
     id: requiredString(row, 'id'),
     category: category as Knowledge['category'],

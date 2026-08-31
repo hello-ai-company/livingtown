@@ -1,5 +1,6 @@
 import type { KeyboardEvent } from 'react'
-import { KNOWLEDGE_STATUS_LABEL, type KnowledgeVisualView } from './knowledgeVisuals'
+import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
+import type { KnowledgeVisualView } from './knowledgeVisuals'
 
 interface KnowledgeVisualProps {
   view: KnowledgeVisualView
@@ -9,6 +10,8 @@ interface KnowledgeVisualProps {
   isNew: boolean
   isTransitioning: boolean
   onSelect: (knowledgeId: string) => void
+  locale?: Locale
+  mode?: ExperienceMode
 }
 
 function handleActivation(event: KeyboardEvent<SVGGElement>, onSelect: () => void) {
@@ -76,9 +79,15 @@ function KnowledgeShape({ view }: { view: KnowledgeVisualView }) {
   )
 }
 
-export function KnowledgeVisual({ view, x, y, selected, isNew, isTransitioning, onSelect }: KnowledgeVisualProps) {
-  const statusLabel = KNOWLEDGE_STATUS_LABEL[view.state]
-  const accessibleLabel = `${view.config.label}。${statusLabel}。${view.item.description}`
+export function KnowledgeVisual({ view, x, y, selected, isNew, isTransitioning, onSelect, locale = 'ja', mode = 'advanced' }: KnowledgeVisualProps) {
+  const t = createTranslator(locale)
+  const statusLabel = view.state === 'pending'
+    ? t(mode === 'simple' ? 'status.simplePending' : 'status.pending')
+    : view.state === 'verified'
+      ? t(mode === 'simple' ? 'status.simpleVerified' : 'status.verified')
+      : t(mode === 'simple' ? 'status.simpleAffecting' : 'status.affecting')
+  const categoryLabel = t(`category.${view.item.category}`)
+  const accessibleLabel = `${categoryLabel}。${statusLabel}。${view.item.description}`
   const motionClassName = [
     'knowledge-visual__motion',
     `knowledge-visual--${view.state}`,
@@ -108,7 +117,7 @@ export function KnowledgeVisual({ view, x, y, selected, isNew, isTransitioning, 
         <circle className="knowledge-visual__halo" r={view.affectsCurrentRoute ? 28 : view.verified ? 22 : 18} aria-hidden="true" />
         <KnowledgeShape view={view} />
         <text className="knowledge-visual__state-label" x="24" y="4" aria-hidden="true">{statusLabel}</text>
-        {selected && <text className="knowledge-visual__category-label" x="24" y="-9" aria-hidden="true">{view.config.label}</text>}
+        {selected && <text className="knowledge-visual__category-label" x="24" y="-9" aria-hidden="true">{categoryLabel}</text>}
       </g>
     </g>
   )

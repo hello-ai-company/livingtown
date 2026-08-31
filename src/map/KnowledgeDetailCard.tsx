@@ -54,7 +54,7 @@ export function KnowledgeDetailCard({ view, selectedHousehold, onClose, locale =
       </dl>
 
       <div className="knowledge-detail-card__route">
-        <span className="eyebrow">{t('mapDetail.currentRoute')}</span>
+        <span className="eyebrow">{t(mode === 'simple' ? 'mapDetail.simpleCurrentRoute' : 'mapDetail.currentRoute')}</span>
         {routeImpact ? (
           <>
             <strong>{t('mapDetail.affectedFor', { label: householdLabel, constraints: householdConstraints })}</strong>

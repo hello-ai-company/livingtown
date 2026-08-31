@@ -9,6 +9,7 @@ import { dataModeLabel, switchToLocalDemo } from '../data/townRepository'
 import { PhaseProvider, usePhase } from '../phases/PhaseContext'
 import { isKnowledgeVerified } from '../sim/route'
 import type { Household, Knowledge, Phase, RouteResult, TownSnapshot } from '../sim/types'
+import type { ContributeKnowledgeInput, UpdateKnowledgeInput } from '../data/repository'
 import { getKnowledgeVisualConfig } from '../map/knowledgeVisuals'
 import { createEvidenceBundle, createEvidenceSnapshot, diagnosticsModeMessage, type WebMcpEvidenceSnapshot } from '../webmcp/diagnostics'
 import type { RegistryStatus } from '../webmcp/register'
@@ -57,6 +58,8 @@ function AppShell() {
   const [evidenceByPhase, setEvidenceByPhase] = useState<Partial<Record<Phase, WebMcpEvidenceSnapshot>>>({})
   const [contributionLocation, setContributionLocation] = useState<{ lat: number; lng: number }>()
   const [editingKnowledge, setEditingKnowledge] = useState<Knowledge>()
+  const [editingLocation, setEditingLocation] = useState<{ lat: number; lng: number }>()
+  const [locationPickerActive, setLocationPickerActive] = useState(false)
 
   const browserUserAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
   const currentEvidence = useMemo(
@@ -67,6 +70,10 @@ function AppShell() {
   useEffect(() => {
     setEvidenceByPhase((previous) => ({ ...previous, [currentEvidence.phase]: currentEvidence }))
   }, [currentEvidence])
+
+  useEffect(() => {
+    if (mode === 'simple' && panel === 'admin') setPanel('map')
+  }, [mode, panel])
 
   const evidenceJson = useMemo(
     () => JSON.stringify(createEvidenceBundle(currentEvidence, evidenceByPhase), null, 2),
@@ -200,27 +207,45 @@ function AppShell() {
     setSelectedHouseholdId(householdId)
   }
 
-  const submitKnowledge = async (input: import('../data/repository').ContributeKnowledgeInput | import('../data/repository').UpdateKnowledgeInput) => {
+  const submitKnowledge = async (input: ContributeKnowledgeInput | UpdateKnowledgeInput) => {
     const isUpdate = 'knowledge_id' in input
-    const result = await runTool(isUpdate ? 'update_knowledge' : 'contribute_knowledge', input)
-    if (!result) return
-    setContributionLocation(undefined)
-    setEditingKnowledge(undefined)
-    if (!isUpdate && typeof result === 'object' && result !== null && 'id' in result && typeof result.id === 'string') {
-      setLastKnowledgeId(result.id)
-      setSelectedKnowledgeId(result.id)
+    const toolName = isUpdate ? 'update_knowledge' : 'contribute_knowledge'
+    const hadRoute = Object.keys(townRepository.getSnapshot().routes).length > 0
+    try {
+      const result = isUpdate
+        ? await townRepository.updateKnowledge(input)
+        : await townRepository.contributeKnowledge(input)
+      await townRepository.recordActivity(toolName, isUpdate ? t('activity.updated') : t('activity.contributed'))
+      setContributionLocation(undefined)
+      setEditingKnowledge(undefined)
+      setEditingLocation(undefined)
+      setLocationPickerActive(false)
+      if (!isUpdate && result?.id) {
+        setLastKnowledgeId(result.id)
+        setSelectedKnowledgeId(result.id)
+      }
+      setNotice(hadRoute ? t('notice.routeInvalidated') : isUpdate ? t('notice.updated') : t('notice.contributed'))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('notice.saveFailed')
+      await townRepository.recordActivity(toolName, message, 'error')
+      throw error
     }
-    setNotice(isUpdate ? t('notice.updated') : t('notice.contributed'))
   }
 
   const deleteKnowledge = async (knowledge: Knowledge) => {
     const confirmed = typeof window === 'undefined' || window.confirm(t('form.deleteWarning'))
     if (!confirmed) return
-    const result = await runTool('delete_knowledge', { knowledge_id: knowledge.id, confirm_delete: true })
-    if (result) {
+    const hadRoute = Object.keys(townRepository.getSnapshot().routes).length > 0
+    try {
+      await townRepository.deleteKnowledge({ knowledge_id: knowledge.id, confirm_delete: true })
+      await townRepository.recordActivity('delete_knowledge', t('activity.deleted'))
       if (selectedKnowledgeId === knowledge.id) setSelectedKnowledgeId(undefined)
       if (lastKnowledgeId === knowledge.id) setLastKnowledgeId(undefined)
-      setNotice(t('notice.deleted'))
+      setNotice(hadRoute ? t('notice.routeInvalidated') : t('notice.deleted'))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('notice.deleteFailed')
+      await townRepository.recordActivity('delete_knowledge', message, 'error')
+      setNotice(message)
     }
   }
 
@@ -255,9 +280,9 @@ function AppShell() {
             <div className="preference-toggle" role="group" aria-label={locale === 'ja' ? '言語' : 'Language'}><button type="button" className={locale === 'ja' ? 'is-active' : ''} onClick={() => setLocale('ja')}>JA</button><button type="button" className={locale === 'en' ? 'is-active' : ''} onClick={() => setLocale('en')}>EN</button></div>
             <div className="preference-toggle" role="group" aria-label={locale === 'ja' ? '表示モード' : 'Experience mode'}><button type="button" className={mode === 'simple' ? 'is-active' : ''} onClick={() => setMode('simple')} title={t('mode.simpleHint')}>{t('mode.simple')}</button><button type="button" className={mode === 'advanced' ? 'is-active' : ''} onClick={() => setMode('advanced')} title={t('mode.advancedHint')}>{t('mode.advanced')}</button></div>
           </div>
-          <button className={`admin-button${panel === 'admin' ? ' admin-button--active' : ''}`} onClick={() => transitionTo('admin')}>
+          {mode === 'advanced' && <button className={`admin-button${panel === 'admin' ? ' admin-button--active' : ''}`} onClick={() => transitionTo('admin')}>
             <span aria-hidden="true">◌</span> {t('header.admin')}
-          </button>
+          </button>}
         </div>
       </header>
 
@@ -293,7 +318,7 @@ function AppShell() {
 
         <div className="main-grid">
           <section className="map-column">
-            <Map2D snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onRequestContribution={(location) => setContributionLocation(location)} onEditKnowledge={(knowledge) => setEditingKnowledge(knowledge)} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />
+            <Map2D snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} locationPickerActive={locationPickerActive} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onRequestContribution={(location) => setContributionLocation(location)} onLocationPicked={(location) => { setLocationPickerActive(false); if (editingKnowledge) setEditingLocation(location); else setContributionLocation(location); setNotice(t('notice.locationSelected')) }} onEditKnowledge={(knowledge) => { setEditingKnowledge(knowledge); setEditingLocation({ lat: knowledge.lat, lng: knowledge.lng }); setContributionLocation(undefined) }} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />
             {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
             {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
             {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} />}
@@ -313,9 +338,9 @@ function AppShell() {
 
       <footer className="footer-bar">
         <span>{t('footer.tagline')}</span>
-        <span>{t('footer.phase', { phase: currentMeta.short })}</span>
+        <span>{mode === 'advanced' ? t('footer.phase', { phase: currentMeta.short }) : t('footer.simple')}</span>
       </footer>
-      {(contributionLocation || editingKnowledge) && <KnowledgeContributionForm locale={locale} mode={mode} initialLocation={contributionLocation} knowledge={editingKnowledge} onSubmit={submitKnowledge} onCancel={() => { setContributionLocation(undefined); setEditingKnowledge(undefined) }} />}
+      {(contributionLocation || editingKnowledge) && <KnowledgeContributionForm locale={locale} mode={mode} initialLocation={editingKnowledge ? (editingLocation ?? { lat: editingKnowledge.lat, lng: editingKnowledge.lng }) : contributionLocation} knowledge={editingKnowledge} locationPickerActive={locationPickerActive} onRequestLocationChange={() => setLocationPickerActive(true)} onCancelLocationPicker={() => setLocationPickerActive(false)} onSubmit={submitKnowledge} onCancel={() => { setContributionLocation(undefined); setEditingKnowledge(undefined); setEditingLocation(undefined); setLocationPickerActive(false) }} />}
     </div>
   )
 }
@@ -436,10 +461,10 @@ function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, locale, mod
       <div className="stage-panel__head"><div><span className="eyebrow">{t('replay.eyebrow')}</span><h2>{t('replay.title')}</h2></div><span className="stage-panel__count">{snapshot.bottlenecks.length}<small> {t('replay.bottlenecks')}</small></span></div>
       <p className="stage-lead">{t(mode === 'simple' ? 'replay.simpleLead' : 'replay.lead')}</p>
       <div className="replay-toolbar"><span className="replay-toolbar__status"><span className={`status-dot${snapshot.replay.is_playing ? ' status-dot--live' : ''}`} />{snapshot.replay.is_playing ? t('replay.playing') : t('replay.paused')}{mode === 'advanced' && ` · ${snapshot.replay.camera}`}</span><div><button className="icon-button" onClick={() => runReplay({ action: 'overview' })} aria-label={t('replay.overview')}>◎</button><button className="icon-button" onClick={() => runReplay({ action: 'pause' })} aria-label={t('replay.pause')}>Ⅱ</button><button className="icon-button" onClick={() => runReplay({ action: 'resume' })} aria-label={t('replay.resume')}>▶</button></div></div>
-      <div className="replay-focus-row"><span className="eyebrow">{t('replay.focus')}</span>{snapshot.households.map((household) => <button key={household.id} className={`focus-button${household.id === selectedHouseholdId ? ' focus-button--active' : ''}`} onClick={() => { onSelectHousehold(household.id); runReplay({ action: 'replay_route', target_id: household.id }) }}>{household.label ?? t('common.anonymousHousehold')} <small>{household.constraints.length ? household.constraints.map((item) => t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></button>)}</div>
+      <div className="replay-focus-row"><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleFocus' : 'replay.focus')}</span>{snapshot.households.map((household) => <button key={household.id} className={`focus-button${household.id === selectedHouseholdId ? ' focus-button--active' : ''}`} onClick={() => { onSelectHousehold(household.id); runReplay({ action: 'replay_route', target_id: household.id }) }}>{household.label ?? t('common.anonymousHousehold')} <small>{household.constraints.length ? household.constraints.map((item) => t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></button>)}</div>
       <Replay3D snapshot={snapshot} locale={locale} mode={mode} />
       <ReplayKnowledgePanel snapshot={snapshot} selectedRoute={selectedRoute} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onSelectKnowledge={onSelectKnowledge} />
-      <div className="replay-summary-row"><div><span className="eyebrow">{t('replay.debrief')}</span><strong>{t('replay.trainingLog', { label: selectedHousehold?.label ?? t('common.selectedHousehold') })}</strong><p>{selectedRoute ? t('replay.summaryWithRoute', { minutes: selectedRoute.eta_minutes, count: selectedRoute.avoided.length }) : t('replay.summaryEmpty')}</p></div><button className="secondary-button" onClick={() => { setSummaryRequested(true); void onRunTool('get_debrief_summary', {}) }}>{t('replay.refreshSummary')} <span>↗</span></button></div>
+      <div className="replay-summary-row"><div><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleDebrief' : 'replay.debrief')}</span><strong>{t('replay.trainingLog', { label: selectedHousehold?.label ?? t('common.selectedHousehold') })}</strong><p>{selectedRoute ? t('replay.summaryWithRoute', { minutes: selectedRoute.eta_minutes, count: selectedRoute.avoided.length }) : t('replay.summaryEmpty')}</p></div><button className="secondary-button" onClick={() => { setSummaryRequested(true); void onRunTool('get_debrief_summary', {}) }}>{t('replay.refreshSummary')} <span>↗</span></button></div>
       {summaryRequested && <div className="mini-summary"><div><strong>{snapshot.households.length}</strong><span>{t('replay.households')}</span></div><div><strong>{Object.keys(snapshot.routes).length}</strong><span>{t('replay.routes')}</span></div><div><strong>{snapshot.bottlenecks.length}</strong><span>{t('replay.bottleneckCount')}</span></div><div><strong>{snapshot.knowledge.filter(isKnowledgeVerified).length}</strong><span>{t('replay.verifiedKnowledge')}</span></div>{targetBottleneck && <button className="text-button" onClick={() => runReplay({ action: 'highlight_bottleneck', target_id: targetBottleneck.id })}>{t('replay.viewBottleneck')} →</button>}</div>}
     </section>
   )
@@ -546,7 +571,7 @@ function ToolSurface({ phase, locale, mode, nativeAvailable, nativeRegistered }:
   return (
     <section className="tool-surface">
       <div className="tool-surface__top"><div><span className="eyebrow">{t(mode === 'advanced' ? 'tool.surfaceAdvanced' : 'tool.surfaceSimple')}</span><h2>{t(`phase.${phase}.label`)}</h2></div><span className={`api-badge${nativeRegistered ? ' api-badge--live' : ''}`}><span className="status-dot" />{nativeRegistered ? (mode === 'advanced' ? 'NATIVE' : t('tool.ready')) : nativeAvailable ? (mode === 'advanced' ? 'READY' : t('tool.ready')) : (mode === 'advanced' ? 'SIMULATED' : t('tool.local'))}</span></div>
-      <p className="tool-surface__copy">{locale === 'ja' ? '現在のフェーズに必要な操作だけが表示されます。' : 'Only actions for the current phase are shown.'}</p>
+      <p className="tool-surface__copy">{t(mode === 'advanced' ? 'tool.copyAdvanced' : 'tool.copySimple')}</p>
       <div className="tool-list">{tools.map((tool) => <div key={tool.name} className="tool-row"><span className={`tool-row__dot${tool.readOnlyHint ? '' : ' tool-row__dot--write'}`} /><div><strong>{mode === 'advanced' ? tool.name : t(`tool.${tool.name}`)}</strong><small>{mode === 'advanced' ? t(`tool.${tool.name}`) : t('tool.callHint')}</small></div><span className="tool-row__arrow">↗</span></div>)}</div>
       <div className="tool-surface__footer"><span>{mode === 'advanced' ? 'getTools()' : (locale === 'ja' ? '利用可能な操作' : 'Available actions')}</span><strong>{t('tool.available', { count: tools.length })}</strong></div>
     </section>
@@ -555,7 +580,11 @@ function ToolSurface({ phase, locale, mode, nativeAvailable, nativeRegistered }:
 
 function ActivityLog({ events, locale, mode }: { events: TownSnapshot['events']; locale: Locale; mode: ExperienceMode }) {
   const t = useTranslator(locale)
+  const simpleLabel = (tool: string, status: TownSnapshot['events'][number]['status']) => {
+    if (status === 'error') return t('activity.error')
+    return t(`activity.${tool}`)
+  }
   return (
-    <section className="activity-log"><div className="section-rule"><span>{t('activity.title')}</span><span className="status-dot status-dot--live" /></div>{events.length === 0 ? <div className="activity-empty"><span>◌</span><p>{t('activity.empty').split('\n').map((line, index) => <span key={line}>{index > 0 && <br />}{line}</span>)}</p></div> : <div className="activity-list">{events.slice(0, 5).map((event) => <div key={event.id} className="activity-item"><span className={`activity-item__icon${event.status === 'error' ? ' activity-item__icon--error' : ''}`}>{event.status === 'error' ? '!' : '↗'}</span><div><strong>{mode === 'advanced' ? event.tool : (event.status === 'error' ? t('activity.error') : t('activity.success'))}</strong><p>{mode === 'advanced' ? event.summary : (event.status === 'error' ? t('activity.error') : t('activity.success'))}</p><small>{formatTime(event.created_at, locale)}</small></div></div>)}</div>}</section>
+    <section className="activity-log"><div className="section-rule"><span>{t('activity.title')}</span><span className="status-dot status-dot--live" /></div>{events.length === 0 ? <div className="activity-empty"><span>◌</span><p>{t('activity.empty').split('\n').map((line, index) => <span key={line}>{index > 0 && <br />}{line}</span>)}</p></div> : <div className="activity-list">{events.slice(0, 5).map((event) => <div key={event.id} className="activity-item"><span className={`activity-item__icon${event.status === 'error' ? ' activity-item__icon--error' : ''}`}>{event.status === 'error' ? '!' : '↗'}</span><div><strong>{mode === 'advanced' ? event.tool : simpleLabel(event.tool, event.status)}</strong><p>{mode === 'advanced' ? event.summary : simpleLabel(event.tool, event.status)}</p><small>{formatTime(event.created_at, locale)}</small></div></div>)}</div>}</section>
   )
 }

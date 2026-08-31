@@ -49,7 +49,7 @@ LivingTown exposes phase-scoped tools:
 | DRILL | `register_household`, `get_evacuation_route`, `report_bottleneck` |
 | REPLAY | `control_replay`, `get_debrief_summary` |
 
-The current phase controls which tools are exposed. The primary map renderer uses MapLibre with GSI standard tiles (and GSI English tiles at zoom levels 9–11); the existing SVG graph remains the deterministic fallback. The UI visualizes pending knowledge, verified knowledge, and knowledge that affected the selected route. Replay derives the same explanation from the same snapshot, so the UI and agent surface do not maintain divergent route state.
+The current phase controls which tools are exposed. The primary map renderer uses MapLibre: `Auto` selects GSI for the Japan map region and OpenFreeMap's Liberty style for worldwide locations, while Advanced mode can pin either provider. The existing SVG graph remains the deterministic fallback. Worldwide Knowledge uses Web Mercator-safe bounds (latitude `-85.051129..85.051129`, longitude `-180..180`); drill households, bottlenecks, and the deterministic walking graph remain scoped to the Tokyo demo area. GSI and OpenFreeMap attribution are rendered by the map, and the current-location action is explicit and one-shot with no tracking or persistence. The UI visualizes pending knowledge, verified knowledge, and knowledge that affected the selected route. Replay derives the same explanation from the same snapshot, so the UI and agent surface do not maintain divergent route state.
 
 ## WebMCP implementation
 
@@ -84,7 +84,7 @@ npm run seed
 git diff --check
 ```
 
-The current local gate passes with 12 test files and 74 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
+The current local gate passes with 14 test files and 88 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
 
 ## Challenge submission readiness
 

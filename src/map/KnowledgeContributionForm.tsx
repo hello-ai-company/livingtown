@@ -11,6 +11,9 @@ interface KnowledgeContributionFormProps {
   knowledge?: Knowledge
   onSubmit: (input: ContributeKnowledgeInput | UpdateKnowledgeInput) => Promise<void>
   onCancel: () => void
+  onRequestLocationChange?: () => void
+  onCancelLocationPicker?: () => void
+  locationPickerActive?: boolean
 }
 
 const CONDITIONS: KnowledgeCondition[] = ['always', 'rain', 'night', 'crowded']
@@ -24,7 +27,7 @@ const CATEGORY_ICONS: Record<KnowledgeCategory, string> = {
   other: '💬',
 }
 
-export function KnowledgeContributionForm({ locale, mode, initialLocation, knowledge, onSubmit, onCancel }: KnowledgeContributionFormProps) {
+export function KnowledgeContributionForm({ locale, mode, initialLocation, knowledge, onSubmit, onCancel, onRequestLocationChange, onCancelLocationPicker, locationPickerActive = false }: KnowledgeContributionFormProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
   const [step, setStep] = useState(1)
   const [category, setCategory] = useState<KnowledgeCategory>(knowledge?.category ?? 'flood')
@@ -73,6 +76,12 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
     }
   }, [])
 
+  useEffect(() => {
+    if (!initialLocation) return
+    setLat(String(initialLocation.lat))
+    setLng(String(initialLocation.lng))
+  }, [initialLocation?.lat, initialLocation?.lng])
+
   const next = () => {
     setError(undefined)
     if (step === 1 && !hasLocation) {
@@ -113,7 +122,7 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
   }
 
   return (
-    <div className="knowledge-form-backdrop" role="presentation">
+    <div className={`knowledge-form-backdrop${locationPickerActive ? ' knowledge-form-backdrop--picking' : ''}`} role="presentation">
       <section ref={dialogRef} className="knowledge-form" role="dialog" aria-modal="true" aria-labelledby="knowledge-form-title">
         <div className="knowledge-form__head">
           <div><span className="eyebrow">{t('form.step', { step })}</span><h2 id="knowledge-form-title">{t(knowledge ? 'form.editTitle' : 'form.newTitle')}</h2></div>
@@ -124,7 +133,11 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
         {step === 1 && <div className="knowledge-form__body">
           <h3>{t('form.locationTitle')}</h3><p>{t('form.locationBody')}</p>
           {mode === 'advanced' ? <div className="form-coordinate-grid"><label>{t('form.latitude')}<input type="number" step="any" value={lat} onChange={(event) => setLat(event.target.value)} /></label><label>{t('form.longitude')}<input type="number" step="any" value={lng} onChange={(event) => setLng(event.target.value)} /></label></div> : <div className="form-location-card"><strong>{hasLocation ? t('form.locationSelected') : t('form.locationMissing')}</strong><p>{t('form.changeLocationHint')}</p></div>}
-          <p className="form-coordinate-note">{locale === 'ja' ? '日本国内の投稿地点に対応しています。' : 'Reports can be placed anywhere in Japan.'}</p>
+          <div className="form-location-actions">
+            {onRequestLocationChange && <button type="button" className="secondary-button" onClick={onRequestLocationChange}>{locationPickerActive ? t('form.pickingLocation') : t('form.changeLocation')}</button>}
+            {locationPickerActive && onCancelLocationPicker && <button type="button" className="text-button" onClick={onCancelLocationPicker}>{t('form.cancelLocationChange')}</button>}
+          </div>
+          <p className="form-coordinate-note">{t('form.worldwideLocationNote')}</p>
         </div>}
 
         {step === 2 && <div className="knowledge-form__body">

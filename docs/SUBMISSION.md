@@ -92,7 +92,7 @@ demo-graph coordinate.
 Local quality gates on this submission-readiness branch:
 
 - npm run typecheck: PASS
-- npm test: PASS — 12 files / 74 tests
+- npm test: PASS — 14 files / 88 tests
 - npm run build: PASS
 - npm run seed: PASS
 - git diff --check: PASS

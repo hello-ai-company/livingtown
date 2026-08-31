@@ -10,8 +10,8 @@ export function drillTools(store: TownRepository): ToolDefinition[] {
   return [
     {
       name: 'register_household',
-      title: '訓練参加世帯を登録',
-      description: '訓練参加世帯を登録する。プライバシー原則として制約enumとデモエリア内の一時座標だけを渡し、診断名・病名・氏名・メール・電話・正確な住所は持ち込まない。座標はサーバー側でデモグラフのノードへスナップされる。',
+      title: 'Register drill household',
+      description: 'Register a temporary drill household inside the LivingTown demonstration routing area. Send only constraint enums and temporary coordinates; never send diagnoses, names, contact details, or exact addresses. The server snaps the point to the demo graph.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -19,7 +19,7 @@ export function drillTools(store: TownRepository): ToolDefinition[] {
           constraints: { type: 'array', items: { type: 'string', enum: ['wheelchair', 'infant', 'elderly', 'pet'] } },
           start_lat: { type: 'number' },
           start_lng: { type: 'number' },
-          location_scope: { type: 'string', enum: ['temporary_drill'], description: '一時的な訓練セッションの座標であることを明示する。' },
+          location_scope: { type: 'string', enum: ['temporary_drill'], description: 'Mark this as a temporary drill session location.' },
         },
         required: ['constraints', 'start_lat', 'start_lng'],
       },
@@ -32,8 +32,8 @@ export function drillTools(store: TownRepository): ToolDefinition[] {
     },
     {
       name: 'get_evacuation_route',
-      title: '避難経路を計算',
-      description: '世帯の制約と検証済みの街の暗黙知を反映した避難経路を返す。avoided に回避理由が入るので、人間に必ず説明する。',
+      title: 'Calculate evacuation route',
+      description: 'Calculate a route within the LivingTown demonstration routing area using household constraints and verified community knowledge. Explain every avoided item to people.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -53,8 +53,8 @@ export function drillTools(store: TownRepository): ToolDefinition[] {
     },
     {
       name: 'report_bottleneck',
-      title: '現地の詰まりを報告',
-      description: '訓練中に現地で見つかった詰まり（狭い・段差・人が滞留）を報告する。',
+      title: 'Report drill bottleneck',
+      description: 'Report a narrow, uneven, or crowded point found during a drill inside the LivingTown demonstration routing area.',
       inputSchema: {
         type: 'object',
         properties: {

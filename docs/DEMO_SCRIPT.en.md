@@ -8,10 +8,11 @@ This script is for a public demo video. Keep the final video under three minutes
 
 ## 0:20 — MAP: turn conversation into knowledge
 
-1. Open the MAP phase and show the five current tools: `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, and `verify_knowledge`. In Simple mode, explain that these appear as friendly actions rather than technical names.
+1. Open the MAP phase and show the five current tools: `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, and `verify_knowledge`. In Simple mode, explain that these appear as friendly actions rather than technical names. In Advanced mode, show the `Auto`, `Japan (GSI)`, and `Worldwide (OpenFreeMap)` basemap choices and move overseas to demonstrate the worldwide provider.
 2. Tap **Report something**, tap the map, and complete the five-step flow: location → category → condition → confidence → description/review/privacy. Keep the description under 200 characters and confirm that it contains no personal information. Show the new `PENDING` visual and its detail card.
 3. Verify it twice with the local demo fixtures. Show the transition to `VERIFIED`.
 4. Point out that the verification threshold is agreements minus disagreements of at least two, and that duplicate pseudonymous votes are ignored. In Advanced mode, show that only the current user's memories expose edit/delete controls, and that vote-bearing edits require reverification confirmation.
+5. Move to an overseas location such as San Francisco or London and show that worldwide Knowledge coordinates remain available. Switch JA/EN and show that the provider and camera are preserved. The current-location action is explicit and one-shot; routing households and the deterministic drill graph remain in the Tokyo demo area.
 
 ## 1:10 — DRILL: let verified knowledge change the route
 

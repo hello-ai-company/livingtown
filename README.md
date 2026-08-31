@@ -36,7 +36,9 @@ GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-a
 
 ## Living Knowledge Visual World
 
-街の知識はリストだけでなく、MapLibre + 国土地理院（GSI）タイルを使う実地図上の視覚的な状態として表示されます。MapLibreを初期化できない環境では、既存の決定的SVGグラフへフォールバックします。表示状態は同じdomain dataから導出します。
+街の知識はリストだけでなく、MapLibreを使う実地図上の視覚的な状態として表示されます。`Auto`では日本の地図領域に国土地理院（GSI）、海外を含む世界地域にOpenFreeMapを自動選択し、Advancedではproviderを明示的に切り替えられます。MapLibreを初期化できない環境では、既存の決定的SVGグラフへフォールバックします。表示状態は同じdomain dataから導出します。
+
+世界地図のKnowledgeはWeb Mercator安全範囲（緯度 `-85.051129..85.051129`、経度 `-180..180`）で投稿・検索できます。GSIとOpenFreeMapのattributionは地図上に表示し、現在地ボタンは明示操作による一度の取得だけで、追跡や位置保存は行いません。避難訓練用の世帯・詰まり・決定的歩行グラフは従来どおり東京のデモ領域に限定します。
 
 `Knowledge` のカテゴリ・検証カウンタと、選択中routeの `avoided[].knowledge_id` / `edge_ids` を使い、次の順で変化します。
 

@@ -27,6 +27,8 @@ export interface Map2DProps {
   onSelectKnowledge?: (knowledgeId: string) => void
   onClearKnowledge?: () => void
   onRequestContribution?: (location: { lat: number; lng: number }) => void
+  onLocationPicked?: (location: { lat: number; lng: number }) => void
+  locationPickerActive?: boolean
   onEditKnowledge?: (knowledge: import('../sim/types').Knowledge) => void
   onDeleteKnowledge?: (knowledge: import('../sim/types').Knowledge) => void
   locale?: Locale
@@ -212,7 +214,7 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
         </label>
       </div>
 
-      <svg className="town-map" viewBox="0 0 900 540" role="img" aria-label={t('map.knowledgeMapAlt')}>
+        <svg className="town-map" viewBox="0 0 900 540" role="region" aria-label={t('map.knowledgeMapAlt')}>
         <defs>
           <pattern id="map-grid" width="42" height="42" patternUnits="userSpaceOnUse">
             <path d="M 42 0 L 0 0 0 42" fill="none" stroke="rgba(70, 95, 104, 0.17)" strokeWidth="1" />
@@ -262,7 +264,7 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
         {visibleKnowledge.map((view) => {
           const point = MapPoint({ lat: view.item.lat, lng: view.item.lng, bounds })
           const offset = overlapOffset(view, visibleKnowledge)
-          return <KnowledgeVisual key={view.item.id} view={view} x={point.x + offset.x} y={point.y + offset.y} selected={view.item.id === selectedId} isNew={newKnowledgeIds.has(view.item.id)} isTransitioning={transitioningKnowledgeIds.has(view.item.id)} onSelect={selectKnowledge} />
+          return <KnowledgeVisual key={view.item.id} view={view} x={point.x + offset.x} y={point.y + offset.y} selected={view.item.id === selectedId} isNew={newKnowledgeIds.has(view.item.id)} isTransitioning={transitioningKnowledgeIds.has(view.item.id)} onSelect={selectKnowledge} locale={locale} mode={mode} />
         })}
 
         {visibleBottlenecks.map((item) => {

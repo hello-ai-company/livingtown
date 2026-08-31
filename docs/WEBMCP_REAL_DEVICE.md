@@ -56,6 +56,10 @@ npm run dev
 
 `Mode: SIMULATED` または `Browser WebMCP available: NO` と表示された場合は、画面の成功やローカルテストを実機証拠に昇格させません。画面に **This is not real-device WebMCP evidence.** と表示される状態です。
 
+## 3.1 Global Mapの確認（WebMCPとは別のUI gate）
+
+Advancedでbasemapを `Auto`、`Japan (GSI)`、`Worldwide (OpenFreeMap)` と切り替えます。San FranciscoやLondonなど日本国外へ移動したとき、`Auto` がOpenFreeMapを選び、OpenFreeMap／OpenMapTiles／OpenStreetMapのattributionが表示されることを確認します。JA/ENを切り替えてもproviderとカメラが維持され、Knowledge／route／avoided／household／bottleneck overlayが再描画されることを確認してください。これは通常ブラウザのGlobal Map UI gateであり、Native WebMCPのPASSやSupabase shared CRUDのPASSには繰り上げません。
+
 ## 4. MAPを確認する
 
 1. Diagnosticsのphase切替で **MAP** を選びます。

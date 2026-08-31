@@ -1,8 +1,8 @@
 # LivingTown 実装評価
 
 評価日: 2026-08-31
-対象: `feat/real-map-community-crud-i18n`（PR #9をbaseにしたPhase 8 feature branch）
-Base SHA: `12d392e9d87943c77c864f1154c7495a624aec31`
+対象: `feat/real-map-community-crud-i18n`（既存PR #10、base branch `chore/netlify-production-deploy` / PR #9）
+Previous HEAD: `5fc9ad7221d8d120ce76c34d0f38ca6db70e6d45`
 
 ## 判定ルール
 
@@ -37,10 +37,10 @@ Base SHA: `12d392e9d87943c77c864f1154c7495a624aec31`
 ### Phase 8 implementation gate
 
 - `?lang=ja|en`、saved locale、navigator fallback、`html[lang]`、`?mode=simple|advanced`、saved display mode、translated system UI、Simple/Advanced information boundary are implemented in `src/i18n.ts` and `src/app/App.tsx`.
-- MapLibre is the primary map renderer with GSI standard tiles (z9–18), GSI English tiles (z9–11), minZoom 9, maxZoom 18, attribution, explicit geolocation control, and GeoJSON overlays for Knowledge, route, avoided edges, households, and bottlenecks. The existing SVG renderer remains the fallback.
+- MapLibre is the primary map renderer with Auto provider selection (GSI in Japan and OpenFreeMap worldwide), explicit GSI/OpenFreeMap attribution, minZoom 2, maxZoom 18, explicit one-shot geolocation control, and GeoJSON overlays for Knowledge, route, avoided edges, households, and bottlenecks. The existing SVG renderer remains the fallback.
 - Map tap/FAB opens the five-step contribution flow: location → category → condition → confidence → description/review/privacy. The form enforces a 200-character description, explicit privacy confirmation, Escape, focus trap, and focus return.
 - Local and shared repository contracts include owner-only update/delete, vote reset confirmation, route invalidation, fail-closed owned-ID hydration, and public Knowledge-only Realtime handlers. Shared browser state never receives raw owner IDs or Verification records.
-- MAP now exposes exactly `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, and `verify_knowledge`. The draft SQL and 38-assertion pgTAP file are present, but neither the migration nor the Phase 8 shared/native gates has been run.
+- MAP now exposes exactly `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, and `verify_knowledge`. The draft SQL and 74-assertion pgTAP file are present, but neither the migration nor the Phase 8 shared/native gates has been run.
 
 ### Core routing
 
@@ -81,7 +81,7 @@ Base SHA: `12d392e9d87943c77c864f1154c7495a624aec31`
 - WebMCPオブジェクトがない通常Node/Vitest環境でも、同じtool definitionをfake adapterで検証できる。
 - MapLibre primary renderer and the existing SVG fallback both preserve the map → drill → replay vertical slice.
 - `npm run seed` は外部APIなしで決定的なdemo dataを生成する。
-- 既存テストを維持し、trust-boundary／Realtime／GeoJSON projection／i18n／CRUD testsを追加した。現在は12 files / 74 tests。
+- 既存テストを維持し、trust-boundary／Realtime／GeoJSON projection／i18n／CRUD／worldwide basemap／geolocation testsを追加した。現在は14 files / 88 tests。
 
 ### Living Knowledge Visual World
 
@@ -107,6 +107,13 @@ Base SHA: `12d392e9d87943c77c864f1154c7495a624aec31`
 接続された通常Chrome（WebMCP APIなし、SIMULATED）で、desktop viewportのMAP表示、Knowledge投稿、PENDING、1票目、2票目のVERIFIED transition、visual detail card、Verified filter、wheelchair route、AFFECTING_ROUTE、avoided edge／reason、REPLAYの `KNOWLEDGE → ROUTE` panel、bottleneck、demo resetを確認した。これは通常ブラウザ上のUX確認であり、native WebMCP evidenceではない。
 
 Phase 8のローカルpreviewでは、MapLibreコンテナ、GSI attribution、地図tap投稿モード、5段階フォーム、Simple/Advanced切替、JA/EN切替、Geolocateボタンの明示操作を確認した。公開Netlify URLへのPhase 8デプロイと、実Supabase migration適用後のCRUDは未確認である。
+
+### Global map manual verification
+
+- `GLOBAL_MAP_GATE: PASS` in an agent-created local browser tab. San Francisco and London rendered with OpenFreeMap; `Auto` remained on the worldwide provider outside Japan.
+- The provider selector exposed `Auto`, `Japan (GSI)`, and `Worldwide (OpenFreeMap)`. GSI attribution and OpenFreeMap/OpenMapTiles/OpenStreetMap attribution links were visible without a duplicate custom legend.
+- Camera and overlay state are preserved across provider and JA/EN locale changes. Knowledge accepts worldwide Web Mercator-safe coordinates, while routing/demo household inputs remain in the Tokyo demonstration area.
+- This is ordinary-browser UI evidence only. It is not Native WebMCP evidence and does not prove the shared Supabase migration or concurrent CRUD gate.
 
 狭いviewportのlayoutはresponsive CSSとbottom-sheet定義をコード確認したが、実機WebMCPの証拠とは別であり、端末別の視覚回帰は未取得である。
 
@@ -140,7 +147,7 @@ Phase 6のPR #4 run `33310283020` / job `99253976986` とPR #6のlatest run `333
 - **共有環境で完全に匿名であること。** 認証主体、アクセスログ、バックアップ、削除、鍵管理、再識別評価を含む運用がないため、Privacyの匿名性はPASSにしない。
 - pgTAP、A/B/Cの再実行、network failure injection、temporary drill sessionの削除ジョブ。function EXECUTE hardeningの実適用、Security Advisor再確認、authenticated insert／anon denial／counter protection／duplicate verification、記録済みBrowser A/B Realtimeは完了済みだが、運用上の再検証は別途必要。
 - Cesium／PLATEAUの本格実装と対象都市・tilesetの固定。
-- Phase 8 draft migration `20260831075455_real_map_knowledge_ownership_crud.sql` の実DB適用、38 assertionsのpgTAP実行、二つ以上のAuth identityによるCRUD／再検証／削除／Realtime gate。
+- Phase 8 draft migration `20260831075455_real_map_knowledge_ownership_crud.sql` の実DB適用、74 assertionsのpgTAP実行、二つ以上のAuth identityによるCRUD／再検証／削除／Realtime gate。
 - Phase 8 feature branchを公開Netlifyへ反映した後の、5本MAP surfaceに対するNative WebMCP `getTools()`／schema／toolchange／実行証跡。既存Phase 7のNative PASSはこの5本surfaceへ継承しない。
 
 ## Quality gate
@@ -150,7 +157,7 @@ Phase 6のPR #4 run `33310283020` / job `99253976986` とPR #6のlatest run `333
 | Command | Result |
 |---|---|
 | `npm run typecheck` | PASS |
-| `npm test` | PASS — 12 files / 74 tests |
+| `npm test` | PASS — 14 files / 88 tests |
 | `npm run build` | PASS — Vite production build succeeded |
 | `npm run seed` | PASS — 6 nodes / 7 edges / 10 knowledge / 13 pseudonymous votes / 3 households |
 | `git diff --check` | PASS |

@@ -43,17 +43,26 @@ describe('TownRepository mode boundary', () => {
     expect(sharedVerify.inputSchema).not.toHaveProperty('properties.verifier_id')
   })
 
-  it('uses Japan-wide knowledge bounds while keeping drill bottlenecks in the demo area', () => {
+  it('uses worldwide knowledge bounds while keeping drill bottlenecks in the demo area', () => {
     const repository = new LocalTownRepository({ persist: false })
 
+    const worldwide = repository.contributeKnowledge({
+      category: 'flood',
+      lat: 37.7749,
+      lng: -122.4194,
+      condition: 'rain',
+      description: 'worldwide community report',
+      confidence: 'experienced',
+    })
+    expect(worldwide).toMatchObject({ lat: 37.7749, lng: -122.4194 })
     expect(() => repository.contributeKnowledge({
       category: 'flood',
-      lat: 19.9,
-      lng: 139.761,
+      lat: 85.2,
+      lng: -122.4194,
       condition: 'rain',
-      description: 'outside Japan boundary',
+      description: 'outside supported world boundary',
       confidence: 'experienced',
-    })).toThrow('日本の座標範囲')
+    })).toThrow('世界対応範囲')
     expect(() => repository.reportBottleneck({ lat: 35.7, lng: 139.761, severity: 1 })).toThrow('デモエリア')
   })
 

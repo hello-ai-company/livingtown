@@ -5,8 +5,8 @@ export function replayTools(store: TownRepository): ToolDefinition[] {
   return [
     {
       name: 'control_replay',
-      title: '3Dリプレイを操縦',
-      description: '3Dまたは2Dリプレイのカメラと再生を操縦する。人間の口頭指示をカメラ操作に翻訳する。',
+      title: 'Control drill replay',
+      description: 'Control the camera and playback of the 3D or 2D drill replay for the LivingTown demonstration area. Translate human instructions into camera actions.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -24,8 +24,8 @@ export function replayTools(store: TownRepository): ToolDefinition[] {
     },
     {
       name: 'get_debrief_summary',
-      title: '訓練の振り返りを取得',
-      description: '訓練全体の集計（世帯別所要時間、ボトルネック、経路変更に寄与した暗黙知）を返す。',
+      title: 'Get drill debrief summary',
+      description: 'Return a debrief for the LivingTown demonstration area, including household times, bottlenecks, and community knowledge that changed routes.',
       inputSchema: { type: 'object', properties: {} },
       readOnlyHint: true,
       run: async (_input: unknown, context) => {

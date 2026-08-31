@@ -18,7 +18,7 @@
 ## 2. システム構成
 
 - Frontend: Vite + React + TypeScript
-- 2D map: MapLibre + 国土地理院（GSI）標準タイルを主rendererとし、GSI Englishはz9–11に限定する。MapLibreを初期化できない場合は、deterministic local walking graphの既存SVGへフォールバックする。
+- 2D map: MapLibreを主rendererとし、Autoでは日本の地図領域に国土地理院（GSI）標準タイル、それ以外の世界地域にOpenFreeMapを選ぶ。AdvancedではGSI／OpenFreeMapを明示選択でき、MapLibreを初期化できない場合はdeterministic local walking graphの既存SVGへフォールバックする。
 - 3D: CesiumJS + PLATEAU 3D Tilesは未設定時にロードしない。
 - Data: `TownRepository`を境界とし、`LocalTownRepository`（LocalStorageの決定的デモ）と`SupabaseTownRepository`（Database + Auth + Realtime）を明示的に切り替える。route engineはどちらのadapterから渡されたsnapshotにも同じdeterministic graphを適用する。
 - WebMCP: Imperative APIの直接呼び出しは `src/webmcp/register.ts` だけに隔離する。ツール定義はAPI objectを知らない純粋な定義層とする。
@@ -242,7 +242,7 @@ local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagre
 ### Phase 8 — Real Map / Community CRUD / i18n
 
 - `?lang=ja|en` と保存済みlocale、navigator fallback、`document.documentElement.lang` を実装し、`?mode=simple|advanced` と保存済みexperience modeを用意する。Simpleは一般利用者向けの状態説明、Advancedはtool名・diagnostics・raw edge IDを表示する。modeを変えてもWebMCPのtool setは変えない。
-- MapLibreはGSI standard tilesをz9–18、English tilesをz9–11へ接続し、minZoom=9／maxZoom=18、attribution、knowledge／route／avoided edge／household／bottleneck overlayを持つ。現在地は明示したGeolocateControlの一度の操作だけで、auto permission／tracking／保存は行わない。
+- MapLibreは日本ではGSI standard tiles、海外を含む世界地域ではOpenFreeMap Liberty styleへ接続する。Autoはカメラ領域からproviderを切り替え、AdvancedではJapan (GSI)／Worldwide (OpenFreeMap)を固定指定できる。minZoom=2／maxZoom=18、各providerのattribution、knowledge／route／avoided edge／household／bottleneck overlayを持つ。KnowledgeはWeb Mercator安全範囲（lat -85.051129..85.051129、lng -180..180）で扱う。現在地は明示したGeolocateControlの一度の操作だけで、auto permission／tracking／保存は行わない。
 - 地図tap／FABから、位置→カテゴリ→条件→確度→説明・確認の5段階ContributionFormを開く。説明は最大200文字、個人情報を含めない確認を必須とし、投稿地点は他の利用者に表示される。編集・削除は`can_edit`が付いた自分の投稿だけに表示する。
 - `knowledge_owner`はprivate mapping table、`get_my_knowledge_ids()`はcurrent identityのIDだけを返す。owner mapping、raw owner UUID、verification recordはbrowserへ渡さない。update/deleteはsecurity-definer owner-only RPC、入力検証、明示confirmation、route invalidationを使う。
 - 対応draftは [`supabase/migrations/20260831075455_real_map_knowledge_ownership_crud.sql`](../supabase/migrations/20260831075455_real_map_knowledge_ownership_crud.sql)、pgTAP計画は [`supabase/tests/0005_real_map_knowledge_ownership_crud.sql`](../supabase/tests/0005_real_map_knowledge_ownership_crud.sql) にある。Phase 8ではmigrationを適用していないため、shared DB gateとNative WebMCP再確認はPENDINGである。既存 [`docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md`](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) は変更しない。
@@ -303,7 +303,7 @@ livingtown/
 - [x] shared adapterはKnowledgeとDB-maintained counterだけをremoteから読み、raw Verificationをbrowser snapshotへhydrateせず、UI/WebMCPと同じrepositoryを通す。
 - [x] shared verificationはcaller-supplied verifier_idを信用せず、Auth-derived RPCとDB unique制約でsame-identity duplicateを防ぐ。
 - [x] locale（JA/EN）とSimple/Advanced表示をURL・LocalStorageから選べ、Simpleでは技術的なtool／diagnostic表現を隠す。html langも同期する。
-- [x] MapLibre + GSI標準／英語タイル、z9–18のzoom boundary、attribution、Knowledge／route／avoided LineString／household／bottleneck overlay、SVG fallbackを提供する。
+- [x] MapLibre + GSI／OpenFreeMapのprovider切替、世界対応のzoom boundary（z2–18）、provider別attribution、Knowledge／route／avoided LineString／household／bottleneck overlay、SVG fallbackを提供する。
 - [x] 地図tap/FABから位置→カテゴリ→条件→確度→説明の5段階投稿を開き、privacy確認、200文字制限、Escape／focus trap／focus returnを提供する。
 - [x] `knowledge_owner`をbrowser roleから隠し、owned IDだけを使ってowner-only update/delete RPCへ接続する。票のある更新はreverification resetを要求し、編集／削除後にrouteを無効化する。
 - [x] MAPのtool surfaceを`contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge`の5本に固定し、update/delete schemaにconfirmationを含める。

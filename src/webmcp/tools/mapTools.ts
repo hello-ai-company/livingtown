@@ -1,4 +1,5 @@
 import type { DeleteKnowledgeInput, QueryAreaInput, ContributeKnowledgeInput, UpdateKnowledgeInput, VerifyKnowledgeInput, TownRepository } from '../../data/repository'
+import { WORLD_MAP_BOUNDS } from '../../map/basemaps'
 import type { ToolDefinition } from '../types'
 
 export function mapTools(store: TownRepository): ToolDefinition[] {
@@ -6,14 +7,14 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
   const definitions: ToolDefinition[] = [
     {
       name: 'contribute_knowledge',
-      title: '街の暗黙知を登録',
-      description: '街の暗黙知を1件登録する。閲覧者との会話から得た事実を構造化して渡す。自由文には氏名・住所・電話番号・診断名などを含めない。本人の実体験は experienced、又聞きは heard、推測は guess とする。',
+      title: 'Contribute community knowledge',
+      description: 'Create one community knowledge report at any supported location worldwide. Keep personal data out of free text and label the source as experienced, heard, or guess.',
       inputSchema: {
         type: 'object',
         properties: {
           category: { type: 'string', enum: ['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'] },
-          lat: { type: 'number', minimum: 20, maximum: 46.5 },
-          lng: { type: 'number', minimum: 122, maximum: 154 },
+          lat: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLat, maximum: WORLD_MAP_BOUNDS.maxLat, description: 'Latitude in Web Mercator-supported world bounds.' },
+          lng: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLng, maximum: WORLD_MAP_BOUNDS.maxLng, description: 'Longitude in world bounds.' },
           condition: { type: 'string', enum: ['always', 'rain', 'night', 'crowded'] },
           description: { type: 'string', maxLength: 200 },
           confidence: { type: 'string', enum: ['experienced', 'heard', 'guess'] },
@@ -29,13 +30,13 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
     },
     {
       name: 'delete_knowledge',
-      title: '街の暗黙知を削除',
-      description: '現在の認証済み匿名identityが所有する暗黙知だけを削除する。confirm_delete=trueが必要で、所有権はserver-sideで判定する。削除すると既存の避難経路は無効になる。',
+      title: 'Delete community knowledge',
+      description: 'Delete only a report owned by the current authenticated identity. The server checks ownership, requires confirm_delete=true, and invalidates routes that used the report.',
       inputSchema: {
         type: 'object',
         properties: {
           knowledge_id: { type: 'string' },
-          confirm_delete: { type: 'boolean', const: true, description: '削除と経路の再計算が必要になることを確認する。' },
+          confirm_delete: { type: 'boolean', const: true, description: 'Explicitly confirm deletion and route recalculation.' },
         },
         required: ['knowledge_id', 'confirm_delete'],
       },
@@ -48,10 +49,10 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
     },
     {
       name: 'verify_knowledge',
-      title: '暗黙知を追認・反証',
+      title: 'Verify community knowledge',
       description: sharedMode
-        ? '既存の暗黙知への追認または反証。共有モードでは認証済みSupabase identityからserver-sideでopaque pseudonymous verifier idを割り当てるため、verifier_idは入力しない。同じknowledgeへの同一identityの重複投票は無視する。'
-        : '既存の暗黙知への追認または反証。ローカルデモではpseudonymous identifierを入力する。同じ暗黙知への同一識別子の重複投票は無視する。形式だけではPII非保持や本人性を保証しない。',
+        ? 'Confirm or dispute an existing report. In shared mode the server derives an opaque verifier identity from the authenticated session; do not provide verifier_id. Duplicate votes from the same identity are ignored.'
+        : 'Confirm or dispute an existing report in the local demo using a pseudonymous verifier fixture. Duplicate votes from the same fixture are ignored; the format alone does not prove identity or prevent personal data.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -76,13 +77,13 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
     },
     {
       name: 'query_area',
-      title: '周辺の暗黙知を検索',
-      description: '指定地点周辺の暗黙知を検索する。条件（雨・夜など）で絞り込める。',
+      title: 'Query community knowledge',
+      description: 'Search community observations around a geographic point anywhere in the supported world, optionally filtering by category and condition.',
       inputSchema: {
         type: 'object',
         properties: {
-          lat: { type: 'number', minimum: 20, maximum: 46.5 },
-          lng: { type: 'number', minimum: 122, maximum: 154 },
+          lat: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLat, maximum: WORLD_MAP_BOUNDS.maxLat, description: 'Latitude in Web Mercator-supported world bounds.' },
+          lng: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLng, maximum: WORLD_MAP_BOUNDS.maxLng, description: 'Longitude in world bounds.' },
           radius_m: { type: 'number', maximum: 2000 },
           category: { type: 'string', enum: ['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'] },
           condition: { type: 'string', enum: ['always', 'rain', 'night', 'crowded'] },
@@ -98,19 +99,19 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
     },
     {
       name: 'update_knowledge',
-      title: '街の暗黙知を更新',
-      description: '現在の認証済み匿名identityが所有する暗黙知だけを更新する。カテゴリ、座標、条件、説明、確度を検証し、票がある場合はconfirm_reverification_reset=trueで票をリセットして再検証を求める。owner_idは入力しない。',
+      title: 'Update community knowledge',
+      description: 'Update only a report owned by the current authenticated identity. The server checks ownership, accepts worldwide coordinates, and requires confirm_reverification_reset=true when existing votes must be reset. Never send owner_id.',
       inputSchema: {
         type: 'object',
         properties: {
           knowledge_id: { type: 'string' },
           category: { type: 'string', enum: ['flood', 'darkness', 'narrow_path', 'barrier', 'safe_spot', 'other'] },
-          lat: { type: 'number', minimum: 20, maximum: 46.5 },
-          lng: { type: 'number', minimum: 122, maximum: 154 },
+          lat: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLat, maximum: WORLD_MAP_BOUNDS.maxLat, description: 'Latitude in Web Mercator-supported world bounds.' },
+          lng: { type: 'number', minimum: WORLD_MAP_BOUNDS.minLng, maximum: WORLD_MAP_BOUNDS.maxLng, description: 'Longitude in world bounds.' },
           condition: { type: 'string', enum: ['always', 'rain', 'night', 'crowded'] },
           description: { type: 'string', maxLength: 200 },
           confidence: { type: 'string', enum: ['experienced', 'heard', 'guess'] },
-          confirm_reverification_reset: { type: 'boolean', description: '既存の票をリセットする場合にtrue。' },
+          confirm_reverification_reset: { type: 'boolean', description: 'Set true to reset existing votes and require fresh verification.' },
         },
         required: ['knowledge_id', 'category', 'lat', 'lng', 'condition', 'description', 'confidence'],
       },

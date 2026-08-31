@@ -51,11 +51,11 @@ export const DEMO_COORDINATE_BOUNDS = {
   maxLng: 139.77,
 } as const
 
-export const JAPAN_KNOWLEDGE_BOUNDS = {
-  minLat: 20,
-  maxLat: 46.5,
-  minLng: 122,
-  maxLng: 154,
+export const WORLD_KNOWLEDGE_BOUNDS = {
+  minLat: -85.051129,
+  maxLat: 85.051129,
+  minLng: -180,
+  maxLng: 180,
 } as const
 
 export function assertFiniteNumber(name: string, value: unknown) {
@@ -73,14 +73,14 @@ export function assertDemoAreaCoordinate(lat: number, lng: number, label = '座�
   }
 }
 
-export function assertJapanKnowledgeCoordinate(lat: number, lng: number, label = 'Knowledgeの座標') {
+export function assertWorldKnowledgeCoordinate(lat: number, lng: number, label = 'Knowledgeの座標') {
   if (
-    lat < JAPAN_KNOWLEDGE_BOUNDS.minLat ||
-    lat > JAPAN_KNOWLEDGE_BOUNDS.maxLat ||
-    lng < JAPAN_KNOWLEDGE_BOUNDS.minLng ||
-    lng > JAPAN_KNOWLEDGE_BOUNDS.maxLng
+    lat < WORLD_KNOWLEDGE_BOUNDS.minLat ||
+    lat > WORLD_KNOWLEDGE_BOUNDS.maxLat ||
+    lng < WORLD_KNOWLEDGE_BOUNDS.minLng ||
+    lng > WORLD_KNOWLEDGE_BOUNDS.maxLng
   ) {
-    throw new Error(`${label} は日本の座標範囲（lat ${JAPAN_KNOWLEDGE_BOUNDS.minLat}〜${JAPAN_KNOWLEDGE_BOUNDS.maxLat} / lng ${JAPAN_KNOWLEDGE_BOUNDS.minLng}〜${JAPAN_KNOWLEDGE_BOUNDS.maxLng}）内で指定してください。`)
+    throw new Error(`${label} は世界対応範囲（lat ${WORLD_KNOWLEDGE_BOUNDS.minLat}〜${WORLD_KNOWLEDGE_BOUNDS.maxLat} / lng ${WORLD_KNOWLEDGE_BOUNDS.minLng}〜${WORLD_KNOWLEDGE_BOUNDS.maxLng}）内で指定してください。`)
   }
 }
 
@@ -130,7 +130,7 @@ export function validateContributeKnowledgeInput(input: ContributeKnowledgeInput
   if (!confidence.includes(input.confidence)) throw new Error('確度が不正です。')
   assertFiniteNumber('lat', input.lat)
   assertFiniteNumber('lng', input.lng)
-  assertJapanKnowledgeCoordinate(input.lat, input.lng)
+  assertWorldKnowledgeCoordinate(input.lat, input.lng)
   assertString('description', input.description, 200)
 }
 
@@ -150,7 +150,7 @@ export function validateDeleteKnowledgeInput(input: DeleteKnowledgeInput) {
 export function validateQueryAreaInput(input: { lat: number; lng: number; radius_m: number }) {
   assertFiniteNumber('lat', input.lat)
   assertFiniteNumber('lng', input.lng)
-  assertJapanKnowledgeCoordinate(input.lat, input.lng, '検索地点')
+  assertWorldKnowledgeCoordinate(input.lat, input.lng, '検索地点')
   assertFiniteNumber('radius_m', input.radius_m)
   if (input.radius_m < 0 || input.radius_m > 2000) throw new Error('radius_m は0〜2000で指定してください。')
 }

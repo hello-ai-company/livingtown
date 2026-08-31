@@ -18,12 +18,13 @@
 
 ## 0:30 — 幕1：会話を地図にする
 
-1. `街の記憶` を表示し、右側のMAP toolが5本（`contribute_knowledge` / `delete_knowledge` / `query_area` / `update_knowledge` / `verify_knowledge`）であることを見せる。Simpleではtool名ではなく、利用者向けの操作名が表示される。
+1. `街の記憶` を表示し、右側のMAP toolが5本（`contribute_knowledge` / `delete_knowledge` / `query_area` / `update_knowledge` / `verify_knowledge`）であることを見せる。Simpleではtool名ではなく、利用者向けの操作名が表示される。Advancedのbasemap selectorで `Auto`／`Japan (GSI)`／`Worldwide (OpenFreeMap)` を示し、海外へ移動するとOpenFreeMapへ切り替わることを見せる。
 2. 地図の `気づいたことを投稿` を押し、地図をタップする。投稿の自由文には氏名・住所・電話番号・診断名などを含めないことを先に示し、位置→カテゴリ→条件→確度→説明・確認の5段階を進める。説明は200文字以内で、個人情報を含めない確認が必須。保存すると`contribute_knowledge`がActivityに出て、該当座標へPENDING visualが現れる。visualをクリックしてdetail cardの `未検証`、条件、確度、カウンタを見せる。
 3. 同じカードの「追認する」を1回クリックする。LOCAL_DEMOではfixtureのpseudonymous identifierが使われ、shared modeでは入力schemaにverifier_idがなく、Auth identityからserver-sideでopaqueなpseudonymous identifierが導出される。visualはまだPENDINGのまま。
 4. もう1回クリックする。LOCAL_DEMOでは別fixtureを使う。shared modeでは同じAuth identityの再送はduplicateになり、threshold到達には別Auth identityが必要になる。2つのidentityでthresholdへ到達したら、短いtransitionと `Community verified` feedbackの後、visualがVERIFIEDへ変わる。
 5. 「同じknowledgeに同じidentity／identifierが投票しても、`knowledge_id + verifier_id` が一意なので二重加算されません。これはsame identifier duplicate preventionの仕組みで、pseudonymous identifierはdistinct humanやSybil耐性を保証せず、追認−反証が2以上になった時だけrouteに影響します」と説明する。
 6. LegendでPENDING／VERIFIED／AFFECTING current routeと、barrier／floodなどcategory別shapeを確認する。`Verified only` filterは表示だけを変え、domain dataを変更しない。Advancedでは自分の投稿だけに編集／削除ボタンが出ること、票がある更新では再検証確認が必要なことを示せる。
+7. 海外の地点（例: San FranciscoまたはLondon）でもKnowledgeの位置を扱えること、JA/EN切替後もproviderとカメラが維持されることを示す。現在地ボタンは明示操作の一度取得であり、追跡や保存をしない。避難訓練の世帯・経路は東京のデモ領域で続ける。
 
 ## 1:15 — 幕2：一つの知識が道を変える
 
