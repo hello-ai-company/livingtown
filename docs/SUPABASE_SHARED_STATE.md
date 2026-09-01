@@ -14,11 +14,12 @@ Verification rows. See
 [`docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md).
 
 The `docs/sql/POST_DEPLOY_RPC_ONLY_KNOWLEDGE_WRITE.sql` contract is not
-applied. The public Netlify URL still serves the Phase 7 baseline, while the
-current feature branch uses the exact 3 / 3 / 2 WebMCP surface and its local
-Native gate is PASS in the separate current-head evidence. Feature-branch deployment and public URL
-revalidation remain pending. Historical blocked checkpoints later in this
-document are retained for auditability and are not the current hosted status.
+applied. The public Netlify URL serves
+`main@0789688c7e7806a8a9563ef605e2e3014e5c1024`, with the exact 3 / 3 / 2
+WebMCP surface and public Native gate recorded in
+[`docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md`](./evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md).
+Historical blocked checkpoints later in this document are retained for
+auditability and are not the current hosted status.
 
 The hosted evidence records the server-assigned remote migration-history
 versions separately from the migration application event. The canonical source

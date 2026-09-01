@@ -13,7 +13,8 @@ The project is designed around the [WebMCP Challenge](https://webmcp.devpost.com
 - **Hosted Expand:** Phase 8 and Phase 10 Expand migrations are applied to the hosted Livingtown project; the remote migration history contains eight migrations.
 - **Disposable database:** GitHub Actions starts a temporary Supabase stack and passes suites 0004, 0005, and 0006 with 169 pgTAP tests.
 - **Real shared gate:** Phase 10.3 identity, owner-CRUD, privacy, Realtime, and cleanup checks are PASS; see [the latest evidence](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md).
-- **Still pending:** the RPC-only contract is not applied and the public Netlify site remains the Phase 7 baseline. The current feature branch's Native WebMCP local/preview gate is PASS; public URL revalidation, the video, and the final Devpost submission are not complete.
+- **Public production gate:** `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` is deployed to the existing Netlify production site, and the public URL Native WebMCP, Core Demo, and Supabase shared-state gates are PASS. See [the public production evidence](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md).
+- **Still pending:** the RPC-only contract is not applied, the video is not recorded, and the final Devpost submission is not complete. Native in-flight AbortSignal cancellation was not run and is recorded as a non-blocking limitation.
 
 Older “unapplied” or “not run” statements below are retained as historical checkpoints. The status above is the current source of truth.
 
@@ -33,7 +34,7 @@ For a production build:
 npm run build
 ```
 
-The static output is written to `dist/`. The primary verified free public production deployment is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/). The public URL currently deploys the Phase 7 baseline from `main` (`27a303f`) with `npm run build` and `dist/`, and runs `SUPABASE_SHARED` using the existing project's browser-safe Supabase configuration. The Phase 8 real-map/community-CRUD/i18n branch and the Phase 9 Navara 3D branch have not been deployed to production. A newly opened browser tab confirmed HTTPS, anonymous Auth, `CONNECTED`, Realtime `CONNECTED`, and the MAP → DRILL → REPLAY flow. The GitHub Pages URL [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) remains as a fallback. The current branch's Native WebMCP local gate is recorded separately; the public URL must be revalidated after deployment. The Phase 9 native gate is not run; see [docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md](./docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md). The `SIMULATED` fallback remains available for browsers without Native WebMCP.
+The static output is written to `dist/`. The primary verified free public production deployment is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/). The public URL deploys `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` with `npm run build` and `dist/`, and runs `SUPABASE_SHARED` using the existing project's browser-safe Supabase configuration. A fresh compatible-Chrome browser context confirmed HTTPS, assets, anonymous Auth, `CONNECTED`, Realtime `CONNECTED`, exact Native WebMCP surfaces, the causal demo, and the MAP → DRILL → REPLAY flow; see [the public production evidence](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md). The GitHub Pages URL [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) remains as a fallback. The Phase 9 native gate is not run; see [docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md](./docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md). The `SIMULATED` fallback remains available for browsers without Native WebMCP.
 
 ## Three-minute demo
 
@@ -77,7 +78,7 @@ Direct access to the browser API is isolated in [`src/webmcp/register.ts`](./src
 - `getTools()` and `toolchange` for native-surface inspection
 - explicit `readOnlyHint` and `untrustedContentHint` annotations
 
-When the browser does not expose WebMCP, the same tool definitions run through the local simulator. The UI labels this mode `SIMULATED` and explicitly says **This is not native WebMCP evidence.** Native claims are based only on a recorded compatible-Chrome agent run; the public URL must be revalidated after the feature branch is deployed.
+When the browser does not expose WebMCP, the same tool definitions run through the local simulator. The UI labels this mode `SIMULATED` and explicitly says **This is not native WebMCP evidence.** Native claims are based only on a recorded compatible-Chrome agent run; the current public production result is recorded in [WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md).
 
 ## Security and privacy boundaries
 
@@ -104,10 +105,10 @@ The current Phase 10.2 local gate passes with 23 test files and 149 tests. GitHu
 
 ## Challenge submission readiness
 
-The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. The Phase 10 feature branch is prepared for review, but it has not been deployed to the live URL and the remaining submission gate is external:
+The repository includes the required public-code ingredients: source, setup instructions, WebMCP implementation, English testing guidance, and an open-source [MIT License](./LICENSE). The primary verified live URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), with [GitHub Pages](https://hello-ai-company.github.io/livingtown/) retained as a fallback. `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` is deployed and its public production gate is recorded; the remaining submission gate is external:
 
 - record a public YouTube demo under three minutes with audio covering the product and WebMCP use;
-- the current branch's Native WebMCP MAP → DRILL → REPLAY local gate is recorded separately; the public URL needs a post-deploy real-device recheck; and
+- the public Native WebMCP MAP → DRILL → REPLAY gate is recorded in [the production evidence](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md); and
 - the public repository default branch now contains the readiness documentation and MIT license; keep the final submission link pointed at that public repository.
 
 The status and exact evidence requirements are tracked in [docs/SUBMISSION_CHECKLIST.md](./docs/SUBMISSION_CHECKLIST.md).
@@ -128,6 +129,6 @@ The implementation reuses the existing Knowledge verification, ownership, Realti
 
 The MAP WebMCP surface is fixed at exactly three tools: contribute_knowledge, verify_knowledge, and query_area. Owner-only update/delete remains available through the human-facing Repository/UI management path, but is not exposed on the agent-facing WebMCP surface. There is no report_observation tool. The existing contribute contract remains valid while the category enum and optional report_type / observed_at fields are extended. See [the Phase 10 design](./docs/LIVING_OBSERVATION_LAYER.md) and [local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) for the full safety and gate status.
 
-The Phase 10 Supabase migration is applied as an Expand rollout, and its pgTAP suite passes in the disposable GitHub Actions database gate. The final RPC-only contract is not applied. The current branch's Native WebMCP local gate is recorded separately; this feature branch is not deployed to Netlify and the public URL requires a post-deploy recheck. See [the latest shared-gate evidence](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md).
+The Phase 10 Supabase migration is applied as an Expand rollout, and its pgTAP suite passes in the disposable GitHub Actions database gate. The final RPC-only contract is not applied. `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` is deployed to Netlify and its public Native WebMCP/shared-state revalidation is recorded in [the public production evidence](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md). See also [the latest shared-gate evidence](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md).
 
 Photo upload is intentionally out of scope for Phase 10.2. Faces, license plates, EXIF location, moderation/redaction, retention, Storage permissions, cost, and bot/abuse controls require a separate safety design before media is accepted.

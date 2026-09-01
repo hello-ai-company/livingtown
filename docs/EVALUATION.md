@@ -1,7 +1,7 @@
 # LivingTown 実装評価
 
 評価日: 2026-09-01
-対象: consolidated `feat/living-observation-layer`（PR #12、retarget後のbase branch `main`）
+対象: current `main@0789688c7e7806a8a9563ef605e2e3014e5c1024`（consolidated Phase 10 build）
 Previous HEAD: `5fc9ad7221d8d120ce76c34d0f38ca6db70e6d45`（Phase 8初期評価時点）
 
 ## 判定ルール
@@ -14,13 +14,13 @@ Previous HEAD: `5fc9ad7221d8d120ce76c34d0f38ca6db70e6d45`（Phase 8初期評価�
 
 ## Current status (2026-09-01)
 
-現在の正本はPhase 10.3Bの最新証跡である。Phase 8／Phase 10 Expand
+現在の正本は、Phase 10.3Bの最新証跡と公開production gateである。Phase 8／Phase 10 Expand
 migrationはHosted Livingtownへ適用済み、GitHub Actionsの一時Supabaseで
 0004／0005／0006の169 pgTAP testsがPASS、real shared identity／owner CRUD／
-privacy／Realtime／cleanup gateもPASSである。最終RPC-only contractは未適用で、
-公開NetlifyはPhase 7 baselineのままである。現行feature branchのNative WebMCP
-local/preview実機ゲートはPASSだが、feature branchの本番反映、公開URLの再検証、
-動画、Devpost最終提出は未実施である。詳細は
+privacy／Realtime／cleanup gateもPASSである。最終RPC-only contractは未適用だが、
+`main@0789688c7e7806a8a9563ef605e2e3014e5c1024` は公開Netlifyへ反映済みで、
+公開URLのNative WebMCP／Core Demo／shared-state再検証もPASSである。動画と
+Devpost最終提出は未実施である。詳細は
 [`SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) を参照する。
 
 この文書には各時点の評価を連続して残しているため、後続の「未適用」「未実行」
@@ -30,13 +30,13 @@ local/preview実機ゲートはPASSだが、feature branchの本番反映、公�
 
 ### Netlify production deployment
 
-- `NETLIFY_PRODUCTION_GATE: PASS` for the Phase 7 baseline only: the public stable URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), served over HTTPS from the latest merged `main@27a303f`.
-- Phase 8 has not changed Netlify production; its feature branch is not the public deployment.
+- `NETLIFY_PRODUCTION_GATE: PASS` for the current application: the public stable URL is [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/), served over HTTPS from `main@0789688c7e7806a8a9563ef605e2e3014e5c1024`.
+- The consolidated build is the public deployment; the previous Phase 7 baseline remains historical evidence only.
 - Netlify Free plan uses repository-root `npm run build` and publishes `dist`. The GitHub repository is connected for continuous deployment; GitHub Pages remains a fallback.
 - A fresh browser tab loaded the site without a prior LivingTown origin state. Data diagnostics showed `SUPABASE_SHARED`, configured `YES`, authenticated `YES`, `CONNECTED`, and Realtime `CONNECTED`.
 - The public production smoke test covered MAP → DRILL → REPLAY, one safe temporary wheelchair household registration, an explainable route calculation, and the Replay debrief. Runtime assets were same-origin; no GitHub Pages or localhost resource was required.
-- NATIVE_WEBMCP_LIVE_URL_GATE: PASS on Chrome 152.0.7977.64 with Codex connected through Chrome DevTools for agents to the public Netlify deployment.
-- NATIVE_WEBMCP_AGENT_INVOCATION: PASS. The agent discovered the live schemas, completed query_area and one confirmed non-PII contribute_knowledge invocation, and observed the application reflection.
+- NATIVE_WEBMCP_LIVE_URL_GATE: PASS on Chrome 152.0.7977.64 with Codex connected through Chrome DevTools for agents to the public Netlify deployment; the exact 3 / 3 / 2 surfaces and phase lifecycle are in [the public evidence](./evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md).
+- NATIVE_WEBMCP_AGENT_INVOCATION: PASS. The agent discovered the live schemas, completed safe MAP, DRILL, and REPLAY invocations, and observed the application reflection and causal route explanation.
 
 ### Native WebMCP real-agent gate — Phase 7 baseline
 
@@ -48,12 +48,12 @@ local/preview実機ゲートはPASSだが、feature branchの本番反映、公�
 - The live contribute_knowledge schema exposed category, lat, lng, condition, description, and confidence with the expected constraints. The completed invocation returned pending_verification and was reflected in Activity and the shared Knowledge count.
 - Detailed environment, invocation, and phase records are in [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) and [docs/evidence/livingtown-webmcp-evidence-2026-08-31T07-07-57-473Z.json](./evidence/livingtown-webmcp-evidence-2026-08-31T07-07-57-473Z.json).
 
-### Native WebMCP real-agent gate — current feature branch
+### Native WebMCP real-agent gate — current public production
 
-- `CURRENT_HEAD_NATIVE_WEBMCP_GATE: PASS` on the current `feat/living-observation-layer` working tree in a clean local preview. This is separate from the historical public Phase 7 deployment and is not a claim about the current public URL.
+- `CURRENT_HEAD_NATIVE_WEBMCP_GATE: PASS` on the public `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` deployment. The local/preview gate remains recorded separately as historical implementation evidence.
 - The exact current surface is MAP = `contribute_knowledge`, `verify_knowledge`, `query_area`; DRILL = `register_household`, `get_evacuation_route`, `report_bottleneck`; REPLAY = `control_replay`, `get_debrief_summary`.
-- A native Chrome run observed the causal path: contribution returned `pending_verification`; two distinct fixture verifications returned `verified: false` then `verified: true`; a temporary wheelchair household produced a flood/rain detour with `avoided.reason` and `avoided.edge_ids`; the replay and debrief tools returned the same route explanation.
-- The management view reported `NATIVE`, exact surface `PASS`, and phase summaries `3 / 3 / PASS`, `3 / 3 / PASS`, and `2 / 2 / PASS`. The detailed run record is [docs/evidence/WEBMCP_NATIVE_GATE_2026-09-01.md](./evidence/WEBMCP_NATIVE_GATE_2026-09-01.md).
+- A native Chrome run on the public URL observed the causal path: contribution returned `pending_verification`; two isolated shared-mode identities returned `verified: false` then `verified: true`; a temporary wheelchair household produced a flood/rain detour with `avoided.reason` and `avoided.edge_ids`; the replay and debrief tools returned the same route explanation.
+- The management view reported `NATIVE`, exact surface `PASS`, and phase summaries `3 / 3 / PASS`, `3 / 3 / PASS`, and `2 / 2 / PASS`. The detailed public run record is [docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md](./evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md).
 
 ### Phase 8 implementation gate
 
@@ -65,7 +65,7 @@ local/preview実機ゲートはPASSだが、feature branchの本番反映、公�
 
 ### Phase 9 immersive Navara map
 
-- The consolidated feature branch is `feat/living-observation-layer`, carrying the reviewed MapLibre/CRUD work, Navara 3D, and Living Observation layer. PR #9/#10/#11 remain open historical stack members; PR #12 is the consolidated review target. The hosted Expand migrations are applied, while the public Netlify URL remains on the Phase 7 baseline.
+- The historical consolidated feature branch was `feat/living-observation-layer`, carrying the reviewed MapLibre/CRUD work, Navara 3D, and Living Observation layer; it is now integrated into `main@0789688c7e7806a8a9563ef605e2e3014e5c1024`. PR #9/#10/#11 remain historical stack members. The hosted Expand migrations are applied and the public Netlify URL serves current `main`.
 - MapLibre 2D is the default. `MapExperience` exposes a localized 2D/3D switch, `?view=2d|3d`, LocalStorage preference, React error boundary, and automatic 2D fallback. Mobile starts at low quality and still requires explicit 3D opt-in.
 - Navara runtime packages are exact-pinned at `@navaramap/three@0.1.1`, `@navaramap/three-default-plugin@0.1.1`, `three@0.185.1`, and `postprocessing@6.39.4`. `NavaraMap3D` is a lazy React chunk; initial `dist/index.html` loads the 2D entry and does not import the Navara runtime, Three, WASM, or Worker modules.
 - 3D reads the same `TownRepository` snapshot as 2D. `PENDING`, `VERIFIED`, `AFFECTING_ROUTE`, household/start, bottlenecks, route LineString, avoided roads, `avoided.reason`, and replay state are projected without a duplicate domain store. The route is not recalculated in 3D.
@@ -140,7 +140,7 @@ local/preview実機ゲートはPASSだが、feature branchの本番反映、公�
 
 接続された通常Chrome（WebMCP APIなし、SIMULATED）で、desktop viewportのMAP表示、Knowledge投稿、PENDING、1票目、2票目のVERIFIED transition、visual detail card、Verified filter、wheelchair route、AFFECTING_ROUTE、avoided edge／reason、REPLAYの `KNOWLEDGE → ROUTE` panel、bottleneck、demo resetを確認した。これは通常ブラウザ上のUX確認であり、native WebMCP evidenceではない。
 
-Phase 8のローカルpreviewでは、MapLibreコンテナ、GSI attribution、地図tap投稿モード、5段階フォーム、Simple/Advanced切替、JA/EN切替、Geolocateボタンの明示操作を確認した。Phase 10.3ではHosted Expand適用後のowner CRUD／privacy／Realtimeも確認済みである。現行feature branchのNative WebMCP local/preview gateはPASSであり、公開Netlify URLへのfeature branch反映後の再確認だけが未完了である。
+Phase 8のローカルpreviewでは、MapLibreコンテナ、GSI attribution、地図tap投稿モード、5段階フォーム、Simple/Advanced切替、JA/EN切替、Geolocateボタンの明示操作を確認した。Phase 10.3ではHosted Expand適用後のowner CRUD／privacy／Realtimeも確認済みである。公開productionでは、これらのshared-state境界に加えてNative WebMCPとCore Demoを再確認し、結果を新しい公開証跡へ分離した。
 
 ### Global map manual verification
 
@@ -153,7 +153,7 @@ Phase 8のローカルpreviewでは、MapLibreコンテナ、GSI attribution、�
 
 ### Native WebMCP follow-up boundaries
 
-The Phase 7 Native WebMCP gate is PASS for the historical public baseline. The consolidated current-head Native gate is PASS for the local preview. NATIVE_IN_FLIGHT_ABORT remains NOT TESTED,
+The Phase 7 Native WebMCP gate remains PASS for the historical public baseline, and the consolidated current-head Native gate is PASS on the public production URL. NATIVE_IN_FLIGHT_ABORT remains NOT TESTED,
 because the minimum gate did not require an in-flight phase-change
 cancellation test. The separate DevTools Application → WebMCP pane screenshot
 was not retained; Chrome DevTools for agents provided the primary discovery
@@ -165,17 +165,17 @@ this native result.
 
 `20260830143556_verification_privacy_rls.sql`、`20260830143717_knowledge_counter_privileges.sql`、`20260830143808_shared_state_trust_boundary.sql` は、verification unique制約、RLS、Verification tableのbrowser SELECT/write禁止、anon roleのwrite禁止、Knowledge counterのcolumn privilege、counter初期化trigger、Auth-derived verifier、RPC-only private writes、Knowledge-only Realtimeを設計している。`20260830162803_function_execute_boundary.sql` はpublic schemaのdefault EXECUTE grantをhardeningし、内部helperをbrowser roleから隠し、authenticated向け公開RPCだけを残す。Phase 8／10 Expandの実DBapply、Security Advisor、Disposable DB 169 tests、Phase 10.3 real client／CRUD／privacy／Realtime／cleanupは [`docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) のとおりPASSである。failure injection、完全な匿名性、moderation／Sybil対策は未完了である。実DBでの確認SQLと期待値は [`docs/SUPABASE_SHARED_STATE.md`](./SUPABASE_SHARED_STATE.md) にある。
 
-初期4 migrationと `20260830162803_function_execute_boundary.sql` の実Livingtown projectへのapply、schema／RLS／基本権限／Knowledge-only Realtime、Security Advisor再確認は過去の基礎gateとしてPASSである。Phase 8／10 Expandのapplyと、Disposable DB 169 tests、独立Auth identityによるCRUD／再検証／削除／Realtime、privacy、cleanupは最新証跡のとおりPASSである。Network failure injection、公開URLへのfeature branch deployment／post-deploy Native再確認は別の未完了gateである。現行feature branchのNative WebMCP local/preview gateはPASSである。
+初期4 migrationと `20260830162803_function_execute_boundary.sql` の実Livingtown projectへのapply、schema／RLS／基本権限／Knowledge-only Realtime、Security Advisor再確認は過去の基礎gateとしてPASSである。Phase 8／10 Expandのapplyと、Disposable DB 169 tests、独立Auth identityによるCRUD／再検証／削除／Realtime、privacy、cleanupは最新証跡のとおりPASSである。Network failure injection、完全な匿名性、moderation／Sybil対策は別の未完了gateである。公開URLのcurrent-head Native WebMCP gateは [the public evidence](./evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md) のとおりPASSである。
 
-## Phase 10 current feature-branch evaluation
+## Phase 10 current main evaluation
 
-Phase 10.2のfeature branchは `feat/living-observation-layer` で、`feat/navara-immersive-disaster-map` のHEADから派生している。既存PR #10／#11、本番Netlify、Supabase real data、Devpost、動画は変更していない。
+Phase 10.2のconsolidated buildは `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` に統合されている。過去のPR #10／#11とfeature branchは履歴として扱い、公開Netlifyはcurrent mainを配信している。
 
 The local suite passes with 23 test files and 149 tests. Coverage includes the bilingual one-line composer and explicit preview, Around You Now's repository query path, My Reports ownership filtering and safe rendering, progressive voice fallback, native Knowledge clustering, interpreter, relative time and conservative incident confidence, safe public summaries, ambiguous-to-other sensitive fallback, future timestamp rejection, incident lifecycle and expiry, sensitive-coordinate coarsening, localized PII/tactical guards, theft/harassment/conflict route isolation, fire/road_block/explosion blocking candidates, expanded visual groups/time filters, Navara current-overlay projection, and the exact three-tool MAP schema.
 
-The Phase 10 migration `supabase/migrations/20260901035444_living_observation_layer.sql` is applied as an Expand migration, and `supabase/tests/0006_living_observation_layer.sql` passes as part of the disposable 169-test database gate. `CURRENT_HEAD_NATIVE_WEBMCP_GATE: PASS` for the local preview; existing historical Native WebMCP evidence is not reused for the changed schema. The public Netlify deployment remains the Phase 7 baseline, public revalidation is pending, and the final RPC-only contract is not applied.
+The Phase 10 migration `supabase/migrations/20260901035444_living_observation_layer.sql` is applied as an Expand migration, and `supabase/tests/0006_living_observation_layer.sql` passes as part of the disposable 169-test database gate. `CURRENT_HEAD_NATIVE_WEBMCP_GATE: PASS` for the public production URL; existing historical Native WebMCP evidence was not reused for the changed schema. The final RPC-only contract is not applied.
 
-The local and disposable/hosted evidence is sufficient for consolidated code review and PR retargeting. It is not a final deploy/submission approval: production deployment, public post-deploy Native WebMCP revalidation, video, and Devpost final submission remain external verification items.
+The local, disposable/hosted, and public production evidence is sufficient for the deployment gate. It is not a final submission approval because the video and Devpost final submission remain external actions.
 
 ### GitHub Actions
 
@@ -192,7 +192,7 @@ PR #12のlatest run `33412529760` / job `99555280799` は `conclusion=success`�
 - **共有環境で完全に匿名であること。** 認証主体、アクセスログ、バックアップ、削除、鍵管理、再識別評価を含む運用がないため、Privacyの匿名性はPASSにしない。
 - network failure injection、temporary drill sessionの削除ジョブ、完全なfree-text moderation／retention／再識別評価。function EXECUTE hardening、Security Advisor、authenticated insert／anon denial／counter protection／duplicate verification、Phase 10.3 real CRUD／privacy／Realtime／cleanupは完了済みだが、運用上の再検証は別途必要。
 - anonymous Authのbot／Sybil対策（CAPTCHA/Turnstile、rate limit）、conflictの遅延／地域集約、in-flight AbortSignalのNative実機確認。
-- consolidated feature branchを公開Netlifyへ反映した後の、3本MAP surfaceに対するNative WebMCP `getTools()`／schema／toolchange／実行証跡。現行feature branchのlocal/preview Native PASSは確認済みだが、公開URLへは継承しない。
+- Native in-flight AbortSignal cancellation remains NOT TESTED on a public browser run; the public exact-surface, phase, toolchange, invocation, and UI-reflection evidence is PASS.
 
 ## Quality gate
 
@@ -216,7 +216,6 @@ CRUD、private ownership boundaryを実装し、Phase 9ではMapLibre 2Dを初�
 fallbackを追加した。Phase 10ではone-line observation、safe summary、
 privacy、owner CRUD、Realtime、Expand migrationを追加し、local quality、
 Disposable DB、Hosted Expand、real shared Phase 10.3 gateをPASSにした。
-一方、公開URLへのfeature branch反映、公開URLでの変更後3本surfaceのNative再確認、動画、
-Devpost最終提出、failure injection、共有環境で完全匿名の運用、moderation、
+一方、動画、Devpost最終提出、failure injection、共有環境で完全匿名の運用、moderation、
 in-flight AbortSignalは未確認・未完了なので、LivingTown全体を最終提出済みとは
-扱わない。
+扱わない。公開productionのcurrent main gateは [WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md](./evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md) を正本とする。

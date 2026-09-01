@@ -2,7 +2,7 @@
 
 この手順は、通常ブラウザの `SIMULATED` 表示やVitestのfake `modelContext`ではなく、対応Chromeの本物のWebMCP surfaceを確認するためのものです。実機で取得していない結果を `PASS` と記録しないでください。
 
-現行feature branchは、公開Netlify URLを変更せず、ローカルまたは新しいpreviewで確認します。既存の [`WEBMCP_NATIVE_GATE_2026-08-31.md`](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) はPhase 7の歴史的証跡です。現行8-tool surfaceの確認結果は [`WEBMCP_NATIVE_GATE_2026-09-01.md`](./evidence/WEBMCP_NATIVE_GATE_2026-09-01.md) に記録し、公開URLはfeature branchをデプロイした後に別途再確認します。
+current `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` の公開production Native WebMCP確認結果は [`WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md`](./evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md) に記録しています。既存の [`WEBMCP_NATIVE_GATE_2026-08-31.md`](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) はPhase 7の歴史的証跡、[`WEBMCP_NATIVE_GATE_2026-09-01.md`](./evidence/WEBMCP_NATIVE_GATE_2026-09-01.md) は公開前のlocal/preview実装証跡として保持します。
 
 ## 0. 期待する結果
 

@@ -2,8 +2,8 @@
 
 Status: DRAFT ONLY. This document is prepared for the Devpost form; it has not
 been submitted. The demo video URL is intentionally blank until a public
-under-three-minute video exists. The public live URL remains the Phase 7
-baseline; the consolidated Phase 10 feature branch is not deployed.
+under-three-minute video exists. `main@0789688c7e7806a8a9563ef605e2e3014e5c1024`
+is deployed at the public live URL and has passed the public production gate.
 
 ## Project
 
@@ -17,12 +17,12 @@ baseline; the consolidated Phase 10 feature branch is not deployed.
 ## Production hosting verification
 
 - **Primary hosting:** Netlify Free plan, public production site at https://livingtown-webmcp.netlify.app/
-- **Source:** `hello-ai-company/livingtown`, `main` at `27a303f`
+- **Source:** `hello-ai-company/livingtown`, `main@0789688c7e7806a8a9563ef605e2e3014e5c1024`
 - **Build:** `npm run build`, publish directory `dist`, repository root as base directory
 - **Environment:** `VITE_LIVINGTOWN_DATA_MODE=shared`, existing Livingtown Supabase URL, and a browser-safe publishable/anon key are configured in Netlify Environment variables. No value is committed here.
-- **Smoke test:** fresh browser tab loaded over HTTPS; `SUPABASE_SHARED`, Supabase configured `YES`, Anonymous Auth `YES`, `CONNECTED`, and Realtime `CONNECTED`; MAP → DRILL → REPLAY, temporary wheelchair household registration, route calculation, and Replay debrief were observed.
+- **Smoke test:** fresh compatible-Chrome context loaded over HTTPS; root and same-origin JS/CSS assets returned 200, `SUPABASE_SHARED`, Supabase configured `YES`, Anonymous Auth `YES`, `CONNECTED`, and Realtime `CONNECTED`; exact Native WebMCP MAP → DRILL → REPLAY surfaces, temporary wheelchair household registration, route calculation, causal explanation, and Replay debrief were observed. Full details are in [WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md](./evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md).
 - **Fallback:** GitHub Pages remains available at https://hello-ai-company.github.io/livingtown/.
-- **Native WebMCP:** Historical Phase 7 PASS remains tied to the deployed baseline. The current feature branch uses the exact three-tool MAP surface and requires the current-head local/preview gate recorded in [`WEBMCP_NATIVE_GATE_2026-09-01.md`](./evidence/WEBMCP_NATIVE_GATE_2026-09-01.md); the public URL still needs a post-deploy recheck.
+- **Native WebMCP:** Public production PASS for the exact 3 / 3 / 2 surfaces, native registration, phase transitions, toolchange, old-tool removal, invocation, and UI reflection; see [`WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md`](./evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md). The local/preview file remains historical implementation evidence.
 
 ## What is LivingTown?
 
@@ -118,12 +118,13 @@ External evidence:
   production URL; the old evidence is unchanged.
 - PHASE_8_LOCAL_BROWSER_UX_GATE: PASS for the feature branch, but this is not
   Native WebMCP evidence.
-- PHASE_10_NATIVE_WEBMCP_GATE: current-head local/preview evidence is recorded
-  separately; public production revalidation remains pending until deployment.
+- PHASE_10_NATIVE_WEBMCP_GATE: PASS on the public production URL for
+  `main@0789688c7e7806a8a9563ef605e2e3014e5c1024`; exact surfaces and causal
+  invocation are recorded in the new public evidence file.
 - PHASE_8_SHARED_CRUD_GATE: PASS as part of the Phase 10.3 real shared gate;
   the final RPC-only contract is not applied.
-- PHASE_10_NETLIFY_LIVE_URL_GATE: PENDING; production was intentionally left
-  on the Phase 7 baseline.
+- PHASE_10_NETLIFY_LIVE_URL_GATE: PASS; the exact current application commit was
+  deployed and verified at the public Netlify URL.
 
 Detailed records are in
 [docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md),
@@ -134,12 +135,13 @@ The Phase 8 status is in
 [docs/evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md](./evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md).
 The saved native metadata is
 [docs/evidence/livingtown-webmcp-evidence-2026-08-31T07-07-57-473Z.json](./evidence/livingtown-webmcp-evidence-2026-08-31T07-07-57-473Z.json).
+The current public production gate is
+[docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md](./evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md).
 
 ## Remaining external gates
 
-Before final submission, perform a new Native WebMCP gate for the consolidated
-feature, decide whether to deploy it to the public URL, publish the required
-YouTube demo with audio, and re-check the Devpost form. Network-failure
-injection, stronger moderation/Sybil controls, and the final RPC-only contract
-remain separate operational work. This task deliberately does not deploy the
-feature, publish a video, or perform the final submit.
+Before final submission, record and publicly upload the required YouTube demo
+with audio, then re-check the Devpost form. Network-failure injection, stronger
+moderation/Sybil controls, the final RPC-only contract, and Native in-flight
+AbortSignal cancellation remain separate operational work. This task does not
+publish a video or perform the final submit.

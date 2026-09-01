@@ -12,7 +12,8 @@ LivingTownは、住民エージェントとの日常会話を検証可能な街�
 - **Hosted Expand:** Phase 8／Phase 10のExpand migration適用済み。実Supabaseのremote migration historyは8本。
 - **Disposable DB:** GitHub Actions上の一時Supabaseで0004／0005／0006を実行し、169 pgTAP testsがPASS。
 - **Real shared gate:** Phase 10.3のidentity、owner CRUD、privacy、Realtime、cleanupをPASS。最終証跡は [SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md)。
-- **まだ未完了:** RPC-only contractは未適用、公開NetlifyはPhase 7 baselineのまま。現行feature branchのNative WebMCP local/preview gateはPASSだが、公開URLの再検証、動画、Devpost最終提出は未実施。
+- **公開production gate:** `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` を既存Netlify productionへ反映し、公開URLでNative WebMCP、Core Demo、Supabase shared stateを再検証済み。詳細は [WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md)。
+- **まだ未完了:** RPC-only contractは未適用、動画、Devpost最終提出は未実施。Native in-flight AbortSignalの実機中断確認は今回未実行で、non-blocking limitationとして記録。
 
 下記に残る古い「未適用」「未実行」の記述は、各時点の履歴として保持しています。現在の判断には上記の最新証跡を使います。
 
@@ -28,9 +29,9 @@ npm run dev
 
 ## Public production demo
 
-審査員向けのPrimary Live URLは [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) です。現在公開されているURLは、公開GitHubリポジトリの `main`（`27a303f`）からNetlify Free planで継続デプロイしているPhase 7の検証済みベースラインです。Phase 8のreal map／community CRUD／i18n変更を含むfeature branchは、まだ本番へデプロイしていません。Production buildには `VITE_LIVINGTOWN_DATA_MODE=shared` と既存Livingtown Supabaseのブラウザ公開可能な設定をNetlifyのEnvironment variablesへ登録しています。値はこのrepositoryへcommitしていません。
+審査員向けのPrimary Live URLは [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) です。現在公開されているURLは、公開GitHubリポジトリの `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` からNetlify Free planで継続デプロイしています。Buildは `npm run build`、publish directoryは `dist` です。Production buildには `VITE_LIVINGTOWN_DATA_MODE=shared` と既存Livingtown Supabaseのブラウザ公開可能な設定をNetlifyのEnvironment variablesへ登録しています。値はこのrepositoryへcommitしていません。
 
-新しいブラウザタブで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録と説明可能な経路計算を確認済みです。Phase 7の本番URLに対する過去のNative WebMCP実agent検証は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) に残し、現行ブランチのNative gateは [docs/evidence/WEBMCP_NATIVE_GATE_2026-09-01.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-09-01.md) に分離して記録します。現行feature branchは本番へまだデプロイしていないため、公開URLはデプロイ後に再検証します。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` と **This is not native WebMCP evidence.** を維持し、Native WebMCPのPASSとは扱いません。
+新しいブラウザcontextで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録、PENDING → VERIFIED、車椅子向け説明可能な経路計算、REPLAY debriefを公開URL上で確認済みです。公開URLのNative WebMCP証跡は [docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md) に記録し、過去のPhase 7実機証跡とlocal/preview証跡は履歴として保持します。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` と **This is not native WebMCP evidence.** を維持し、Native WebMCPのPASSとは扱いません。
 
 GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) はfallbackとして残しています。Netlifyの詳細な確認結果は [docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md](./docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md) を参照してください。
 
@@ -124,7 +125,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 - 3Dは環境変数ではなく、`@navaramap/three@0.1.1` の遅延チャンクを利用者の明示操作で読み込みます。対応API、WASM、Worker、WebGL2が不足する端末では3Dを開始せず、2Dへフォールバックします。
 - `VITE_MAPLIBRE_STYLE_URL` を設定する場合は、MapLibre向けのスタイルURLと利用規約を確認してください。決定的なローカル地図はネットワーク障害時のフォールバックです。
-- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。Phase 8／10 Expand migration、Security Advisor、real shared CRUD／privacy／Realtime／cleanupの最新結果は [`SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) に記録しています。Disposable Supabaseの0004／0005／0006はGitHub Actionsで169 tests PASSです。Network failure injection、完全な匿名性、moderation、feature branchのNetlify反映は未実施です。現行ブランチのNative WebMCP local gateは別証跡です。
+- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。Phase 8／10 Expand migration、Security Advisor、real shared CRUD／privacy／Realtime／cleanupの最新結果は [`SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) に記録しています。Disposable Supabaseの0004／0005／0006はGitHub Actionsで169 tests PASSです。Network failure injection、完全な匿名性、moderationは未実施です。公開URLのNative WebMCP／shared-state gateは [`WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md`](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md) に記録しています。
 
 ## Repository contract
 
@@ -142,6 +143,6 @@ Phase 10では、MAPに一行投稿欄「この場所で何がありましたか
 
 MAPのWebMCP surfaceは3本（contribute_knowledge、verify_knowledge、query_area）に固定しています。owner-onlyのupdate/deleteは人間向けRepository/UIの安全な管理操作として残しますが、agent-facing WebMCP surfaceには公開しません。新しいreport_observation toolは追加せず、既存contribute_knowledgeを新カテゴリと任意のreport_type / observed_atへ後方互換に拡張します。詳細な設計、制約、ゲートは [docs/LIVING_OBSERVATION_LAYER.md](./docs/LIVING_OBSERVATION_LAYER.md) と [Phase 10 local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) を参照してください。
 
-Phase 10のSupabase migrationはExpandとして実Supabaseへ適用済みで、pgTAPはGitHub Actionsの一時Supabaseで0006を含む169 testsをPASSしています。最終のRPC-only contractは未適用です。現行ブランチのNative WebMCP local gateは別証跡で確認し、feature branchの本番Netlify反映後に公開URLを再検証します。Phase 10.3のreal shared gateは [最新証跡](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) を参照してください。
+Phase 10のSupabase migrationはExpandとして実Supabaseへ適用済みで、pgTAPはGitHub Actionsの一時Supabaseで0006を含む169 testsをPASSしています。最終のRPC-only contractは未適用です。`main@0789688c7e7806a8a9563ef605e2e3014e5c1024` はNetlifyへ反映済みで、公開URLのNative WebMCP／shared-state再検証は [公開証跡](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md) に記録しています。Phase 10.3のreal shared gateは [最新証跡](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) を参照してください。
 
 写真アップロードはPhase 10.2では扱いません。顔・ナンバープレート・EXIF位置情報の保護、moderation／redaction、retention、Storage権限、コスト、bot／abuse対策を先に設計する必要があるためです。

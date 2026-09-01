@@ -1,12 +1,17 @@
 # LivingTown current-head Native WebMCP gate — 2026-09-01
 
+> Historical local/preview evidence captured before the public production gate.
+> The authoritative current public result is
+> [`WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md`](./WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md).
+
 `CURRENT_HEAD_NATIVE_WEBMCP_GATE: PASS`
 
-This is the current `feat/living-observation-layer` feature branch's local
-preview evidence. It is deliberately separate from the historical Phase 7
-public Netlify evidence. The public URL still serves the older `main` baseline
-and requires a post-deploy recheck; this file does not claim that the public
-URL contains the current branch.
+This is the local/preview evidence captured before the consolidated build was
+deployed. It is deliberately separate from the historical Phase 7 public
+Netlify evidence and from the current public production evidence. The public
+production result is recorded in
+`WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md`; this file remains a historical
+record of the local gate and does not make a current public deployment claim.
 
 ## Environment
 
