@@ -19,6 +19,12 @@ changed five-tool Native WebMCP gate and feature-branch deployment remain
 pending. Historical blocked checkpoints later in this document are retained
 for auditability and are not the current hosted status.
 
+The hosted evidence records the server-assigned remote migration-history
+versions separately from the source filenames listed below (for example, the
+remote `20260901...` entries correspond to the Phase 8/10 source files).
+Migration history was not rewritten; do not reapply these source migrations to
+the hosted project.
+
 ## Modes
 
 | Mode | Repository | Data boundary | Reset behavior |
