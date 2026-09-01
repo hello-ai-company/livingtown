@@ -72,7 +72,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
     <div className="map-experience">
       <div className="dimension-switcher" role="group" aria-label={mapProps.locale === 'ja' ? '地図の表示' : 'Map dimension'}>
         <button type="button" className={dimension === '2d' ? 'is-active' : ''} onClick={() => changeDimension('2d')}>{t.view2d}</button>
-        <button type="button" className={dimension === '3d' ? 'is-active' : ''} onClick={() => changeDimension('3d')}>{t.view3d}</button>
+        {(mapProps.mode === 'advanced' || dimension === '3d') && <button type="button" className={dimension === '3d' ? 'is-active' : ''} onClick={() => changeDimension('3d')}>{t.view3d}</button>}
       </div>
       {dimension === '3d' ? <ThreeDErrorBoundary fallback={renderFallback}>
         <Suspense fallback={<Loading3D locale={mapProps.locale ?? 'ja'} />}>

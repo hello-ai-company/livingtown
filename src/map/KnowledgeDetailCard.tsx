@@ -10,11 +10,12 @@ interface KnowledgeDetailCardProps {
   onClose: () => void
   locale?: Locale
   mode?: ExperienceMode
+  onVerify?: (knowledgeId: string, verdict: 'agree' | 'disagree') => void
   onEdit?: (knowledge: Knowledge) => void
   onDelete?: (knowledge: Knowledge) => void
 }
 
-export function KnowledgeDetailCard({ view, selectedHousehold, onClose, locale = 'ja', mode = 'simple', onEdit, onDelete }: KnowledgeDetailCardProps) {
+export function KnowledgeDetailCard({ view, selectedHousehold, onClose, locale = 'ja', mode = 'simple', onVerify, onEdit, onDelete }: KnowledgeDetailCardProps) {
   const t = createTranslator(locale)
   const { item, config } = view
   const routeImpact = view.affectsCurrentRoute
@@ -23,7 +24,10 @@ export function KnowledgeDetailCard({ view, selectedHousehold, onClose, locale =
   const householdConstraints = selectedHousehold?.constraints.map((constraint) => t(`constraint.${constraint}`)).join(' · ') || t('common.none')
   const statusLabel = item.source_kind === 'official'
     ? t('trust.official')
-    : view.trustState === 'community_confirmed' ? t('trust.communityConfirmed') : t('trust.communityReport')
+    : mode === 'simple'
+      ? t(view.state === 'pending' ? 'status.simplePending' : view.state === 'affecting_route' ? 'status.simpleAffecting' : 'status.simpleVerified')
+      : view.trustState === 'community_confirmed' ? t('trust.communityConfirmed') : t('trust.communityReport')
+  const statusDetail = view.state === 'pending' ? t('status.simplePendingDetail') : view.state === 'affecting_route' ? t('status.simpleAffectingDetail') : t('status.simpleVerifiedDetail')
   const description = getKnowledgeSafeDescription(item, locale)
   const precision = item.location_precision_m && item.location_precision_m > 0
     ? t('mapDetail.precisionMeters', { meters: item.location_precision_m })
@@ -47,12 +51,20 @@ export function KnowledgeDetailCard({ view, selectedHousehold, onClose, locale =
 
       <div className={`knowledge-detail-card__status knowledge-detail-card__status--${view.state}`}>
         <span>{statusLabel}</span>
+        {mode === 'simple' && item.source_kind !== 'official' && <small>{statusDetail}</small>}
         {view.expired && <strong>{t('mapDetail.expired')}</strong>}
         {routeImpact && <strong>{t('mapDetail.routeImpact')}</strong>}
       </div>
 
       <p className="knowledge-detail-card__description">{description}</p>
       {isSensitiveObservation(item.category) && <p className="knowledge-detail-card__privacy-note">{t('mapDetail.sensitiveNote')}</p>}
+      {mode === 'simple' && item.source_kind !== 'official' && onVerify && <div className="knowledge-detail-card__verify">
+        <strong>{t('mapDetail.verifyPrompt')}</strong>
+        <div className="knowledge-detail-card__verify-actions">
+          <button type="button" className="primary-button" onClick={() => onVerify(item.id, 'agree')}>{t('mapDetail.simpleAgree')}</button>
+          <button type="button" className="secondary-button" onClick={() => onVerify(item.id, 'disagree')}>{t('mapDetail.simpleDisagree')}</button>
+        </div>
+      </div>}
 
       <dl className="knowledge-detail-card__facts">
         <div><dt>{t('mapDetail.condition')}</dt><dd>{t(`condition.${item.condition}`)}</dd></div>

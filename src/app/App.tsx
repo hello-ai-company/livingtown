@@ -30,6 +30,13 @@ const PHASE_BASE: Array<{ key: Phase; index: string; short: string }> = [
   { key: 'replay', index: '03', short: 'REPLAY' },
 ]
 
+const SIMPLE_CONSTRAINT_ICONS: Record<string, string> = {
+  wheelchair: '♿',
+  infant: '👶',
+  elderly: '👴',
+  pet: '🐕',
+}
+
 function getPhaseMeta(t: Translator) {
   return PHASE_BASE.map((item) => ({
     ...item,
@@ -44,9 +51,10 @@ function formatTime(value: string, locale: Locale) {
 
 function repositoryStatusLabel(status: ReturnType<typeof townRepository.getStatus>, locale: Locale, mode: ExperienceMode) {
   if (mode === 'advanced') return `${dataModeLabel(status.mode)} / ${status.connection}`
-  const data = status.mode === 'SUPABASE_SHARED' ? (locale === 'ja' ? '共有データ' : 'Shared data') : (locale === 'ja' ? 'この端末のデモ' : 'Local demo')
-  const state = status.connection === 'CONNECTED' ? (locale === 'ja' ? '接続中' : 'Online') : status.connection === 'ERROR' ? (locale === 'ja' ? '確認が必要' : 'Needs attention') : status.connection === 'CONNECTING' ? (locale === 'ja' ? '接続確認中' : 'Connecting') : (locale === 'ja' ? 'ローカル' : 'Local')
-  return `${data} / ${state}`
+  if (status.connection === 'ERROR') return locale === 'ja' ? '情報を確認中' : 'Checking information'
+  return status.mode === 'SUPABASE_SHARED'
+    ? (locale === 'ja' ? '地域の共有情報' : 'Community information')
+    : (locale === 'ja' ? 'デモ情報' : 'Demo information')
 }
 
 function AppShell() {
@@ -203,6 +211,12 @@ function AppShell() {
         setNotice(t('notice.updated'))
       } else if (name === 'delete_knowledge') {
         setNotice(t('notice.deleted'))
+      } else if (mode === 'simple' && name === 'get_evacuation_route') {
+        setNotice(t('notice.routeCalculated'))
+      } else if (mode === 'simple' && name === 'get_debrief_summary') {
+        setNotice(t('notice.summaryUpdated'))
+      } else if (mode === 'simple' && name === 'control_replay') {
+        setNotice(t('notice.replayUpdated'))
       } else {
         setNotice(t('notice.applied', { title: definition.title }))
       }
@@ -213,7 +227,7 @@ function AppShell() {
       setNotice(message)
       return undefined
     }
-  }, [locale, phase, phaseSignal, t])
+  }, [locale, mode, phase, phaseSignal, t])
 
   const contributeDemoKnowledge = async () => {
     const result = await runTool('contribute_knowledge', {
@@ -230,16 +244,23 @@ function AppShell() {
     }
   }
 
+  const verifyKnowledge = async (knowledgeId: string, verdict: 'agree' | 'disagree') => {
+    const agreeCount = snapshot.verifications.filter((verification) => verification.knowledge_id === knowledgeId && verification.verdict === 'agree').length
+    const verifierId = verdict === 'agree'
+      ? (agreeCount === 0 ? 'anon-demo-neighbor-a' : 'anon-demo-neighbor-b')
+      : 'anon-demo-neighbor-disagree'
+    const input = townRepository.dataMode === 'SUPABASE_SHARED'
+      ? { knowledge_id: knowledgeId, verdict }
+      : { knowledge_id: knowledgeId, verifier_id: verifierId, verdict }
+    const result = await runTool('verify_knowledge', input) as { verified?: boolean; duplicate?: boolean } | undefined
+    if (result?.duplicate) return
+    setNotice(verdict === 'agree' ? t('notice.verified') : t('notice.disputed'))
+  }
+
   const verifyLastKnowledge = async () => {
     const targetKnowledgeId = resolveVerificationTargetId(selectedKnowledgeId, lastKnowledgeId)
     if (!targetKnowledgeId) return
-    const agreeCount = snapshot.verifications.filter((verification) => verification.knowledge_id === targetKnowledgeId && verification.verdict === 'agree').length
-    const verifierId = agreeCount === 0 ? 'anon-demo-neighbor-a' : 'anon-demo-neighbor-b'
-    const input = townRepository.dataMode === 'SUPABASE_SHARED'
-      ? { knowledge_id: targetKnowledgeId, verdict: 'agree' as const }
-      : { knowledge_id: targetKnowledgeId, verifier_id: verifierId, verdict: 'agree' as const }
-    const result = await runTool('verify_knowledge', input) as { verified?: boolean; duplicate?: boolean } | undefined
-    if (result?.verified && !result.duplicate) setNotice(t('notice.verified'))
+    await verifyKnowledge(targetKnowledgeId, 'agree')
   }
 
   const calculateRoute = async () => {
@@ -352,7 +373,7 @@ function AppShell() {
   const routeCount = Object.keys(snapshot.routes).length
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell app-shell--${mode}`}>
       <header className="topbar">
         <div className="brand-lockup">
           <div className="brand-mark" aria-hidden="true"><span /><span /><span /></div>
@@ -365,8 +386,10 @@ function AppShell() {
           <span className="live-label"><span className={`status-dot${repositoryStatus.connection === 'CONNECTED' || repositoryStatus.connection === 'LOCAL' ? ' status-dot--live' : ''}`} /> {repositoryStatusLabel(repositoryStatus, locale, mode)}</span>
           <div className="preference-controls" aria-label={locale === 'ja' ? '表示設定' : 'Display preferences'}>
             <div className="preference-toggle" role="group" aria-label={locale === 'ja' ? '言語' : 'Language'}><button type="button" className={locale === 'ja' ? 'is-active' : ''} onClick={() => setLocale('ja')}>JA</button><button type="button" className={locale === 'en' ? 'is-active' : ''} onClick={() => setLocale('en')}>EN</button></div>
-            <div className="preference-toggle" role="group" aria-label={locale === 'ja' ? '表示モード' : 'Experience mode'}><button type="button" className={mode === 'simple' ? 'is-active' : ''} onClick={() => setMode('simple')} title={t('mode.simpleHint')}>{t('mode.simple')}</button><button type="button" className={mode === 'advanced' ? 'is-active' : ''} onClick={() => setMode('advanced')} title={t('mode.advancedHint')}>{t('mode.advanced')}</button></div>
+            <div className="preference-toggle preference-toggle--mode" role="group" aria-label={locale === 'ja' ? '表示モード' : 'Experience mode'}><button type="button" className={mode === 'simple' ? 'is-active' : ''} onClick={() => setMode('simple')} title={t('mode.simpleHint')}>{t('mode.simple')}</button><button type="button" className={mode === 'advanced' ? 'is-active' : ''} onClick={() => setMode('advanced')} title={t('mode.advancedHint')}>{t('mode.advanced')}</button></div>
           </div>
+          {mode === 'simple' && <button type="button" className="settings-button" onClick={() => setMode('advanced')} title={t('mode.advancedHint')}><span aria-hidden="true">⚙</span>{locale === 'ja' ? '設定' : 'Settings'}</button>}
+          {mode === 'simple' && <button type="button" className="my-reports-link" onClick={() => transitionTo('reports')}>{t('nav.myReports')}</button>}
           {mode === 'advanced' && <button className={`admin-button${panel === 'admin' ? ' admin-button--active' : ''}`} onClick={() => transitionTo('admin')}>
             <span aria-hidden="true">◌</span> {t('header.admin')}
           </button>}
@@ -374,17 +397,17 @@ function AppShell() {
       </header>
 
       <main className="workspace">
-        <section className="intro-row">
+        <section className={`intro-row${mode === 'simple' ? ' intro-row--simple' : ''}`}>
           <div className="intro-copy">
-            <span className="eyebrow">{t('hero.eyebrow')}</span>
-            <h1>{t('hero.title')}<br /><em>{t('hero.titleAccent')}</em></h1>
-            <p>{t('hero.body')}</p>
+            <span className="eyebrow">{t(mode === 'simple' ? 'hero.simpleEyebrow' : 'hero.eyebrow')}</span>
+            {mode === 'simple' ? <h1>{t('hero.simpleTitle')}</h1> : <h1>{t('hero.title')}<br /><em>{t('hero.titleAccent')}</em></h1>}
+            <p>{t(mode === 'simple' ? 'hero.simpleBody' : 'hero.body')}</p>
           </div>
-          <div className="signal-board" aria-label={t('signal.label')}>
+          {mode === 'advanced' && <div className="signal-board" aria-label={t('signal.label')}>
             <div className="signal-board__label">{t('signal.label')} <span className="status-dot status-dot--live" /></div>
             <div className="signal-board__main">{verifiedCount}<small> {t('signal.verified')}</small></div>
             <div className="signal-board__footer"><span>{snapshot.knowledge.length} {t('signal.observations')}</span><span>{routeCount} {t('signal.routes')}</span></div>
-          </div>
+          </div>}
         </section>
 
         <nav className="phase-nav" aria-label={t('phase.navLabel')}>
@@ -399,11 +422,11 @@ function AppShell() {
               </button>
             )
           })}
-          <button type="button" className={`phase-tab phase-tab--reports${panel === 'reports' ? ' phase-tab--active' : ''}`} onClick={() => transitionTo('reports')} aria-current={panel === 'reports' ? 'page' : undefined}>
+          {mode === 'advanced' && <button type="button" className={`phase-tab phase-tab--reports${panel === 'reports' ? ' phase-tab--active' : ''}`} onClick={() => transitionTo('reports')} aria-current={panel === 'reports' ? 'page' : undefined}>
             <span className="phase-tab__index">04</span>
             <span className="phase-tab__copy"><strong>{t('nav.myReports')}</strong><small>{t('nav.myReportsHint')}</small></span>
-            {mode === 'advanced' && <span className="phase-tab__code">MINE</span>}
-          </button>
+            <span className="phase-tab__code">MINE</span>
+          </button>}
         </nav>
 
         {notice && <div className="notice" role="status"><span className="notice__signal">↗</span><span>{notice}</span><button onClick={() => setNotice(undefined)} aria-label={t('notice.close')}>×</button></div>}
@@ -411,9 +434,9 @@ function AppShell() {
         <div className={`main-grid${mode === 'simple' ? ' main-grid--simple' : ''}`}>
           <section className="map-column">
             {panel === 'reports' ? <MyReportsPanel knowledge={snapshot.knowledge} locale={locale} onEdit={editKnowledge} onDelete={(knowledge) => void deleteKnowledge(knowledge)} onPost={() => { transitionTo('map'); setObservationComposerOpen(true) }} /> : <>
+              {panel === 'map' && <MapExperience snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} dimension={mapDimension} camera={mapCamera} onDimensionChange={setMapDimension} onCameraChange={setMapCamera} onNotice={setNotice} weatherMode={weatherVisualMode} onWeatherModeChange={setWeatherVisualMode} locationPickerActive={locationPickerActive} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onVerifyKnowledge={(knowledgeId, verdict) => { void verifyKnowledge(knowledgeId, verdict) }} onRequestContribution={(location, source = 'map') => { if (source === 'current') setObservationCurrentLocation(location); if (source === 'map') setObservationMapLocation(location); setObservationLocationSource(source); setObservationComposerOpen(true) }} onLocationPicked={(location) => { setLocationPickerActive(false); if (editingKnowledge) setEditingLocation(location); else setObservationMapLocation(location); setObservationLocationSource('map'); setObservationComposerOpen(true); setNotice(t('notice.locationSelected')) }} onEditKnowledge={editKnowledge} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />}
               {panel === 'map' && mode === 'simple' && <AroundYouNow repository={townRepository} camera={mapCamera} locale={locale} mode={mode} refreshKey={snapshot.knowledge.map((item) => `${item.id}:${item.updated_at ?? item.created_at}:${item.agree_count}:${item.disagree_count}`).join('|')} onSelectKnowledge={(knowledgeId) => { setSelectedKnowledgeId(knowledgeId); transitionTo('map') }} />}
               {panel === 'map' && observationComposerOpen && <ObservationComposer locale={locale} mode={mode} location={observationMapLocation ?? observationCurrentLocation ?? { lat: mapCamera.lat, lng: mapCamera.lng }} locationSource={observationMapLocation ? 'map' : observationCurrentLocation ? 'current' : observationLocationSource} onRequestLocationChange={() => { setObservationMapLocation(undefined); setObservationLocationSource(observationCurrentLocation ? 'current' : 'center'); setLocationPickerActive(true) }} onSubmit={submitKnowledge} lastPostedKnowledgeId={lastKnowledgeId} onUndo={() => void undoLastObservation()} />}
-              <MapExperience snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} dimension={mapDimension} camera={mapCamera} onDimensionChange={setMapDimension} onCameraChange={setMapCamera} onNotice={setNotice} weatherMode={weatherVisualMode} onWeatherModeChange={setWeatherVisualMode} locationPickerActive={locationPickerActive} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onRequestContribution={(location, source = 'map') => { if (source === 'current') setObservationCurrentLocation(location); if (source === 'map') setObservationMapLocation(location); setObservationLocationSource(source); setObservationComposerOpen(true) }} onLocationPicked={(location) => { setLocationPickerActive(false); if (editingKnowledge) setEditingLocation(location); else setObservationMapLocation(location); setObservationLocationSource('map'); setObservationComposerOpen(true); setNotice(t('notice.locationSelected')) }} onEditKnowledge={editKnowledge} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />
               {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
               {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
               {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} onView3D={open3D} />}
@@ -451,19 +474,19 @@ function MapStage({ snapshot, lastKnowledgeId, selectedKnowledgeId, locale, mode
   const target = targetId ? snapshot.knowledge.find((item) => item.id === targetId) : snapshot.knowledge.find((item) => item.id === 'k-flood-crosswalk')
   const targetVerified = target ? isKnowledgeVerified(target) : false
   return (
-    <section className="stage-panel">
+    <section className={`stage-panel stage-panel--${mode}`}>
       <div className="stage-panel__head">
         <div><span className="eyebrow">{mode === 'advanced' ? 'ACT I / EVERYDAY' : t('phase.map.label')}</span><h2>{t('phase.map.label')}</h2></div>
-        <span className="stage-panel__count">{snapshot.knowledge.length}<small> {locale === 'ja' ? '記憶' : 'memories'}</small></span>
+        <span className="stage-panel__count">{snapshot.knowledge.length}<small> {mode === 'simple' ? t('common.countUnit') : (locale === 'ja' ? '記憶' : 'memories')}</small></span>
       </div>
-      <p className="stage-lead">{locale === 'ja' ? 'エージェントとの会話から、地図にまだない「知っている」を拾います。投稿の自由文には氏名・住所・電話番号などを含めません。追認が2票に届いた知識だけが、避難経路の計算に参加します。' : 'Collect what neighbors know that is not yet on the map. Do not put names, addresses, phone numbers, or diagnoses in free text. Only memories with two confirmations influence evacuation routes.'}</p>
+      <p className="stage-lead">{t(mode === 'simple' ? 'map.simpleLead' : 'map.advancedLead')}</p>
 
       <div className="demo-runbook">
-        <div className="demo-runbook__header"><span className="eyebrow">{mode === 'advanced' ? 'THE MONEY SHOT' : t('phase.map.label')}</span><span>{locale === 'ja' ? '3ステップ / ひとつの生きた経路' : '3 steps / one living route'}</span></div>
+        <div className="demo-runbook__header"><span className="eyebrow">{mode === 'advanced' ? 'THE MONEY SHOT' : t('map.simpleNext')}</span><span>{mode === 'simple' ? t('map.simpleNextHint') : (locale === 'ja' ? '3ステップ / ひとつの生きた経路' : '3 steps / one living route')}</span></div>
         <div className="demo-steps">
-          <div className={`demo-step${lastKnowledgeId ? ' demo-step--done' : ' demo-step--current'}`}><span className="demo-step__number">01</span><div><strong>{locale === 'ja' ? '雨天の知識を登録' : 'Post a rainy-day memory'}</strong>{mode === 'advanced' && <small>contribute_knowledge</small>}</div><button onClick={onContribute}>{lastKnowledgeId ? (locale === 'ja' ? 'もう一度' : 'Again') : (locale === 'ja' ? '登録する' : 'Post')} <span>↗</span></button></div>
-          <div className={`demo-step${targetVerified ? ' demo-step--done' : targetId ? ' demo-step--current' : ''}`}><span className="demo-step__number">02</span><div><strong>{locale === 'ja' ? '隣人が2票で追認' : 'Neighbors confirm twice'}</strong>{mode === 'advanced' && <small>verify_knowledge × 2</small>}</div><button onClick={onVerify} disabled={!targetId || targetVerified}>{targetVerified ? (mode === 'simple' ? t('status.simpleVerified') : t('status.verified')) : (locale === 'ja' ? '追認する' : 'Confirm')} <span>+1</span></button></div>
-          <div className={`demo-step${targetVerified ? ' demo-step--current' : ''}`}><span className="demo-step__number">03</span><div><strong>{locale === 'ja' ? '車椅子世帯の道が変わる' : 'The wheelchair route changes'}</strong>{mode === 'advanced' && <small>get_evacuation_route</small>}</div><button onClick={onDrill} disabled={!targetVerified}>{locale === 'ja' ? '訓練を見る' : 'Open drill'} <span>→</span></button></div>
+          <div className={`demo-step${lastKnowledgeId ? ' demo-step--done' : ' demo-step--current'}`}><span className="demo-step__number">01</span><div><strong>{t(mode === 'simple' ? 'map.simpleStepOne' : 'map.advancedStepOne')}</strong>{mode === 'advanced' && <small>contribute_knowledge</small>}</div><button type="button" onClick={onContribute}>{lastKnowledgeId ? (locale === 'ja' ? 'もう一度' : 'Again') : t(mode === 'simple' ? 'map.simpleStepOneAction' : 'map.advancedStepOneAction')} <span>↗</span></button></div>
+          <div className={`demo-step${targetVerified ? ' demo-step--done' : targetId ? ' demo-step--current' : ''}`}><span className="demo-step__number">02</span><div><strong>{t(mode === 'simple' ? 'map.simpleStepTwo' : 'map.advancedStepTwo')}</strong>{mode === 'advanced' && <small>verify_knowledge × 2</small>}</div><button type="button" onClick={onVerify} disabled={!targetId || targetVerified}>{targetVerified ? (mode === 'simple' ? t('status.simpleVerified') : t('status.verified')) : t(mode === 'simple' ? 'map.simpleStepTwoAction' : 'map.advancedStepTwoAction')} <span>+1</span></button></div>
+          <div className={`demo-step${targetVerified ? ' demo-step--current' : ''}`}><span className="demo-step__number">03</span><div><strong>{t(mode === 'simple' ? 'map.simpleStepThree' : 'map.advancedStepThree')}</strong>{mode === 'advanced' && <small>get_evacuation_route</small>}</div><button type="button" onClick={onDrill} disabled={!targetVerified}>{t(mode === 'simple' ? 'map.simpleStepThreeAction' : 'map.advancedStepThreeAction')} <span>→</span></button></div>
         </div>
       </div>
 
@@ -484,7 +507,7 @@ function MemoryRow({ item, locale, mode }: { item: Knowledge; locale: Locale; mo
     <article className={`memory-row${verified ? ' memory-row--verified' : ''}`}>
       <span className={`memory-row__marker memory-row__marker--${item.category}`} aria-hidden="true">{visual.icon}</span>
       <div className="memory-row__body"><div className="memory-row__meta"><span>{t(`category.${item.category}`)}</span><span>·</span><span>{t(`condition.${item.condition}`)}</span><span className="confidence-label">{t(`confidence.${item.confidence}`)}</span></div><p>{getKnowledgeSafeDescription(item, locale)}</p></div>
-      <div className={`verification-badge${verified ? ' verification-badge--verified' : ''}`}><span>{verified ? '●' : '○'}</span><span>{item.source_kind === 'official' ? t('trust.official') : t(trustState === 'community_confirmed' ? 'trust.communityConfirmed' : 'trust.communityReport')}</span>{!verified && <small>{item.agree_count}/2</small>}<small className="verification-badge__disclaimer">{item.source_kind === 'official' ? t('trust.official') : t('trust.notOfficial')}</small></div>
+      <div className={`verification-badge${verified ? ' verification-badge--verified' : ''}`}><span>{verified ? '●' : '○'}</span><span>{item.source_kind === 'official' ? t('trust.official') : t(mode === 'simple' ? (verified ? 'status.simpleVerified' : 'status.simplePending') : (trustState === 'community_confirmed' ? 'trust.communityConfirmed' : 'trust.communityReport'))}</span>{mode === 'advanced' && !verified && <small>{item.agree_count}/2</small>}{mode === 'simple' ? <small className="verification-badge__detail">{verified ? t('status.simpleVerifiedDetail') : t('status.simplePendingDetail')}</small> : <small className="verification-badge__disclaimer">{item.source_kind === 'official' ? t('trust.official') : t('trust.notOfficial')}</small>}</div>
     </article>
   )
 }
@@ -509,23 +532,31 @@ interface DrillStageProps {
 function DrillStage({ snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onView3D, onRunTool, onRegisterHousehold, locale, mode }: DrillStageProps) {
   const t = useTranslator(locale)
   return (
-    <section className="stage-panel">
-      <div className="stage-panel__head"><div><span className="eyebrow">{mode === 'advanced' ? t('drill.eyebrow') : t('phase.drill.label')}</span><h2>{t('drill.title')}</h2></div><span className="stage-panel__count">{snapshot.households.length}<small> {t('drill.households')}</small></span></div>
+    <section className={`stage-panel stage-panel--${mode}`}>
+      <div className="stage-panel__head"><div><span className="eyebrow">{mode === 'advanced' ? t('drill.eyebrow') : t('phase.drill.label')}</span><h2>{t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title')}</h2></div><span className="stage-panel__count">{snapshot.households.length}<small> {t('drill.households')}</small></span></div>
       <p className="stage-lead">{t(mode === 'simple' ? 'drill.simpleLead' : 'drill.lead')}</p>
+
+      {mode === 'simple' && <ol className="simple-drill-steps">
+        <li><span>01</span><strong>{t('drill.simpleStepScenario')}</strong></li>
+        <li><span>02</span><strong>{t('drill.simpleStepHousehold')}</strong></li>
+        <li><span>03</span><strong>{t('drill.simpleStepRoute')}</strong></li>
+      </ol>}
 
       {snapshot.households.length > 0 ? <div className="household-strip">
         {snapshot.households.map((household) => {
           const selected = household.id === selectedHouseholdId
-          return <button key={household.id} className={`household-chip${selected ? ' household-chip--selected' : ''}`} onClick={() => onSelectHousehold(household.id)}><span className="household-chip__avatar">{household.constraints.includes('wheelchair') ? 'A' : household.constraints.includes('infant') ? 'B' : 'C'}</span><span><strong>{household.label ?? t('common.anonymousHousehold')}</strong><small>{household.constraints.length ? household.constraints.map((item) => t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></span></button>
+          return <button key={household.id} type="button" className={`household-chip${selected ? ' household-chip--selected' : ''}`} aria-pressed={selected} onClick={() => onSelectHousehold(household.id)}><span className="household-chip__avatar" aria-hidden="true">{mode === 'simple' ? (SIMPLE_CONSTRAINT_ICONS[household.constraints[0]] ?? '•') : household.constraints.includes('wheelchair') ? 'A' : household.constraints.includes('infant') ? 'B' : 'C'}</span><span><strong>{household.label ?? t('common.anonymousHousehold')}</strong><small>{household.constraints.length ? household.constraints.map((item) => mode === 'simple' ? `${SIMPLE_CONSTRAINT_ICONS[item] ?? ''} ${t(`constraint.${item}`)}`.trim() : t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></span></button>
         })}
-      </div> : <div className="empty-households"><div><strong>{t('drill.registerTitle')}</strong><p>{t('drill.registerBody')}</p></div><button className="secondary-button" onClick={onRegisterHousehold}>{t('drill.registerButton')} <span>+</span></button></div>}
+      </div> : <div className="empty-households"><div><strong>{t('drill.registerTitle')}</strong><p>{t('drill.registerBody')}</p></div><button type="button" className="secondary-button" onClick={onRegisterHousehold}>{t('drill.registerButton')} <span>+</span></button></div>}
 
-      <div className="route-controls">
-        <div className="route-controls__title"><span className="eyebrow">{mode === 'advanced' ? 'SCENARIO INPUT' : (locale === 'ja' ? '避難の条件' : 'Evacuation conditions')}</span><strong>{selectedHousehold?.label ?? t('common.selectedHousehold')} · {locale === 'ja' ? '避難条件' : 'evacuation conditions'}</strong></div>
-        <label>{t('drill.scenario')}<select value={routeInputs.scenario} onChange={(event) => onChangeRouteInputs({ ...routeInputs, scenario: event.target.value as 'earthquake' | 'flood' })}><option value="flood">{t('drill.flood')}</option><option value="earthquake">{t('drill.earthquake')}</option></select></label>
-        <label>{t('drill.weather')}<select value={routeInputs.weather} onChange={(event) => onChangeRouteInputs({ ...routeInputs, weather: event.target.value as 'clear' | 'rain' })}><option value="rain">{t('drill.rain')}</option><option value="clear">{t('drill.clear')}</option></select></label>
-        <label>{t('drill.time')}<select value={routeInputs.time_of_day} onChange={(event) => onChangeRouteInputs({ ...routeInputs, time_of_day: event.target.value as 'day' | 'night' })}><option value="day">{t('drill.day')}</option><option value="night">{t('drill.night')}</option></select></label>
-        <button className="primary-button" onClick={onCalculate}>{t('drill.calculate')} <span>↗</span></button>
+      <div className={`route-controls${mode === 'simple' ? ' route-controls--simple' : ''}`}>
+        <div className="route-controls__title"><span className="eyebrow">{mode === 'advanced' ? 'SCENARIO INPUT' : t('drill.simpleStepLabel')}</span><strong>{selectedHousehold?.label ?? t('common.selectedHousehold')} · {locale === 'ja' ? '避難条件' : 'evacuation conditions'}</strong></div>
+        <label htmlFor="drill-scenario">{t('drill.scenario')}<select id="drill-scenario" name="scenario" value={routeInputs.scenario} onChange={(event) => onChangeRouteInputs({ ...routeInputs, scenario: event.target.value as 'earthquake' | 'flood' })}><option value="flood">{mode === 'simple' ? t('drill.heavyRainFlood') : t('drill.flood')}</option><option value="earthquake">{t('drill.earthquake')}</option></select></label>
+        {mode === 'advanced' && <>
+          <label htmlFor="drill-weather">{t('drill.weather')}<select id="drill-weather" name="weather" value={routeInputs.weather} onChange={(event) => onChangeRouteInputs({ ...routeInputs, weather: event.target.value as 'clear' | 'rain' })}><option value="rain">{t('drill.rain')}</option><option value="clear">{t('drill.clear')}</option></select></label>
+          <label htmlFor="drill-time">{t('drill.time')}<select id="drill-time" name="time_of_day" value={routeInputs.time_of_day} onChange={(event) => onChangeRouteInputs({ ...routeInputs, time_of_day: event.target.value as 'day' | 'night' })}><option value="day">{t('drill.day')}</option><option value="night">{t('drill.night')}</option></select></label>
+        </>}
+        <button type="button" className="primary-button" onClick={onCalculate}>{t(mode === 'simple' ? 'drill.simpleCalculate' : 'drill.calculate')} <span>↗</span></button>
       </div>
 
       {selectedRoute ? <RouteResultPanel route={selectedRoute} locale={locale} mode={mode} onReplay={onReplay} onView3D={onView3D} onRunTool={onRunTool} selectedHouseholdId={selectedHouseholdId} /> : <div className="empty-route"><div className="empty-route__icon">⌁</div><div><strong>{t('drill.emptyTitle')}</strong><p>{t('drill.emptyBody')}</p></div></div>}
@@ -536,10 +567,10 @@ function DrillStage({ snapshot, selectedHouseholdId, selectedHousehold, selected
 function RouteResultPanel({ route, locale, mode, onReplay, onView3D, onRunTool, selectedHouseholdId }: { route: RouteResult; locale: Locale; mode: ExperienceMode; onReplay: () => void; onView3D: () => void; onRunTool: (name: string, input: unknown) => Promise<unknown>; selectedHouseholdId: string }) {
   const t = useTranslator(locale)
   return (
-    <div className="route-result">
-      <div className="route-result__summary"><div><span className="eyebrow">{t(mode === 'simple' ? 'route.simpleExplained' : 'route.explained')}</span><strong>{route.eta_minutes} {locale === 'ja' ? '分' : 'min'} <small>{t('route.highGround')}</small></strong></div><div className="route-result__distance">{route.distance_m} m <span>·</span> {route.avoided.length ? t('route.applied', { count: route.avoided.length }) : t('route.standard')}</div></div>
-      {route.avoided.length > 0 ? <div className="avoided-callout"><div className="avoided-callout__heading"><span className="avoided-callout__icon">↝</span><div><span className="eyebrow">{mode === 'advanced' ? 'AVOIDED / EXPLAINABLE' : t('route.simpleAvoided')}</span><strong>{t(mode === 'simple' ? 'route.simpleAvoided' : 'route.avoided')}</strong></div></div><div className="avoided-list">{route.avoided.map((item) => <div key={item.knowledge_id} className="avoided-item"><span className="avoided-item__line" /><div><strong>{item.reason}</strong><p>「{item.description}」</p></div></div>)}</div></div> : <div className="clear-route"><span>◎</span><div><strong>{t('route.clearTitle')}</strong><p>{t('route.clearBody')}</p></div></div>}
-      <div className="route-result__actions"><button className="secondary-button" onClick={() => void onRunTool('report_bottleneck', { lat: 35.6804, lng: 139.7605, severity: 2, description: '南側の路地で車椅子の方向転換に時間がかかった。', household_id: selectedHouseholdId })}>{t('route.report')} <span>+</span></button><button className="secondary-button" onClick={onView3D}>{t('drill.view3d')} <span>↗</span></button><button className="primary-button" onClick={onReplay}>{t('route.replay')} <span>→</span></button></div>
+    <div className={`route-result${mode === 'simple' ? ' route-result--simple' : ''}`}>
+      <div className="route-result__summary"><div><span className="eyebrow">{t(mode === 'simple' ? 'route.simpleRecommended' : 'route.explained')}</span><strong>{route.eta_minutes} {locale === 'ja' ? '分' : 'min'} <small>{t('route.highGround')}</small></strong></div><div className="route-result__distance">{route.distance_m} m <span>·</span> {route.avoided.length ? t('route.applied', { count: route.avoided.length }) : t('route.standard')}</div></div>
+      {route.avoided.length > 0 ? <div className="avoided-callout"><div className="avoided-callout__heading"><span className="avoided-callout__icon" aria-hidden="true">↝</span><div><span className="eyebrow">{mode === 'advanced' ? 'AVOIDED / EXPLAINABLE' : t('route.simpleWhyEyebrow')}</span><strong>{t(mode === 'simple' ? 'route.simpleWhyTitle' : 'route.avoided')}</strong></div></div><div className="avoided-list">{route.avoided.map((item) => <div key={item.knowledge_id} className="avoided-item"><span className="avoided-item__line" /><div><strong>{item.reason}</strong><p>「{item.description}」</p></div></div>)}</div></div> : <div className="clear-route"><span aria-hidden="true">◎</span><div><strong>{t(mode === 'simple' ? 'route.simpleWhyTitle' : 'route.clearTitle')}</strong><p>{t(mode === 'simple' ? 'route.simpleClearBody' : 'route.clearBody')}</p></div></div>}
+      <div className="route-result__actions">{mode === 'advanced' && <button type="button" className="secondary-button" onClick={() => void onRunTool('report_bottleneck', { lat: 35.6804, lng: 139.7605, severity: 2, description: '南側の路地で車椅子の方向転換に時間がかかった。', household_id: selectedHouseholdId })}>{t('route.report')} <span>+</span></button>}<button type="button" className="secondary-button" onClick={onView3D}>{t(mode === 'simple' ? 'drill.simpleView3d' : 'drill.view3d')} <span>↗</span></button><button type="button" className="primary-button" onClick={onReplay}>{t('route.replay')} <span>→</span></button></div>
     </div>
   )
 }
@@ -555,14 +586,14 @@ function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, locale, mod
   }
 
   return (
-    <section className="stage-panel">
-      <div className="stage-panel__head"><div><span className="eyebrow">{t('replay.eyebrow')}</span><h2>{t('replay.title')}</h2></div><span className="stage-panel__count">{snapshot.bottlenecks.length}<small> {t('replay.bottlenecks')}</small></span></div>
+    <section className={`stage-panel stage-panel--${mode}`}>
+      <div className="stage-panel__head"><div><span className="eyebrow">{mode === 'simple' ? t('phase.replay.label') : t('replay.eyebrow')}</span><h2>{t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title')}</h2></div><span className="stage-panel__count">{snapshot.bottlenecks.length}<small> {t('replay.bottlenecks')}</small></span></div>
       <p className="stage-lead">{t(mode === 'simple' ? 'replay.simpleLead' : 'replay.lead')}</p>
-      <div className="replay-toolbar"><span className="replay-toolbar__status"><span className={`status-dot${snapshot.replay.is_playing ? ' status-dot--live' : ''}`} />{snapshot.replay.is_playing ? t('replay.playing') : t('replay.paused')}{mode === 'advanced' && ` · ${snapshot.replay.camera}`}</span><div><button className="icon-button" onClick={() => runReplay({ action: 'overview' })} aria-label={t('replay.overview')}>◎</button><button className="icon-button" onClick={() => runReplay({ action: 'pause' })} aria-label={t('replay.pause')}>Ⅱ</button><button className="icon-button" onClick={() => runReplay({ action: 'resume' })} aria-label={t('replay.resume')}>▶</button></div></div>
-      <div className="replay-focus-row"><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleFocus' : 'replay.focus')}</span>{snapshot.households.map((household) => <button key={household.id} className={`focus-button${household.id === selectedHouseholdId ? ' focus-button--active' : ''}`} onClick={() => { onSelectHousehold(household.id); runReplay({ action: 'replay_route', target_id: household.id }) }}>{household.label ?? t('common.anonymousHousehold')} <small>{household.constraints.length ? household.constraints.map((item) => t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></button>)}</div>
+      <div className="replay-toolbar"><span className="replay-toolbar__status"><span className={`status-dot${snapshot.replay.is_playing ? ' status-dot--live' : ''}`} />{snapshot.replay.is_playing ? t('replay.playing') : t('replay.paused')}{mode === 'advanced' && ` · ${snapshot.replay.camera}`}</span><div><button type="button" className="icon-button" onClick={() => runReplay({ action: 'overview' })} aria-label={t('replay.overview')}>◎</button><button type="button" className="icon-button" onClick={() => runReplay({ action: 'pause' })} aria-label={t('replay.pause')}>Ⅱ</button><button type="button" className="icon-button" onClick={() => runReplay({ action: 'resume' })} aria-label={t('replay.resume')}>▶</button></div></div>
+      <div className="replay-focus-row"><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleFocus' : 'replay.focus')}</span>{snapshot.households.map((household) => <button key={household.id} type="button" className={`focus-button${household.id === selectedHouseholdId ? ' focus-button--active' : ''}`} aria-pressed={household.id === selectedHouseholdId} onClick={() => { onSelectHousehold(household.id); runReplay({ action: 'replay_route', target_id: household.id }) }}>{household.label ?? t('common.anonymousHousehold')} <small>{household.constraints.length ? household.constraints.map((item) => mode === 'simple' ? `${SIMPLE_CONSTRAINT_ICONS[item] ?? ''} ${t(`constraint.${item}`)}`.trim() : t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></button>)}</div>
       <Replay3D snapshot={snapshot} locale={locale} mode={mode} onView3D={onView3D} />
       <ReplayKnowledgePanel snapshot={snapshot} selectedRoute={selectedRoute} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onSelectKnowledge={onSelectKnowledge} />
-      <div className="replay-summary-row"><div><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleDebrief' : 'replay.debrief')}</span><strong>{t('replay.trainingLog', { label: selectedHousehold?.label ?? t('common.selectedHousehold') })}</strong><p>{selectedRoute ? t('replay.summaryWithRoute', { minutes: selectedRoute.eta_minutes, count: selectedRoute.avoided.length }) : t('replay.summaryEmpty')}</p></div><button className="secondary-button" onClick={() => { setSummaryRequested(true); void onRunTool('get_debrief_summary', {}) }}>{t('replay.refreshSummary')} <span>↗</span></button></div>
+      <div className="replay-summary-row"><div><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleDebrief' : 'replay.debrief')}</span><strong>{t('replay.trainingLog', { label: selectedHousehold?.label ?? t('common.selectedHousehold') })}</strong><p>{selectedRoute ? t(mode === 'simple' ? 'replay.simpleSummaryWithRoute' : 'replay.summaryWithRoute', { minutes: selectedRoute.eta_minutes, count: selectedRoute.avoided.length }) : t('replay.summaryEmpty')}</p></div><button type="button" className="secondary-button" onClick={() => { setSummaryRequested(true); void onRunTool('get_debrief_summary', {}) }}>{t(mode === 'simple' ? 'replay.simpleRefreshSummary' : 'replay.refreshSummary')} <span>↗</span></button></div>
       {summaryRequested && <div className="mini-summary"><div><strong>{snapshot.households.length}</strong><span>{t('replay.households')}</span></div><div><strong>{Object.keys(snapshot.routes).length}</strong><span>{t('replay.routes')}</span></div><div><strong>{snapshot.bottlenecks.length}</strong><span>{t('replay.bottleneckCount')}</span></div><div><strong>{snapshot.knowledge.filter(isKnowledgeVerified).length}</strong><span>{t('replay.verifiedKnowledge')}</span></div>{targetBottleneck && <button className="text-button" onClick={() => runReplay({ action: 'highlight_bottleneck', target_id: targetBottleneck.id })}>{t('replay.viewBottleneck')} →</button>}</div>}
     </section>
   )

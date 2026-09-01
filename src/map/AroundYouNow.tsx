@@ -51,7 +51,7 @@ export function AroundYouNow({ repository, camera, locale, mode, refreshKey, onS
     <section className={`around-you${mode === 'advanced' ? ' around-you--advanced' : ''}`} aria-labelledby="around-you-title">
       <div className="around-you__head">
         <div>
-          <span className="eyebrow">AROUND YOU NOW</span>
+          <span className="eyebrow">{mode === 'advanced' ? 'AROUND YOU NOW' : t('aroundYou.simpleEyebrow')}</span>
           <h2 id="around-you-title">{t('aroundYou.title')}</h2>
         </div>
         <span className="around-you__radius">{t('aroundYou.radius')}</span>

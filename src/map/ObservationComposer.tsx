@@ -173,7 +173,7 @@ export function ObservationComposer({ locale, mode, location, locationSource, on
     <section className="observation-composer" aria-labelledby="observation-composer-title">
       <div className="observation-composer__header">
         <div>
-          <span className="eyebrow">{locale === 'ja' ? 'LIVING OBSERVATION' : 'LIVING OBSERVATION'}</span>
+          <span className="eyebrow">{t(mode === 'simple' ? 'composer.simpleEyebrow' : 'composer.advancedEyebrow')}</span>
           <h2 id="observation-composer-title">{t('composer.placeholder')}</h2>
         </div>
         <span className="observation-composer__trust">{t('trust.communityReport')}</span>
@@ -192,11 +192,14 @@ export function ObservationComposer({ locale, mode, location, locationSource, on
       </div> : <form onSubmit={(event) => void submit(event)}>
         <div className="observation-composer__line">
           <input
+            id="observation-text"
+            name="observation"
             value={text}
             maxLength={240}
             onChange={(event) => { setText(event.target.value); setError(undefined); setVoiceError(undefined) }}
             placeholder={t('composer.placeholder')}
             aria-label={t('composer.placeholder')}
+            aria-describedby={expanded ? 'observation-helper' : undefined}
             autoComplete="off"
           />
           {voiceSupported && <button type="button" className={`voice-button${voiceState === 'listening' ? ' is-listening' : ''}`} aria-label={voiceState === 'listening' ? t('composer.voiceStop') : t('composer.voice')} aria-pressed={voiceState === 'listening'} onClick={toggleVoice}><span aria-hidden="true">{voiceState === 'listening' ? '■' : '◉'}</span>{voiceState === 'listening' ? t('composer.voiceListening') : t('composer.voice')}</button>}
@@ -209,7 +212,7 @@ export function ObservationComposer({ locale, mode, location, locationSource, on
         <button type="button" className="text-button" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>{expanded ? t('composer.collapse') : t('composer.expand')}</button>
       </div>
       {expanded && <div className="observation-composer__details">
-        <p>{t('composer.hint')}</p>
+        <p id="observation-helper">{t('composer.hint')}</p>
         <p className="observation-composer__privacy">{observationPrivacyHelper(locale)}</p>
         {interpretation && <p className="observation-composer__classification">{t('composer.classificationNote')}</p>}
         {interpretation && <dl className="observation-composer__interpretation">

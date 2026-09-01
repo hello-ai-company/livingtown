@@ -28,6 +28,7 @@ export interface Map2DProps {
   highlightKnowledgeId?: string
   onSelectHousehold?: (householdId: string) => void
   onSelectKnowledge?: (knowledgeId: string) => void
+  onVerifyKnowledge?: (knowledgeId: string, verdict: 'agree' | 'disagree') => void
   onClearKnowledge?: () => void
   onRequestContribution?: (location: { lat: number; lng: number }, source?: 'map' | 'current' | 'center') => void
   onLocationPicked?: (location: { lat: number; lng: number }) => void
@@ -97,7 +98,7 @@ function overlapOffset(view: KnowledgeVisualView, views: KnowledgeVisualView[]) 
   return { x: Math.cos(angle) * 18, y: Math.sin(angle) * 18 }
 }
 
-function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, onEditKnowledge, onDeleteKnowledge, locale = 'ja', mode = 'simple', compact = false }: Map2DProps) {
+function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onVerifyKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, onEditKnowledge, onDeleteKnowledge, locale = 'ja', mode = 'simple', compact = false }: Map2DProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
   const [filters, setFilters] = useState<{ status: KnowledgeStatusFilter; category: KnowledgeCategoryFilter | 'bottleneck'; group: KnowledgeGroupFilter; time: KnowledgeTimeFilter }>({ status: 'all', category: 'all', group: 'all', time: 'now' })
   const [postingMode, setPostingMode] = useState(false)
@@ -219,8 +220,8 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
     <div className={`map-frame${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`}>
       <div className="map-frame__topline">
         <div>
-          <span className="eyebrow">{mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : t('map.fallbackMode')}</span>
-          <span className="map-frame__title">{t('map.title')}</span>
+          <span className="eyebrow">{mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : t('map.simpleMode')}</span>
+          <span className="map-frame__title">{t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span>
         </div>
         <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? 'offline graph · MapLibre fallback' : t('map.fallbackMode')}</span>
       </div>
@@ -233,22 +234,22 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
             ['verified', t('map.verifiedOnly')],
             ['affecting_route', t('map.affecting')],
           ] as Array<[KnowledgeStatusFilter, string]>).map(([value, label]) => (
-            <button key={value} type="button" className={filters.status === value ? 'is-active' : ''} onClick={() => setFilters((current) => ({ ...current, status: value }))}>{label}</button>
+            <button key={value} type="button" className={filters.status === value ? 'is-active' : ''} aria-pressed={filters.status === value} onClick={() => setFilters((current) => ({ ...current, status: value }))}>{label}</button>
           ))}
         </div>
-        {mode === 'advanced' && <label className="map-filter-bar__category">{t('map.category')}
-          <select aria-label={t('map.category')} value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value as KnowledgeCategoryFilter | 'bottleneck' }))}>
+        {mode === 'advanced' && <label htmlFor="map-category" className="map-filter-bar__category">{t('map.category')}
+          <select id="map-category" name="category" aria-label={t('map.category')} value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value as KnowledgeCategoryFilter | 'bottleneck' }))}>
             <option value="all">{t('map.allSignals')}</option>
             {MAP_CATEGORY_ORDER.map((category) => <option key={category} value={category}>{category === 'bottleneck' ? t('map.bottleneck') : t(`category.${category}`)}</option>)}
           </select>
         </label>}
-        <label className="map-filter-bar__category">{t('map.group')}
-          <select aria-label={t('map.group')} value={filters.group} onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value as KnowledgeGroupFilter }))}>
+        <label htmlFor="map-group" className="map-filter-bar__category">{t('map.group')}
+          <select id="map-group" name="group" aria-label={t('map.group')} value={filters.group} onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value as KnowledgeGroupFilter }))}>
             <option value="all">{t('map.groupAll')}</option><option value="disaster">{t('map.groupDisaster')}</option><option value="safety">{t('map.groupSafety')}</option><option value="crime_harassment">{t('map.groupCrime')}</option><option value="community">{t('map.groupCommunity')}</option>
           </select>
         </label>
-        <label className="map-filter-bar__category">{t('map.time')}
-          <select aria-label={t('map.time')} value={filters.time} onChange={(event) => setFilters((current) => ({ ...current, time: event.target.value as KnowledgeTimeFilter }))}>
+        <label htmlFor="map-time" className="map-filter-bar__category">{t('map.time')}
+          <select id="map-time" name="time" aria-label={t('map.time')} value={filters.time} onChange={(event) => setFilters((current) => ({ ...current, time: event.target.value as KnowledgeTimeFilter }))}>
             <option value="now">{t('map.now')}</option><option value="today">{t('map.today')}</option><option value="this_week">{t('map.thisWeek')}</option><option value="all">{t('map.allTime')}</option>
           </select>
         </label>
@@ -374,7 +375,7 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
         </div>
       )}
 
-      {selectedView && <KnowledgeDetailCard view={selectedView} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onClose={clearKnowledge} onEdit={onEditKnowledge} onDelete={onDeleteKnowledge} />}
+      {selectedView && <KnowledgeDetailCard view={selectedView} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onClose={clearKnowledge} onVerify={onVerifyKnowledge} onEdit={onEditKnowledge} onDelete={onDeleteKnowledge} />}
     </div>
   )
 }

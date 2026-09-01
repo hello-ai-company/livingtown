@@ -163,7 +163,7 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
 
         {step === 1 && <div className="knowledge-form__body">
           <h3>{t('form.locationTitle')}</h3><p>{t('form.locationBody')}</p>
-          {mode === 'advanced' ? <div className="form-coordinate-grid"><label>{t('form.latitude')}<input type="number" step="any" value={lat} onChange={(event) => setLat(event.target.value)} /></label><label>{t('form.longitude')}<input type="number" step="any" value={lng} onChange={(event) => setLng(event.target.value)} /></label></div> : <div className="form-location-card"><strong>{hasLocation ? t('form.locationSelected') : t('form.locationMissing')}</strong><p>{t('form.changeLocationHint')}</p></div>}
+          {mode === 'advanced' ? <div className="form-coordinate-grid"><label htmlFor="knowledge-latitude">{t('form.latitude')}<input id="knowledge-latitude" name="latitude" type="number" step="any" value={lat} onChange={(event) => setLat(event.target.value)} /></label><label htmlFor="knowledge-longitude">{t('form.longitude')}<input id="knowledge-longitude" name="longitude" type="number" step="any" value={lng} onChange={(event) => setLng(event.target.value)} /></label></div> : <div className="form-location-card"><strong>{hasLocation ? t('form.locationSelected') : t('form.locationMissing')}</strong><p>{t('form.changeLocationHint')}</p></div>}
           <div className="form-location-actions">
             {onRequestLocationChange && <button type="button" className="secondary-button" onClick={onRequestLocationChange}>{locationPickerActive ? t('form.pickingLocation') : t('form.changeLocation')}</button>}
             {locationPickerActive && onCancelLocationPicker && <button type="button" className="text-button" onClick={onCancelLocationPicker}>{t('form.cancelLocationChange')}</button>}
@@ -188,11 +188,11 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
 
         {step === 5 && <div className="knowledge-form__body">
           <h3>{t('form.descriptionTitle')}</h3><p>{t('form.descriptionBody')}</p>
-          <textarea aria-label={t('form.descriptionTitle')} maxLength={200} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t('form.descriptionPlaceholder')} rows={5} />
+          <label className="form-field-label" htmlFor="knowledge-description">{t('form.descriptionTitle')}</label><textarea id="knowledge-description" name="description" aria-label={t('form.descriptionTitle')} maxLength={200} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t('form.descriptionPlaceholder')} rows={5} />
           <div className="form-character-count" aria-live="polite">{t('form.characters', { count: description.length })}</div>
           {mode === 'advanced' && <div className="form-coordinate-grid form-observation-metadata">
-            <label>{t('form.reportType')}<select value={reportType} onChange={(event) => setReportType(event.target.value as ReportType)}>{REPORT_TYPES.map((item) => <option key={item} value={item}>{t(`reportType.${item}`)}</option>)}</select></label>
-            <label>{t('form.observedAt')}<input type="datetime-local" value={observedAt} onChange={(event) => setObservedAt(event.target.value)} /></label>
+            <label htmlFor="knowledge-report-type">{t('form.reportType')}<select id="knowledge-report-type" name="report_type" value={reportType} onChange={(event) => setReportType(event.target.value as ReportType)}>{REPORT_TYPES.map((item) => <option key={item} value={item}>{t(`reportType.${item}`)}</option>)}</select></label>
+            <label htmlFor="knowledge-observed-at">{t('form.observedAt')}<input id="knowledge-observed-at" name="observed_at" type="datetime-local" value={observedAt} onChange={(event) => setObservedAt(event.target.value)} /></label>
           </div>}
           <div className="form-review-heading"><strong>{t('form.reviewTitle')}</strong><p>{t('form.reviewBody')}</p></div>
           <dl className="form-review"><div><dt>{t('form.categoryTitle')}</dt><dd>{CATEGORY_ICONS[category]} {t(`category.${category}`)}</dd></div><div><dt>{t('form.conditionTitle')}</dt><dd>{t(`condition.${condition}`)}</dd></div><div><dt>{t('form.confidenceTitle')}</dt><dd>{t(`confidence.${confidence}`)}</dd></div>{mode === 'advanced' && <><div><dt>{t('form.reportType')}</dt><dd>{t(`reportType.${reportType}`)}</dd></div><div><dt>{t('form.observedAt')}</dt><dd>{observedAt || t('common.noRecord')}</dd></div><div><dt>{t('form.locationTitle')}</dt><dd>{Number(lat).toFixed(4)}, {Number(lng).toFixed(4)}</dd></div></>}</dl>

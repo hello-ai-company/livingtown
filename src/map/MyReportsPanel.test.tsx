@@ -35,7 +35,7 @@ describe('MyReportsPanel', () => {
     const markup = renderToStaticMarkup(<MyReportsPanel knowledge={[{ ...base, expires_at: '2026-08-01T00:00:00.000Z' }]} locale="ja" onEdit={() => undefined} onDelete={() => undefined} onPost={() => undefined} />)
 
     expect(markup).toContain('期限切れ')
-    expect(markup).toContain('地域からの報告')
+    expect(markup).toContain('地域からの投稿')
   })
 
   it('offers a first-use post action when the owned set is empty', () => {
