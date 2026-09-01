@@ -7,6 +7,15 @@ License: MIT — see [LICENSE](./LICENSE).
 
 LivingTownは、住民エージェントとの日常会話を検証可能な街の記憶へ変換し、訓練時には世帯の制約enumと組み合わせて説明可能な避難経路を返すWebMCP Challenge向けプロトタイプです。
 
+## 現在の検証ステータス（2026-09-01）
+
+- **Hosted Expand:** Phase 8／Phase 10のExpand migration適用済み。実Supabaseのremote migration historyは8本。
+- **Disposable DB:** GitHub Actions上の一時Supabaseで0004／0005／0006を実行し、169 pgTAP testsがPASS。
+- **Real shared gate:** Phase 10.3のidentity、owner CRUD、privacy、Realtime、cleanupをPASS。最終証跡は [SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md)。
+- **まだ未完了:** RPC-only contractは未適用、公開NetlifyはPhase 7 baselineのまま、Phase 10 Native WebMCP実機ゲート・動画・Devpost最終提出は未実施。
+
+下記に残る古い「未適用」「未実行」の記述は、各時点の履歴として保持しています。現在の判断には上記の最新証跡を使います。
+
 ## Quick start
 
 ```bash
@@ -69,7 +78,7 @@ npm run seed
 git diff --check
 ```
 
-実装状況と残課題は [docs/EVALUATION.md](./docs/EVALUATION.md)、設計の正本は [docs/DESIGN.md](./docs/DESIGN.md) と [Notionの設計書](https://app.notion.com/p/c22ef848aa464ff6b6a39dc010d5f2c7) です。Phase 8の変更点と未適用migration、Phase 9の3D境界とローカルゲートは、同ドキュメントの各節を参照してください。
+実装状況と残課題は [docs/EVALUATION.md](./docs/EVALUATION.md)、設計の正本は [docs/DESIGN.md](./docs/DESIGN.md) と [Notionの設計書](https://app.notion.com/p/c22ef848aa464ff6b6a39dc010d5f2c7) です。Phase 8／10の適用済みExpand gate、未適用のRPC-only contract、Phase 9の3D境界とローカルゲートは、同ドキュメントの各節を参照してください。
 
 ## Shared LivingTown mode
 
@@ -81,7 +90,7 @@ VITE_SUPABASE_URL=https://<project>.supabase.co
 VITE_SUPABASE_ANON_KEY=<publishable-or-anon-key>
 ```
 
-`shared` とSupabaseの両方が設定された場合は `SupabaseTownRepository` がKnowledgeをDBへ保存し、VerificationをDB-privateなsource of truthとしてRPC内で扱い、Auth identityからserver-sideでopaqueなpseudonymous verifier identifierを導出します。shared browserへはKnowledgeのderived counterだけを渡し、raw `verifier_id`、verdict、comment、created_atはhydrateしません。`verifier_id`をWebMCPやUIから自由入力するshared contractではありません。Phase 8の `knowledge_owner` はprivate mapping tableとしてbrowser roleから隠し、現在のidentityが所有するknowledge IDだけをsecurity-definer RPCで取得します。更新／削除はowner-only RPCと明示確認を必須にし、票がある内容変更は再検証へ戻し、routeを無効化します。対応migrationは [`supabase/migrations/20260831075455_real_map_knowledge_ownership_crud.sql`](./supabase/migrations/20260831075455_real_map_knowledge_ownership_crud.sql) にあるdraftで、まだ適用していません。SupabaseのURLまたはkeyが欠けている場合は、書き込みを試みず `LOCAL_DEMO` へ明示的にfallbackします。接続後の障害ではlocalへ黙って書き込まず、管理ビューの `Data diagnostics` にERRORを表示します。retryで再取得でき、必要なら「このタブをLOCAL_DEMOへ切替」で明示的にlocalへ切り替えます。
+`shared` とSupabaseの両方が設定された場合は `SupabaseTownRepository` がKnowledgeをDBへ保存し、VerificationをDB-privateなsource of truthとしてRPC内で扱い、Auth identityからserver-sideでopaqueなpseudonymous verifier identifierを導出します。shared browserへはKnowledgeのderived counterだけを渡し、raw `verifier_id`、verdict、comment、created_atはhydrateしません。`verifier_id`をWebMCPやUIから自由入力するshared contractではありません。Phase 8の `knowledge_owner` はprivate mapping tableとしてbrowser roleから隠し、現在のidentityが所有するknowledge IDだけをsecurity-definer RPCで取得します。更新／削除はowner-only RPCと明示確認を必須にし、票がある内容変更は再検証へ戻し、routeを無効化します。Phase 8／10のExpand migrationはLivingtown hosted projectへ適用済みです。最終のRPC-only contractは [`docs/sql/POST_DEPLOY_RPC_ONLY_KNOWLEDGE_WRITE.sql`](./docs/sql/POST_DEPLOY_RPC_ONLY_KNOWLEDGE_WRITE.sql) に分離しており、まだ適用していません。SupabaseのURLまたはkeyが欠けている場合は、書き込みを試みず `LOCAL_DEMO` へ明示的にfallbackします。接続後の障害ではlocalへ黙って書き込まず、管理ビューの `Data diagnostics` にERRORを表示します。retryで再取得でき、必要なら「このタブをLOCAL_DEMOへ切替」で明示的にlocalへ切り替えます。
 
 UI、WebMCP、決定的route engineは `TownRepository` に依存します。`LocalTownRepository` は既存demoを維持し、`SupabaseTownRepository` はremote stateとRealtimeを担当します。household／bottleneckはAuth ownerにscopeされたRPC経由で扱い、public Knowledgeとは別の境界です。詳細なmigration、RLS、匿名Auth、Realtime、障害時の手動確認は [docs/SUPABASE_SHARED_STATE.md](./docs/SUPABASE_SHARED_STATE.md) を参照してください。
 
@@ -115,7 +124,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 - 3Dは環境変数ではなく、`@navaramap/three@0.1.1` の遅延チャンクを利用者の明示操作で読み込みます。対応API、WASM、Worker、WebGL2が不足する端末では3Dを開始せず、2Dへフォールバックします。
 - `VITE_MAPLIBRE_STYLE_URL` を設定する場合は、MapLibre向けのスタイルURLと利用規約を確認してください。決定的なローカル地図はネットワーク障害時のフォールバックです。
-- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。初期4 migrationとfunction EXECUTE hardeningのLivingtown projectへの実apply、およびSecurity Advisor再確認は [`SUPABASE_REAL_DB_GATE_2026-08-30.md`](./docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md) に記録しています。Browser A/B/Cの実クライアント相互作用は記録済みで、fresh anonymous browserのraw Verification SELECTはDENIEDを再確認済みです。LOCAL_PGTAP、A/B/Cの再実行、failure injectionは未実行です。詳細は [`SUPABASE_REAL_CLIENT_GATE_2026-08-31.md`](./docs/evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md) を参照してください。
+- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。Phase 8／10 Expand migration、Security Advisor、real shared CRUD／privacy／Realtime／cleanupの最新結果は [`SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) に記録しています。Disposable Supabaseの0004／0005／0006はGitHub Actionsで169 tests PASSです。Network failure injection、完全な匿名性、moderation、Native WebMCP、feature branchのNetlify反映は未実施です。
 
 ## Repository contract
 
@@ -133,6 +142,6 @@ Phase 10では、MAPに一行投稿欄「この場所で何がありましたか
 
 MAPのWebMCP surfaceは5本（contribute_knowledge、delete_knowledge、query_area、update_knowledge、verify_knowledge）のままです。新しいreport_observation toolは追加せず、既存contribute_knowledgeを新カテゴリと任意のreport_type / observed_atへ後方互換に拡張します。詳細な設計、制約、未実施ゲートは [docs/LIVING_OBSERVATION_LAYER.md](./docs/LIVING_OBSERVATION_LAYER.md) と [Phase 10 local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) を参照してください。
 
-Phase 10のSupabase migrationとpgTAPはレビュー用ドラフトで、まだ適用・実行していません。feature branchは本番Netlifyへデプロイせず、Phase 10のNative WebMCP実機ゲートも再利用・流用していません。
+Phase 10のSupabase migrationはExpandとして実Supabaseへ適用済みで、pgTAPはGitHub Actionsの一時Supabaseで0006を含む169 testsをPASSしています。最終のRPC-only contractは未適用です。feature branchは本番Netlifyへデプロイしておらず、Phase 10のNative WebMCP実機ゲートもまだ実施していません。Phase 10.3のreal shared gateは [最新証跡](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) を参照してください。
 
 写真アップロードはPhase 10.2では扱いません。顔・ナンバープレート・EXIF位置情報の保護、moderation／redaction、retention、Storage権限、コスト、bot／abuse対策を先に設計する必要があるためです。

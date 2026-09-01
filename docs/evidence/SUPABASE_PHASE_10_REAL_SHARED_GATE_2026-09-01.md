@@ -11,6 +11,25 @@ This record contains no publishable key, service-role key, access token,
 refresh token, password, raw Auth identity, verifier identifier, or owner ID.
 No paid resource was created.
 
+## Current final status — Phase 10.3B PASS
+
+This is the current authoritative result for the hosted Livingtown project.
+The remote migration history contains eight migrations, including the Phase 8
+ownership CRUD, Phase 10 observation Expand, and follow-up coordinate-bound
+integrity migrations. The disposable GitHub Actions database gate passes the
+0004/0005/0006 suites with 169 pgTAP tests. The independent Phase 10.3 shared
+identity, owner-CRUD, privacy, Realtime, and audited cleanup checks are PASS;
+the final hosted state is five Knowledge rows, three Verification rows, and no
+`knowledge_owner` mappings.
+
+The RPC-only contract in
+`docs/sql/POST_DEPLOY_RPC_ONLY_KNOWLEDGE_WRITE.sql` is **NOT APPLIED**. The
+public Netlify URL still serves the Phase 7 baseline, the changed five-tool
+Phase 10 Native WebMCP gate is **NOT RUN**, the feature branch has not been
+deployed to that URL, and the video and final Devpost submission remain
+pending. The historical blocked checkpoints and the interrupted-cleanup state
+below are preserved for auditability and are superseded by this section.
+
 ## Scope and deployment boundary
 
 The following migrations were applied to the existing hosted Livingtown
@@ -136,7 +155,11 @@ Verification rows. The temporary duplicate row is absent, and the selected
 Native WebMCP test observation is back to `0/0`. The existing shared data was
 not otherwise reset.
 
-## CI and gate status
+## Historical pre-Phase 10.3B CI and gate status — superseded
+
+The following status was accurate before the audited Phase 10.3B cleanup. It
+is retained as history; use the current final status above and the latest
+Phase 10.3B section below for present-day decisions.
 
 At the feature-branch HEAD above, GitHub Actions were green:
 
@@ -165,7 +188,7 @@ SAFE_TO_MERGE_PR_12: NO
 SAFE_TO_DEPLOY_PHASE_10_2: NO
 ```
 
-## Phase 10.3B — audited orphan synthetic test cleanup
+## Phase 10.3B — audited orphan synthetic test cleanup (current final gate)
 
 Cleanup date: 2026-09-01 (JST)<br>
 Cleanup HEAD before this evidence-only update: `bd8c0b2b7bbb06b81a82176e83ab0896d61826db`<br>
@@ -266,7 +289,12 @@ feature branch to a controlled preview or use two isolated browser profiles,
 then repeat the Phase 10.2 five-tool and owner-scoped CRUD gate before
 merging or deploying.
 
-## Phase 10.3 continuation after interrupted cleanup
+## Historical Phase 10.3 interrupted-cleanup state — superseded
+
+This continuation records the interrupted owner-session cleanup checkpoint.
+It was later superseded by the exact, audited synthetic-row cleanup recorded
+in the Phase 10.3B section above. Its blocked result is not the current hosted
+gate result.
 
 Continuation check date: 2026-09-01 (JST)<br>
 Feature-branch HEAD: `fc557baf229a6f44d8956652b3b1115a6afa2515`<br>

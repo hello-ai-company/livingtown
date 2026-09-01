@@ -3,7 +3,7 @@
 Status: DRAFT ONLY. This document is prepared for the Devpost form; it has not
 been submitted. The demo video URL is intentionally blank until a public
 under-three-minute video exists. The public live URL remains the Phase 7
-baseline; the Phase 8 feature branch is not deployed.
+baseline; the consolidated Phase 10 feature branch is not deployed.
 
 ## Project
 
@@ -22,7 +22,7 @@ baseline; the Phase 8 feature branch is not deployed.
 - **Environment:** `VITE_LIVINGTOWN_DATA_MODE=shared`, existing Livingtown Supabase URL, and a browser-safe publishable/anon key are configured in Netlify Environment variables. No value is committed here.
 - **Smoke test:** fresh browser tab loaded over HTTPS; `SUPABASE_SHARED`, Supabase configured `YES`, Anonymous Auth `YES`, `CONNECTED`, and Realtime `CONNECTED`; MAP → DRILL → REPLAY, temporary wheelchair household registration, route calculation, and Replay debrief were observed.
 - **Fallback:** GitHub Pages remains available at https://hello-ai-company.github.io/livingtown/.
-- **Native WebMCP:** Historical Phase 7 PASS on Chrome 152.0.7977.64 through Codex and Chrome DevTools for agents. This evidence covers the deployed three-tool MAP surface only; the Phase 8 five-tool feature branch requires a new real-device gate.
+- **Native WebMCP:** Historical Phase 7 PASS on Chrome 152.0.7977.64 through Codex and Chrome DevTools for agents. This evidence covers the deployed three-tool MAP surface only; the consolidated Phase 10 five-tool feature branch requires a new real-device gate.
 
 ## What is LivingTown?
 
@@ -92,7 +92,7 @@ demo-graph coordinate.
 Local quality gates on this submission-readiness branch:
 
 - npm run typecheck: PASS
-- npm test: PASS — 14 files / 88 tests
+- npm test: PASS — 23 files / 147 tests
 - npm run build: PASS
 - npm run seed: PASS
 - git diff --check: PASS
@@ -100,25 +100,35 @@ Local quality gates on this submission-readiness branch:
 External evidence:
 
 - NETLIFY_PRODUCTION_GATE: PASS for the public Netlify production URL, latest merged `main`, HTTPS, same-origin assets, shared Supabase diagnostics, and MAP → DRILL → REPLAY smoke test.
-- HOSTED_DB_SECURITY_GATE: PASS for the existing Free-plan Supabase project.
-- BROWSER_REAL_CLIENT_GATE: PASS for the recorded shared A/B/C interaction
-  sequence.
+- HOSTED_DB_SECURITY_GATE: PASS for the existing Free-plan Supabase project,
+  including the Phase 8/10 Expand migration and post-apply privilege/RLS
+  checks.
+- DISPOSABLE_DB_GATE: PASS — GitHub Actions created a temporary Supabase
+  stack and passed the 0004/0005/0006 suites with 169 pgTAP tests.
+- REAL_SHARED_PHASE10_GATE: PASS for the Phase 10.3 independent identity,
+  owner-CRUD, privacy, Realtime, and cleanup checks; see the latest evidence
+  file linked below.
 - A fresh anonymous browser client authenticated successfully, and
   GET /rest/v1/verification?select=id&limit=1 returned HTTP 403 with no row.
 - RPC verifier_id: NOT EXPOSED.
 - Shared snapshot raw Verification: NOT EXPOSED.
-- LOCAL_PGTAP: BLOCKED because Docker is unavailable.
-- Network failure injection and A/B/C re-execution: NOT RUN.
+- LOCAL_PGTAP: NOT RUN locally because Docker is unavailable; the disposable
+  GitHub Actions gate is PASS and is the authoritative pgTAP evidence.
+- Network failure injection: NOT RUN. The Phase 10.3 independent A/B/C gate
+  has been completed; the older baseline smoke record remains historical.
 - NATIVE_WEBMCP_GATE: Historical Phase 7 PASS for the public Netlify
   production URL; the old evidence is unchanged.
 - PHASE_8_LOCAL_BROWSER_UX_GATE: PASS for the feature branch, but this is not
   Native WebMCP evidence.
-- PHASE_8_NATIVE_WEBMCP_GATE: PENDING manual real-device confirmation.
-- PHASE_8_SHARED_CRUD_GATE: PENDING; the migration draft is not applied.
-- PHASE_8_NETLIFY_LIVE_URL_GATE: PENDING; production was intentionally left
-  unchanged.
+- PHASE_10_NATIVE_WEBMCP_GATE: PENDING manual real-device confirmation for
+  the changed five-tool MAP surface.
+- PHASE_8_SHARED_CRUD_GATE: PASS as part of the Phase 10.3 real shared gate;
+  the final RPC-only contract is not applied.
+- PHASE_10_NETLIFY_LIVE_URL_GATE: PENDING; production was intentionally left
+  on the Phase 7 baseline.
 
 Detailed records are in
+[docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md),
 [docs/evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md](./evidence/SUPABASE_REAL_CLIENT_GATE_2026-08-31.md),
 [docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md),
 and [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md).
@@ -129,8 +139,9 @@ The saved native metadata is
 
 ## Remaining external gates
 
-Before final submission, run the shared CRUD/pgTAP gate, perform a new Native
-WebMCP gate for the Phase 8 feature, publish the required YouTube demo with
-audio, deploy only after that review, and re-check the Devpost form. This task
-deliberately does not apply the migration, deploy the feature, publish a video,
-or perform the final submit.
+Before final submission, perform a new Native WebMCP gate for the consolidated
+feature, decide whether to deploy it to the public URL, publish the required
+YouTube demo with audio, and re-check the Devpost form. Network-failure
+injection, stronger moderation/Sybil controls, and the final RPC-only contract
+remain separate operational work. This task deliberately does not deploy the
+feature, publish a video, or perform the final submit.

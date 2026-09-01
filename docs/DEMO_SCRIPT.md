@@ -8,7 +8,7 @@
 4. ブラウザで表示し、右上の `管理ビュー` から `デモデータをリセット` を実行する。
 5. 実機確認をする場合は [WEBMCP_REAL_DEVICE.md](./WEBMCP_REAL_DEVICE.md) のflagとDiagnostics手順も準備する。
 
-既定の `LOCAL_DEMO` はこの3分デモ用です。表示はSimple／日本語が初期値で、右上からEnglishまたはAdvancedへ切り替えられます。複数ブラウザで共有を見せる場合は、Phase 8 draftを含む [SUPABASE_SHARED_STATE.md](./SUPABASE_SHARED_STATE.md) のmigrationを使い捨て実DBへ適用し、`VITE_LIVINGTOWN_DATA_MODE=shared`、`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`を設定して起動します。Phase 8 migrationはこのfeature branchでは未適用です。shared modeではデモリセットでremote dataを消せないため、使い捨てprojectまたはsessionを用意してください。
+既定の `LOCAL_DEMO` はこの3分デモ用です。表示はSimple／日本語が初期値で、右上からEnglishまたはAdvancedへ切り替えられます。複数ブラウザで共有を見せる場合は、Phase 8／10 Expand migrationが適用済みのLivingtown project、または [SUPABASE_SHARED_STATE.md](./SUPABASE_SHARED_STATE.md) の手順で用意した使い捨て実DBを使い、`VITE_LIVINGTOWN_DATA_MODE=shared`、`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`を設定して起動します。shared modeではデモリセットでremote dataを消せないため、既存projectでは対象を限定したsession、破壊的な再試行では使い捨てprojectを用意してください。最終のRPC-only contractはこのデモでは適用しません。
 
 実機WebMCPを検証できるChromeでは、開発者ツールで `document.modelContext.getTools()` を実行し、phaseごとの一覧を記録する。通常ブラウザではWebMCPがないため、画面の `SIMULATED` 表示とVitestのfake adapterを使う。この2つを混同して実機PASSとは言わない。
 

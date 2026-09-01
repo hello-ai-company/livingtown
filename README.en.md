@@ -8,6 +8,15 @@ License: MIT — see [LICENSE](./LICENSE).
 
 The project is designed around the [WebMCP Challenge](https://webmcp.devpost.com/): people and agents work together through structured tools, while the map and replay view keep the result understandable to a human.
 
+## Current verification status (2026-09-01)
+
+- **Hosted Expand:** Phase 8 and Phase 10 Expand migrations are applied to the hosted Livingtown project; the remote migration history contains eight migrations.
+- **Disposable database:** GitHub Actions starts a temporary Supabase stack and passes suites 0004, 0005, and 0006 with 169 pgTAP tests.
+- **Real shared gate:** Phase 10.3 identity, owner-CRUD, privacy, Realtime, and cleanup checks are PASS; see [the latest evidence](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md).
+- **Still pending:** the RPC-only contract is not applied, the public Netlify site remains the Phase 7 baseline, the Phase 10 Native WebMCP gate has not run, and the video and final Devpost submission are not complete.
+
+Older “unapplied” or “not run” statements below are retained as historical checkpoints. The status above is the current source of truth.
+
 ## Quick start
 
 ```bash
@@ -77,7 +86,7 @@ When the browser does not expose WebMCP, the same tool definitions run through t
 - Household inputs are restricted to an anonymous label, the `wheelchair | infant | elderly | pet` constraint enum, and a coordinate snapped to the demo graph.
 - Household input rejects names, email, phone, diagnosis, medical information, and exact-address fields.
 - Shared Supabase mode keeps raw verification records private, exposes only derived counters to the browser, scopes household/bottleneck operations through owner-aware RPCs, and uses RLS and function-execution hardening.
-- Sensitive categories and suspicious free text are persisted as category-level public summaries rather than raw descriptions; obvious PII is rejected at the write boundary. Moderation, retention, and stronger Sybil resistance are not implemented yet. Phase 8 adds an unapplied private owner mapping plus owner-only update/delete RPCs with explicit confirmation; the browser receives only owned knowledge IDs, never raw owner IDs.
+- Sensitive categories and suspicious free text are persisted as category-level public summaries rather than raw descriptions; obvious PII is rejected at the write boundary. Moderation, retention, and stronger Sybil resistance are not implemented yet. The applied Phase 8/10 Expand migrations keep the private owner mapping and owner-only update/delete RPCs with explicit confirmation; the browser receives only owned knowledge IDs, never raw owner IDs. The final RPC-only contract remains intentionally unapplied.
 
 See [docs/WEBMCP_REAL_DEVICE.md](./docs/WEBMCP_REAL_DEVICE.md) for native-browser verification and [docs/SUPABASE_SHARED_STATE.md](./docs/SUPABASE_SHARED_STATE.md) for the shared-state trust boundary.
 
@@ -91,7 +100,7 @@ npm run seed
 git diff --check
 ```
 
-The current Phase 10.2 local gate passes with 23 test files and 147 tests. GitHub Actions is also configured in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml); any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
+The current Phase 10.2 local gate passes with 23 test files and 147 tests. GitHub Actions also passes the application workflow and the disposable Supabase workflow with 169 pgTAP tests; see [the database gate evidence](./docs/evidence/PHASE_10_2_GITHUB_DISPOSABLE_DB_GATE_2026-09-01.md). Any hosted-run failure should be checked for runner infrastructure issues before treating it as a code failure.
 
 ## Challenge submission readiness
 
@@ -119,6 +128,6 @@ The implementation reuses the existing Knowledge verification, ownership, Realti
 
 The MAP WebMCP surface remains exactly five tools: contribute_knowledge, delete_knowledge, query_area, update_knowledge, and verify_knowledge. There is no report_observation tool. The existing contribute contract remains valid while the category enum and optional report_type / observed_at fields are extended. See [the Phase 10 design](./docs/LIVING_OBSERVATION_LAYER.md) and [local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) for the full safety and gate status.
 
-The Phase 10 Supabase migration and pgTAP file are review-only drafts and have not been applied or executed. This feature branch is not deployed to Netlify, and the Phase 10 Native WebMCP gate is explicitly not run.
+The Phase 10 Supabase migration is applied as an Expand rollout, and its pgTAP suite passes in the disposable GitHub Actions database gate. The final RPC-only contract is not applied. This feature branch is not deployed to Netlify, and the Phase 10 Native WebMCP gate is explicitly not run; see [the latest shared-gate evidence](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md).
 
 Photo upload is intentionally out of scope for Phase 10.2. Faces, license plates, EXIF location, moderation/redaction, retention, Storage permissions, cost, and bot/abuse controls require a separate safety design before media is accepted.

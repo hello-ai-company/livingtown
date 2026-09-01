@@ -2,6 +2,23 @@
 
 Phase 6 adds an explicit shared-state adapter without replacing the deterministic local demo.
 
+## Current hosted status (2026-09-01)
+
+The Livingtown hosted project has the eight migrations listed below, including
+the Phase 8 ownership CRUD, Phase 10 observation Expand, and the follow-up
+coordinate-bound integrity migration. GitHub Actions has passed the disposable
+0004/0005/0006 pgTAP suites with 169 tests. The Phase 10.3 real shared gate
+(independent Auth identities, owner CRUD, privacy, Realtime, and audited
+cleanup) is PASS; the final hosted counts are five Knowledge rows and three
+Verification rows. See
+[`docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md).
+
+The `docs/sql/POST_DEPLOY_RPC_ONLY_KNOWLEDGE_WRITE.sql` contract is not
+applied. The public Netlify URL still serves the Phase 7 baseline, and the
+changed five-tool Native WebMCP gate and feature-branch deployment remain
+pending. Historical blocked checkpoints later in this document are retained
+for auditability and are not the current hosted status.
+
 ## Modes
 
 | Mode | Repository | Data boundary | Reset behavior |
@@ -90,7 +107,9 @@ Apply migrations in filename order:
 3. `20260830143717_knowledge_counter_privileges.sql` — zero-counter insert trigger and knowledge column privileges.
 4. `20260830143808_shared_state_trust_boundary.sql` — owner scope, RPC-only private writes, server-derived verifier identity, Knowledge trust checks, and Knowledge-only Realtime publication membership.
 5. `20260830162803_function_execute_boundary.sql` — remove default browser-role EXECUTE grants from internal helpers and grant the three public RPCs to `authenticated` only. This hardening migration is applied to the Livingtown hosted project; its local filename follows the remote migration version.
-6. `20260831075455_real_map_knowledge_ownership_crud.sql` — **Phase 8 draft only**: worldwide Web Mercator-safe Knowledge bounds, `updated_at`, private `knowledge_owner`, owned-ID RPC, owner-only update/delete RPCs, vote reset confirmation, and Knowledge-only Realtime invariants. Do not apply until the Phase 8 shared CRUD gate is approved.
+6. `20260831075455_real_map_knowledge_ownership_crud.sql` — Phase 8 worldwide Web Mercator-safe Knowledge bounds, `updated_at`, private `knowledge_owner`, owned-ID RPC, owner-only update/delete RPCs, vote reset confirmation, and Knowledge-only Realtime invariants. Applied to the hosted project as part of the approved Expand rollout.
+7. `20260831142006_living_observation_layer.sql` — Phase 10 observation categories, incident metadata, expiry, sensitive-summary normalization, and conservative coordinate handling. Applied to the hosted project as part of the approved Expand rollout.
+8. `20260901035628_restore_bottleneck_demo_coordinate_bounds.sql` — restores the demo-area bottleneck integrity check after the worldwide Knowledge expansion. Applied as a follow-up integrity-boundary migration.
 
 The initial four migrations use `if not exists`, named `drop policy if exists`, trigger replacement, and guarded publication changes where possible. `20260830143808_shared_state_trust_boundary.sql` revokes browser SELECT/INSERT/UPDATE/DELETE on Verification and drops the earlier authenticated read policy. If a deployed project already added Verification to `supabase_realtime`, its guarded block executes `ALTER PUBLICATION supabase_realtime DROP TABLE public.verification`; this changes publication exposure, not stored records. Do not edit an applied migration in a deployed project; apply `20260830162803_function_execute_boundary.sql` as a new migration.
 
@@ -177,9 +196,12 @@ The latest successful result is recorded in
 
 Use the authenticated ChatGPT Supabase MCP or safe read-only SQL/Advisor queries to audit migration history, privileges, RLS, functions, and publication membership. Browser A/B/C is a separate real-application gate.
 
-For the shared-mode manual flow, mark `SUPABASE_MANUAL_ACTION_REQUIRED` until the project owner records real application evidence.
+The real shared application gate is recorded as PASS in the latest evidence
+file. Use the following flow only for a fresh disposable-project rerun or a
+future regression check; do not repeat hosted migrations that are already
+present.
 
-1. Apply the initial four migrations and `20260830162803_function_execute_boundary.sql` to a disposable Supabase project. The Livingtown hosted project already has all five baseline migrations applied; do not reapply them for this historical evidence record. Keep the Phase 8 draft unapplied until its separate gate is approved.
+1. Apply all source migrations in filename order to a disposable Supabase project. The Livingtown hosted project already has all eight migrations applied; do not reapply them there.
 2. Enable Anonymous Sign-Ins if the demo is to use the no-PII browser flow.
 3. Start two browser sessions with `VITE_LIVINGTOWN_DATA_MODE=shared` and the same project URL/key.
 4. Confirm `Data diagnostics` shows `SUPABASE_SHARED`, authenticated status, connected database, and Realtime status. Do not copy keys or raw identity values into evidence.
@@ -194,4 +216,4 @@ For the Phase 8 CRUD gate, use two authenticated identities and a disposable pro
 
 Record the project, migration revision, browser roles, UTC timestamps, and observed pass/fail result. Never record access tokens, keys, raw user IDs, or verifier IDs.
 
-The [`docs/evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md`](./evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md) file is a historical local-environment audit and remains unchanged as history. The initial four migrations and `20260830162803_function_execute_boundary.sql` were later applied to the `Livingtown` project; the initial and post-hardening observations are recorded in [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md). That evidence records `HOSTED_DB_SECURITY_GATE: PASS`, while the Phase 8 draft migration remains unapplied, its 74-assertion pgTAP file remains unrun, and the Phase 8 two-identity CRUD gate remains `NOT RUN`. Do not treat the fake adapters, Vitest results, or hosted DB-only PASS as a full real-client end-to-end PASS.
+The [`docs/evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md`](./evidence/SUPABASE_REAL_ENVIRONMENT_BLOCKED_2026-08-30.md) file is a historical local-environment audit and remains unchanged as history. The initial four migrations and `20260830162803_function_execute_boundary.sql` were later applied to the `Livingtown` project; the initial and post-hardening observations are recorded in [`docs/evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md`](./evidence/SUPABASE_REAL_DB_GATE_2026-08-30.md). Those older records intentionally describe the pre-Phase-10 Expand checkpoint, when the Phase 8 migration, its pgTAP suite, and the two-identity CRUD gate were not yet run. The current eight-migration, 169-test disposable gate and real shared PASS are recorded in [`docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md). Do not treat fake adapters or Vitest results alone as hosted evidence; use the latest real shared record for the current status.

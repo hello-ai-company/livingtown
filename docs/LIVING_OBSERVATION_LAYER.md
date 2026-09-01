@@ -5,6 +5,20 @@ community-observation layer. It keeps the existing verification, ownership,
 Realtime, route, WebMCP, MapLibre, and Navara architecture instead of adding a
 second observation database.
 
+## Current rollout status (2026-09-01)
+
+The Phase 8 and Phase 10 Expand migrations are applied to the hosted
+Livingtown project; the hosted migration history contains eight migrations.
+The disposable Supabase workflow has passed all three pgTAP suites with 169
+tests, and the Phase 10.3 real shared identity, owner-CRUD, privacy, Realtime,
+and cleanup gates are recorded as PASS in
+[`docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md).
+The final RPC-only contract is not applied. The public Netlify URL still serves
+the Phase 7 baseline, the Phase 10 Native WebMCP gate has not been run, and the
+video and final Devpost submission are still pending. Any older blocked or
+unapplied statements below describe their historical checkpoint and do not
+override this status.
+
 ## Product flow
 
 The MAP screen keeps a visible one-line composer:
@@ -142,8 +156,11 @@ extended owner-only update RPC re-derives the default report type when the
 category changes, reapplies metadata and geoprivacy, and resets votes when a
 meaningful edit is confirmed.
 
-The migration is intentionally a draft. It has not been applied to Supabase,
-and the pgTAP file has not been executed.
+The source migration is now applied to the hosted project as an Expand rollout,
+and the Phase 10 pgTAP suite is exercised by the disposable GitHub Actions
+database gate. The RPC-only contract remains intentionally separate and is not
+applied. The public Netlify deployment and Native WebMCP gate remain pending for
+this feature branch.
 
 ## Rendering and tools
 
@@ -174,8 +191,9 @@ anonymous authentication is not proof of a distinct human, and the
 verification threshold does not provide Sybil resistance. CAPTCHA/Turnstile,
 rate limiting, delayed/aggregated conflict publication, historical search,
 retention/deletion operations, official ingestion, and operational conflict
-intelligence remain out of scope. Phase 10 local quality checks do not prove
-Supabase migration safety, production deployment, or Native WebMCP behavior.
+intelligence remain out of scope. Local quality checks alone do not prove
+production deployment or Native WebMCP behavior; the disposable and hosted
+gates are recorded separately as evidence.
 
 Photo upload is intentionally out of scope for Phase 10.2. Faces, license
 plates, EXIF location, moderation/redaction, retention, Storage permissions,
