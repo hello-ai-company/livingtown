@@ -5,7 +5,7 @@ create extension if not exists pgtap with schema extensions;
 
 begin;
 
-select plan(64);
+select plan(65);
 
 select ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'knowledge' and column_name = 'report_type'), 'report_type column exists');
 select ok(exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'knowledge' and column_name = 'observed_at'), 'observed_at column exists');
