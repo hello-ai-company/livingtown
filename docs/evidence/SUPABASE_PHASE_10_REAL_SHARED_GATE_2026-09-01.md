@@ -116,7 +116,12 @@ intentional findings:
 No unexpected anonymous-executable SECURITY DEFINER mutation endpoint was
 introduced. Status: `SECURITY_ADVISOR: PASS_WITH_DOCUMENTED_BASELINE`.
 
-## Browser A/B/C smoke check
+## Historical baseline Browser A/B/C smoke check — superseded for Phase 10.3
+
+This section records the earlier public-baseline smoke check. It is retained
+because it documents what the deployed Phase 7 URL could prove at that time;
+the Phase 10.3 independent-identity and owner-CRUD results are authoritative
+for the current shared gate.
 
 The existing in-app browser tab showed `SUPABASE_SHARED`, configured `YES`,
 database `CONNECTED`, Realtime `CONNECTED`, and authenticated `YES`. The
@@ -284,10 +289,13 @@ SAFE_TO_MERGE_PR_12: NO
 SAFE_TO_DEPLOY_PHASE_10_2: NO
 ```
 
-The remaining blocker is evidence, not a migration failure: deploy the
-feature branch to a controlled preview or use two isolated browser profiles,
-then repeat the Phase 10.2 five-tool and owner-scoped CRUD gate before
-merging or deploying.
+Historical note — superseded by the Phase 10.3B final gate: the earlier
+checkpoint said to deploy the feature branch to a controlled preview or use
+two isolated browser profiles, then repeat the Phase 10.2 five-tool and
+owner-scoped CRUD gate. The hosted identity, owner-CRUD, privacy, Realtime,
+and cleanup evidence is now PASS. The remaining release evidence is the
+changed five-tool Native WebMCP gate and an intentional production deployment
+decision; this does not reopen the completed hosted shared gate.
 
 ## Historical Phase 10.3 interrupted-cleanup state — superseded
 
