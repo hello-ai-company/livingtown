@@ -42,7 +42,7 @@ describe('WebMCP diagnostics evidence model', () => {
 
     expect(evidence.mode).toBe('SIMULATED')
     expect(evidence.exactMatch).toBe(false)
-    expect(diagnosticsModeMessage(evidence.mode)).toBe('This is not real-device WebMCP evidence.')
+    expect(diagnosticsModeMessage(evidence.mode)).toBe('This is not native WebMCP evidence.')
   })
 
   it('exports the diagnostics schema and phase history without domain or PII fields', () => {

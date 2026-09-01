@@ -231,6 +231,8 @@ export class SupabaseTownRepository implements TownRepository {
   private status: RepositoryStatus
   private channel?: RealtimeChannel
   private refreshPromise?: Promise<void>
+  private authenticationPromise?: Promise<{ id: string }>
+  private realtimePromise?: Promise<void>
   private refreshPending = false
   private disposed = false
   private ownedKnowledgeIds = new Set<string>()
@@ -303,12 +305,21 @@ export class SupabaseTownRepository implements TownRepository {
     const user = await this.readAuthenticatedUser()
     if (user) return user
     if (!allowAnonymousSignIn || !this.client.auth?.signInAnonymously) return undefined
-    const { data, error } = await this.client.auth.signInAnonymously()
-    if (error) throw error
-    const signedInUser = data?.user
-    if (!signedInUser) throw new Error('Supabase did not return an authenticated user.')
-    this.setStatus({ authenticated: true })
-    return signedInUser
+    if (!this.authenticationPromise) {
+      let tracked: Promise<{ id: string }>
+      tracked = (async () => {
+        const { data, error } = await this.client.auth.signInAnonymously()
+        if (error) throw error
+        const signedInUser = data?.user
+        if (!signedInUser) throw new Error('Supabase did not return an authenticated user.')
+        this.setStatus({ authenticated: true })
+        return signedInUser
+      })().finally(() => {
+        if (this.authenticationPromise === tracked) this.authenticationPromise = undefined
+      })
+      this.authenticationPromise = tracked
+    }
+    return this.authenticationPromise
   }
 
   private async selectRows(table: string, columns: string, signal?: AbortSignal) {
@@ -441,26 +452,35 @@ export class SupabaseTownRepository implements TownRepository {
     }
   }
 
-  private async subscribeRealtime() {
-    if (this.disposed || typeof this.client.channel !== 'function') {
-      this.setStatus({ realtime: 'ERROR', lastSyncError: 'Supabase Realtime channel is unavailable.' })
-      return
-    }
-    await this.closeRealtimeChannel()
-    if (this.disposed) return
-    this.setStatus({ realtime: 'CONNECTING' })
-    const refreshKnowledge = () => {
-      void this.refreshRemoteState().catch(() => undefined)
-    }
-    this.channel = this.client
-      .channel('livingtown-shared-state')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'knowledge' }, refreshKnowledge)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'knowledge' }, refreshKnowledge)
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'knowledge' }, refreshKnowledge)
-      .subscribe((state: string) => {
-        if (state === 'SUBSCRIBED') this.setStatus({ realtime: 'CONNECTED' })
-        if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED') this.setStatus({ realtime: 'ERROR' })
-      })
+  private subscribeRealtime() {
+    if (this.realtimePromise) return this.realtimePromise
+
+    let tracked: Promise<void>
+    tracked = (async () => {
+      if (this.disposed || typeof this.client.channel !== 'function') {
+        this.setStatus({ realtime: 'ERROR', lastSyncError: 'Supabase Realtime channel is unavailable.' })
+        return
+      }
+      await this.closeRealtimeChannel()
+      if (this.disposed) return
+      this.setStatus({ realtime: 'CONNECTING' })
+      const refreshKnowledge = () => {
+        void this.refreshRemoteState().catch(() => undefined)
+      }
+      this.channel = this.client
+        .channel('livingtown-shared-state')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'knowledge' }, refreshKnowledge)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'knowledge' }, refreshKnowledge)
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'knowledge' }, refreshKnowledge)
+        .subscribe((state: string) => {
+          if (state === 'SUBSCRIBED') this.setStatus({ realtime: 'CONNECTED' })
+          if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT' || state === 'CLOSED') this.setStatus({ realtime: 'ERROR' })
+        })
+    })().finally(() => {
+      if (this.realtimePromise === tracked) this.realtimePromise = undefined
+    })
+    this.realtimePromise = tracked
+    return tracked
   }
 
   getSnapshot() {

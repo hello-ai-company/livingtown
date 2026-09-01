@@ -60,6 +60,10 @@ class FakeChannel {
   emit() {
     this.handlers.forEach((handler) => handler())
   }
+
+  emitStatus(state: string) {
+    this.subscriptionCallback?.(state)
+  }
 }
 
 class FakeSupabaseClient {
@@ -75,6 +79,9 @@ class FakeSupabaseClient {
   readonly insertPayloads: Array<{ table: string; payload: Row }> = []
   readonly selectTables: string[] = []
   readonly knowledgeOwners = new Set<string>()
+  channelCallCount = 0
+  signInCallCount = 0
+  signInDelay?: Promise<void>
   user: { id: string } | undefined
   failReads = false
   failWrites = false
@@ -87,6 +94,10 @@ class FakeSupabaseClient {
   readonly auth = {
     getUser: async () => ({ data: { user: this.user }, error: null }),
     signInAnonymously: async () => {
+      this.signInCallCount += 1
+      const delay = this.signInDelay
+      this.signInDelay = undefined
+      if (delay) await delay
       this.user = { id: 'user-anonymous-a' }
       return { data: { user: this.user }, error: null }
     },
@@ -136,6 +147,7 @@ class FakeSupabaseClient {
   }
 
   channel() {
+    this.channelCallCount += 1
     return this.channelInstance
   }
 
@@ -507,6 +519,39 @@ describe('SupabaseTownRepository', () => {
     repository.dispose()
     repository.dispose()
     expect(fake.removeChannel).toHaveBeenCalledTimes(1)
+  })
+
+  it('coalesces concurrent anonymous sign-in attempts', async () => {
+    const fake = new FakeSupabaseClient()
+    const repository = sharedRepository(fake)
+    await repository.ready
+
+    fake.user = undefined
+    let releaseSignIn!: () => void
+    fake.signInDelay = new Promise<void>((resolve) => { releaseSignIn = resolve })
+    const firstRetry = repository.retry()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const secondRetry = repository.retry()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(fake.signInCallCount).toBe(2)
+    releaseSignIn()
+    await Promise.all([firstRetry, secondRetry])
+    expect(fake.signInCallCount).toBe(2)
+    repository.dispose()
+  })
+
+  it('coalesces concurrent realtime resubscriptions after a channel error', async () => {
+    const fake = new FakeSupabaseClient()
+    const repository = sharedRepository(fake)
+    await repository.ready
+    expect(fake.channelCallCount).toBe(1)
+
+    fake.channelInstance.emitStatus('CHANNEL_ERROR')
+    await Promise.all([repository.retry(), repository.retry()])
+
+    expect(fake.channelCallCount).toBe(2)
+    repository.dispose()
   })
 
   it('refreshes public knowledge for Realtime UPDATE and DELETE events', async () => {

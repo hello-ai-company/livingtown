@@ -32,7 +32,7 @@
 
 | Phase | Available tools |
 |---|---|
-| `map` | `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge` |
+| `map` | `contribute_knowledge`, `verify_knowledge`, `query_area` |
 | `drill` | `register_household`, `get_evacuation_route`, `report_bottleneck` |
 | `replay` | `control_replay`, `get_debrief_summary` |
 
@@ -162,7 +162,7 @@ bottleneck(id, lat, lng, severity, description, household_id, created_at)
 drill_run(id, scenario, weather, routes, created_at)
 ```
 
-## 5. WebMCPツールスキーマ（10本）
+## 5. WebMCPツールスキーマ（8本）
 
 実装側の戻り値はJSON文字列化してImperative APIへ渡す。schemaの制約は補助であり、入力検証はstoreでも厳格に実行する。
 
@@ -172,10 +172,6 @@ drill_run(id, scenario, weather, routes, created_at)
 
 引数: `category`, `lat`, `lng`, `condition`, `description`（200文字以内）, `confidence`。自由文には氏名・住所・電話番号・診断名などを含めない。戻り値: `{ id, status: "pending_verification", verifiedThreshold: 2 }`。
 
-#### `delete_knowledge`
-
-引数: `knowledge_id`, `confirm_delete: true`。現在のAuth identityが所有するKnowledgeだけをsecurity-definer RPCで削除し、既存routeを無効化する。`owner_id`は入力にも戻り値にも含めない。
-
 #### `verify_knowledge`
 
 local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagree`）, 任意の `comment`（200文字以内）。`verifier_id` はpseudonymous fixtureであり、形式だけではPII非保持やdistinct-humanを保証しない。shared modeの引数は `knowledge_id`, `verdict`, `comment` だけで、server-side RPCがAuth identityからopaque identifierを導出する。両modeとも同じ`knowledge_id + verifier_id`に対する重複を無視する。戻り値にはshared modeでverifier idを含めない。
@@ -183,10 +179,6 @@ local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagre
 #### `query_area`
 
 引数: `lat`, `lng`, `radius_m`（最大2000）, 任意の `category`, `condition`。戻り値: `{ items: [...] }`。
-
-#### `update_knowledge`
-
-引数: `knowledge_id`, `category`, `lat`, `lng`, `condition`, `description`（200文字以内）, `confidence`、任意の `confirm_reverification_reset`。所有者だけが更新でき、既存票がある場合は明示確認後に票をリセットして再検証を要求する。更新後は既存routeを無効化する。
 
 ### drillフェーズ
 
@@ -245,11 +237,11 @@ local demoの引数: `knowledge_id`, `verifier_id`, `verdict`（`agree | disagre
 - MapLibreは日本ではGSI standard tiles、海外を含む世界地域ではOpenFreeMap Liberty styleへ接続する。Autoはカメラ領域からproviderを切り替え、AdvancedではJapan (GSI)／Worldwide (OpenFreeMap)を固定指定できる。minZoom=2／maxZoom=18、各providerのattribution、knowledge／route／avoided edge／household／bottleneck overlayを持つ。KnowledgeはWeb Mercator安全範囲（lat -85.051129..85.051129、lng -180..180）で扱う。現在地は明示したGeolocateControlの一度の操作だけで、auto permission／tracking／保存は行わない。
 - 地図tap／FABから、位置→カテゴリ→条件→確度→説明・確認の5段階ContributionFormを開く。説明は最大200文字、個人情報を含めない確認を必須とし、投稿地点は他の利用者に表示される。編集・削除は`can_edit`が付いた自分の投稿だけに表示する。
 - `knowledge_owner`はprivate mapping table、`get_my_knowledge_ids()`はcurrent identityのIDだけを返す。owner mapping、raw owner UUID、verification recordはbrowserへ渡さない。update/deleteはsecurity-definer owner-only RPC、入力検証、明示confirmation、route invalidationを使う。
-- Phase 8のmigrationは [`supabase/migrations/20260901035430_real_map_knowledge_ownership_crud.sql`](../supabase/migrations/20260901035430_real_map_knowledge_ownership_crud.sql)、pgTAPは [`supabase/tests/0005_real_map_knowledge_ownership_crud.sql`](../supabase/tests/0005_real_map_knowledge_ownership_crud.sql) にあり、いずれもExpandとしてhosted projectへ適用・使い捨てDBで検証済みである。Phase 10.3のshared identity／CRUD／privacy／Realtime gateもPASSだが、Native WebMCP実機再確認と本番反映はPENDINGである。既存 [`docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md`](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) は変更しない。
+- Phase 8のmigrationは [`supabase/migrations/20260901035430_real_map_knowledge_ownership_crud.sql`](../supabase/migrations/20260901035430_real_map_knowledge_ownership_crud.sql)、pgTAPは [`supabase/tests/0005_real_map_knowledge_ownership_crud.sql`](../supabase/tests/0005_real_map_knowledge_ownership_crud.sql) にあり、いずれもExpandとしてhosted projectへ適用・使い捨てDBで検証済みである。Phase 10.3のshared identity／CRUD／privacy／Realtime gateもPASSで、現行feature branchのNative WebMCP local/preview gateもPASSである。公開URLへの本番反映とpost-deploy Native再確認はPENDINGである。既存 [`docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md`](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) は変更しない。
 
 ### Supabase migration verification
 
-初期4 migrationと `20260830162803_function_execute_boundary.sql` に加え、Phase 8／10 Expand migrationを適用した共有Supabaseで、authenticatedロールとして次を検証する。Knowledgeのdomain列INSERTは成功し、返る `agree_count` と `disagree_count` は必ず `0, 0` になる。counter列の指定、anonロールのINSERT、verificationの直接INSERT、ownerを指定したhouseholdの直接INSERTは失敗し、authenticated Auth identityからの公開RPCだけが成功する。内部helperのEXECUTEはanon／authenticatedともに失敗する。Livingtown projectではapply、Security Advisor、pgTAPの使い捨てDBゲート、Browser A/B/C、owner CRUD、privacy、Realtimeの確認まで完了している。最新の判定は [`docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) に記録し、Native WebMCPは別gateとして未実行である。
+初期4 migrationと `20260830162803_function_execute_boundary.sql` に加え、Phase 8／10 Expand migrationを適用した共有Supabaseで、authenticatedロールとして次を検証する。Knowledgeのdomain列INSERTは成功し、返る `agree_count` と `disagree_count` は必ず `0, 0` になる。counter列の指定、anonロールのINSERT、verificationの直接INSERT、ownerを指定したhouseholdの直接INSERTは失敗し、authenticated Auth identityからの公開RPCだけが成功する。内部helperのEXECUTEはanon／authenticatedともに失敗する。Livingtown projectではapply、Security Advisor、pgTAPの使い捨てDBゲート、Browser A/B/C、owner CRUD、privacy、Realtimeの確認まで完了している。最新の判定は [`docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) に記録し、現行feature branchのNative WebMCP local/preview gateは [`docs/evidence/WEBMCP_NATIVE_GATE_2026-09-01.md`](./evidence/WEBMCP_NATIVE_GATE_2026-09-01.md) に記録する。公開URL再確認は別途pendingである。
 
 ```sql
 insert into public.knowledge
@@ -315,17 +307,17 @@ livingtown/
 - [x] MapLibre + GSI／OpenFreeMapのprovider切替、世界対応のzoom boundary（z2–18）、provider別attribution、Knowledge／route／avoided LineString／household／bottleneck overlay、SVG fallbackを提供する。
 - [x] 地図tap/FABから位置→カテゴリ→条件→確度→説明の5段階投稿を開き、privacy確認、200文字制限、Escape／focus trap／focus returnを提供する。
 - [x] `knowledge_owner`をbrowser roleから隠し、owned IDだけを使ってowner-only update/delete RPCへ接続する。票のある更新はreverification resetを要求し、編集／削除後にrouteを無効化する。
-- [x] MAPのtool surfaceを`contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge`の5本に固定し、update/delete schemaにconfirmationを含める。
+- [x] MAPのagent-facing tool surfaceを`contribute_knowledge`, `verify_knowledge`, `query_area`の3本に固定する。owner-only update/deleteは人間向けRepository/UI管理操作として維持し、WebMCP surfaceへ公開しない。
 - [x] MapLibre 2Dを初期表示とし、Navara 3Dをlazy importする2D／3D切替、共有GeoCamera、共有snapshot投影、能力判定、品質切替、ローカライズ済み2D fallbackを実装する。
 - [x] Navaraの公式APIで東京GSI raster／terrain、任意PLATEAU 3D Tiles、Knowledge／route／avoided road／household／bottleneck、visual weather、guided camera、dispose境界を実装する。
 - [x] Navara 3Dのloader、capability、camera、weather、dataset、tour、i18n回帰テストを追加する。初期entryにNavara実装を含めないbuild分割を確認する。
 - [x] `LOCAL_3D_GATE` の実ブラウザで東京3D、terrain／PLATEAU可否、2D↔3D反復、weather、tour、JA/EN、reduced motionを確認する（native WebMCPとは別）。証跡は `docs/evidence/NAVARA_3D_LOCAL_GATE_2026-08-31.md`。
-- [ ] Phase 8 migrationの実DB適用、A/B CRUD／RLS／Realtime gate、5本MAP surfaceのNative WebMCP実機再確認。
+- [x] Phase 8 migrationの実DB適用、A/B CRUD／RLS／Realtime gate、現行feature branchの3本MAP surfaceを含むNative WebMCP local/preview実機再確認。公開URLのpost-deploy再確認は別途pending。
 - [ ] 実Supabase projectへのmigration適用、Auth insert／counter bypass denial／duplicate verification／Browser A/B Realtimeの実証。
 
 ## 12. Phase 10 Living Observation Layer
 
-Phase 10は既存Knowledgeをcommunity observation / local knowledgeとして拡張する。新しい永続Observationテーブルは作らず、Knowledge、Verification、knowledge_owner、Realtime、TownRepository、MapLibre、Navara、既存の5本MAP WebMCP surfaceを再利用する。対象カテゴリは既存値を維持したまま、flood、fire、explosion、road_block、darkness、narrow_path、barrier、safe_spot、theft、harassment、violence、conflict、infrastructure、accessibility、crowding、otherへ拡張する。
+Phase 10は既存Knowledgeをcommunity observation / local knowledgeとして拡張する。新しい永続Observationテーブルは作らず、Knowledge、Verification、knowledge_owner、Realtime、TownRepository、MapLibre、Navara、既存の3本MAP WebMCP surfaceを再利用する。対象カテゴリは既存値を維持したまま、flood、fire、explosion、road_block、darkness、narrow_path、barrier、safe_spot、theft、harassment、violence、conflict、infrastructure、accessibility、crowding、otherへ拡張する。
 
 ### 12.1 One-line input and interpretation
 
@@ -347,13 +339,13 @@ routeImpactPolicyはnone、safety、blockingのpure policyで、callerが値を�
 
 shared modeではHuman UIとWebMCPが同じTownRepositoryを通り、authenticated-only create_knowledge RPCがowner、source、timestamps、counters、expiry、precision、sensitive public descriptionをserver-sideで導出する。Phase 10のExpand migrationは旧クライアントの6列domain INSERTを短い互換期間だけ残し、SECURITY DEFINERのBEFORE triggerで認証、PII、safe summary、coarsening、incident metadataを再適用する。direct UPDATE/DELETEは閉じ、RPC-onlyの最終contractは新アプリと共有ブラウザゲートが確認できた後に`docs/sql/POST_DEPLOY_RPC_ONLY_KNOWLEDGE_WRITE.sql`から適用する。update RPCはcategory変更時にreport typeとobserved timeの既存値を盲目的に引き継がず、category、location、description、confidence、condition、report_type、observed_atの変更時にgeoprivacyとexpiryを再計算し、票があれば明示確認後にreverification resetを行う。Expand migrationはhosted projectへ適用済みであり、既存migrationはrewriteしていない。最終RPC-only contractだけが未適用である。
 
-MapLibre 2DとNavara 3Dは同じsnapshotを描画し、pendingは半透明、2 community confirmationsは強い表示、expired incidentはcurrent overlayから除外する。MapLibreのKnowledge GeoJSONはnative clusteringを使い、Simpleではcluster count bubbleを押して周辺点へ展開する。conflictは2kmのneutral alert marker、未対応categoryはgeneric community markerへfallbackする。MAP toolはcontribute_knowledge、delete_knowledge、query_area、update_knowledge、verify_knowledgeの5本で固定し、report_observationは追加しない。
+MapLibre 2DとNavara 3Dは同じsnapshotを描画し、pendingは半透明、2 community confirmationsは強い表示、expired incidentはcurrent overlayから除外する。MapLibreのKnowledge GeoJSONはnative clusteringを使い、Simpleではcluster count bubbleを押して周辺点へ展開する。conflictは2kmのneutral alert marker、未対応categoryはgeneric community markerへfallbackする。MAP toolはcontribute_knowledge、verify_knowledge、query_areaの3本で固定し、report_observationは追加しない。
 
 写真アップロードはPhase 10.2では提供しない。顔、ナンバープレート、EXIF位置情報の混入を投稿者が制御しにくく、moderation、redaction、retention、Storage権限、保存コスト、bot／abuse対策まで必要になるためである。将来検討する場合も、明示的な同意、client／server redaction、短期retention、moderation、削除運用を先に設計する。
 
 ### 12.4 Phase 10 verification boundary
 
-Phase 10のローカル根拠は [LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md](./evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) に記録し、実Supabase Expand／shared gateの最新根拠は [SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) に記録する。Native WebMCPの既存証跡、Netlify production、Devpost提出、動画はPhase 10の完了根拠へ流用しない。migration applyとpgTAPは完了済みだが、Native WebMCP実機ゲート、本番反映、動画、Devpost最終提出は未実施である。
+Phase 10のローカル根拠は [LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md](./evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) に記録し、実Supabase Expand／shared gateの最新根拠は [SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) に記録する。現行feature branchのNative WebMCP local/preview根拠は [WEBMCP_NATIVE_GATE_2026-09-01.md](./evidence/WEBMCP_NATIVE_GATE_2026-09-01.md) に記録する。Native WebMCPの既存公開証跡、Netlify production、Devpost提出、動画はPhase 10の完了根拠へ流用しない。migration applyとpgTAP、local Native gateは完了済みだが、本番反映、公開URL再確認、動画、Devpost最終提出は未実施である。
 
 ## 11. Devpost用要約
 

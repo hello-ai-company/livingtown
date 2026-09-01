@@ -22,7 +22,7 @@ baseline; the consolidated Phase 10 feature branch is not deployed.
 - **Environment:** `VITE_LIVINGTOWN_DATA_MODE=shared`, existing Livingtown Supabase URL, and a browser-safe publishable/anon key are configured in Netlify Environment variables. No value is committed here.
 - **Smoke test:** fresh browser tab loaded over HTTPS; `SUPABASE_SHARED`, Supabase configured `YES`, Anonymous Auth `YES`, `CONNECTED`, and Realtime `CONNECTED`; MAP → DRILL → REPLAY, temporary wheelchair household registration, route calculation, and Replay debrief were observed.
 - **Fallback:** GitHub Pages remains available at https://hello-ai-company.github.io/livingtown/.
-- **Native WebMCP:** Historical Phase 7 PASS on Chrome 152.0.7977.64 through Codex and Chrome DevTools for agents. This evidence covers the deployed three-tool MAP surface only; the consolidated Phase 10 five-tool feature branch requires a new real-device gate.
+- **Native WebMCP:** Historical Phase 7 PASS remains tied to the deployed baseline. The current feature branch uses the exact three-tool MAP surface and requires the current-head local/preview gate recorded in [`WEBMCP_NATIVE_GATE_2026-09-01.md`](./evidence/WEBMCP_NATIVE_GATE_2026-09-01.md); the public URL still needs a post-deploy recheck.
 
 ## What is LivingTown?
 
@@ -49,8 +49,7 @@ map and Replay view.
 ## Core demo
 
 1. In MAP, call `contribute_knowledge` with the deterministic rainy-crosswalk
-   example, then use the owner-only `update_knowledge` or `delete_knowledge`
-   flow when demonstrating CRUD confirmation.
+   example, then use `verify_knowledge` to cross the community threshold.
 2. Call `verify_knowledge` twice in the local demo, or use two authenticated
    shared-mode identities, until the observation is verified.
 3. In DRILL, register a household using the wheelchair constraint enum and
@@ -76,8 +75,7 @@ phase-scoped tools through document.modelContext.registerTool, tracks
 getTools() and toolchange, propagates registration and execution AbortSignals,
 and keeps external tools separate from the known LivingTown surface:
 
-- MAP: contribute_knowledge, delete_knowledge, query_area, update_knowledge,
-  verify_knowledge
+- MAP: contribute_knowledge, verify_knowledge, query_area
 - DRILL: register_household, get_evacuation_route, report_bottleneck
 - REPLAY: control_replay, get_debrief_summary
 
@@ -92,7 +90,7 @@ demo-graph coordinate.
 Local quality gates on this submission-readiness branch:
 
 - npm run typecheck: PASS
-- npm test: PASS — 23 files / 147 tests
+- npm test: PASS — 23 files / 149 tests
 - npm run build: PASS
 - npm run seed: PASS
 - git diff --check: PASS
@@ -120,8 +118,8 @@ External evidence:
   production URL; the old evidence is unchanged.
 - PHASE_8_LOCAL_BROWSER_UX_GATE: PASS for the feature branch, but this is not
   Native WebMCP evidence.
-- PHASE_10_NATIVE_WEBMCP_GATE: PENDING manual real-device confirmation for
-  the changed five-tool MAP surface.
+- PHASE_10_NATIVE_WEBMCP_GATE: current-head local/preview evidence is recorded
+  separately; public production revalidation remains pending until deployment.
 - PHASE_8_SHARED_CRUD_GATE: PASS as part of the Phase 10.3 real shared gate;
   the final RPC-only contract is not applied.
 - PHASE_10_NETLIFY_LIVE_URL_GATE: PENDING; production was intentionally left

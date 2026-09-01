@@ -2,8 +2,8 @@
 
 Draft only. These answers are not a final submission. The video field remains
 blank by instruction. The live URL below is the verified Phase 7 free Netlify
-production deployment; the Phase 8 feature branch is not deployed, and its
-Native WebMCP validation is still pending.
+production deployment; the current feature branch is not deployed, and its
+current-head Native WebMCP evidence is recorded separately.
 
 ## Project fields
 
@@ -38,10 +38,9 @@ The React/TypeScript/Vite frontend uses a deterministic walking graph and a
 repository boundary. The local repository powers an offline demo; the
 optional Supabase repository provides shared Knowledge, Realtime, anonymous
 Auth, and owner-scoped drill state. WebMCP access is isolated in
-src/webmcp/register.ts and the Phase 8 feature branch exposes exact
+src/webmcp/register.ts and the current feature branch exposes exact
 phase-scoped surfaces:
-contribute_knowledge, delete_knowledge, query_area, update_knowledge, and
-verify_knowledge in MAP;
+contribute_knowledge, verify_knowledge, and query_area in MAP;
 register_household, get_evacuation_route, and report_bottleneck in DRILL; and
 control_replay and get_debrief_summary in REPLAY. Shared mode keeps raw
 Verification records private and sends only derived Knowledge counters to the
@@ -50,11 +49,9 @@ browser.
 The repository includes the setup instructions, English test runbook, MIT
 license, deterministic seed data, and explicit evidence for the hosted DB
 security boundary, the recorded real Supabase browser sequence, and the
-historical Phase 7 native WebMCP real-agent run. Codex connected to Chrome
-DevTools for agents on Chrome 152.0.7977.64 and discovered and invoked
-LivingTown's native WebMCP tools on the public Netlify deployment. That result
-does not serve as Phase 8 evidence; the new feature branch requires its own
-real-device gate.
+current-head native WebMCP real-agent run. The public Netlify deployment is
+still the older baseline; production must be rechecked after deploying this
+feature branch.
 
 ## Custom questions
 
@@ -69,7 +66,7 @@ for this challenge.
 | 28252 | Is this app new or existing? | New |
 | 28253 | If existing, explain | *(blank — app is new)* |
 | 28254 | Live URL | https://livingtown-webmcp.netlify.app/ |
-| 28255 | Testing instructions | The saved public URL is the Phase 7 baseline and its Native evidence is historical. For the Phase 8 feature branch, run the local/preview URL in WebMCP-enabled Google Chrome with the WebMCP testing and DevTools WebMCP support flags enabled. Confirm the five exact MAP tools (`contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge`), then switch to DRILL and REPLAY to confirm exact surface changes. Do not treat the current public URL as Phase 8 evidence until a new real-device gate passes. |
+| 28255 | Testing instructions | Run the current local/preview URL in WebMCP-enabled Google Chrome with the WebMCP testing and DevTools WebMCP support flags enabled. Confirm the three exact MAP tools (`contribute_knowledge`, `verify_knowledge`, `query_area`), then switch to DRILL and REPLAY to confirm the exact 3 / 3 / 2 surfaces. Follow the causal demo: contribute, verify twice in LOCAL_DEMO, calculate the wheelchair flood/rain route, and inspect `avoided.reason` plus `avoided.edge_ids`. Do not treat the current public URL as current-branch evidence until it is redeployed and rechecked. |
 | 28256 | Public code repository | https://github.com/hello-ai-company/livingtown |
 | 28257 | Agent/client tested | OpenAI Codex connected to Google Chrome 152.0.7977.64 (Stable) through Chrome DevTools for agents, using chrome-devtools-mcp 1.8.0 with the experimental WebMCP category enabled. Codex discovered and invoked LivingTown's native WebMCP tools on the public Netlify deployment. |
 | 28258 | AI tools used | OpenAI Codex |
@@ -82,6 +79,6 @@ for this challenge.
 - Non-sensitive additional-info values were saved in the Devpost draft.
 - Country `Japan` is saved in the Devpost draft.
 - The verified Netlify live URL is filled as the Phase 7 baseline; its historical Native WebMCP PASS is recorded in [WEBMCP_NATIVE_GATE_2026-08-31.md](./evidence/WEBMCP_NATIVE_GATE_2026-08-31.md).
-- Phase 8 feature-branch Native WebMCP validation is pending, and its status is recorded in [WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md](./evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md).
+- Current-head feature-branch Native WebMCP validation is recorded in [WEBMCP_NATIVE_GATE_2026-09-01.md](./evidence/WEBMCP_NATIVE_GATE_2026-09-01.md); public production revalidation remains pending.
 - Video URL is intentionally blank.
 - No final Devpost submission is authorized by this document.

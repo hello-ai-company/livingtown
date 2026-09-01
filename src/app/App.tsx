@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapExperience } from '../map/MapExperience'
 import { KnowledgeContributionForm } from '../map/KnowledgeContributionForm'
 import { ObservationComposer } from '../map/ObservationComposer'
@@ -74,6 +74,10 @@ function AppShell() {
   const [mapDimension, setMapDimension] = useState<MapDimension>(() => resolveInitialMapDimension(getNavaraCapabilities()))
   const [mapCamera, setMapCamera] = useState<GeoCamera>(DEFAULT_TOKYO_CAMERA)
   const [weatherVisualMode, setWeatherVisualMode] = useState<WeatherVisualMode>()
+  const knownKnowledgeIds = useRef<Set<string> | undefined>(undefined)
+  const knownHouseholdIds = useRef<Set<string> | undefined>(undefined)
+  const knownRouteHouseholdIds = useRef<Set<string> | undefined>(undefined)
+  const sharedSnapshotHydrated = useRef(repositoryStatus.mode !== 'SUPABASE_SHARED')
 
   const browserUserAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
   const currentEvidence = useMemo(
@@ -130,6 +134,45 @@ function AppShell() {
     const firstHousehold = snapshot.households[0]
     if (firstHousehold) setSelectedHouseholdId(firstHousehold.id)
   }, [selectedHousehold, snapshot.households])
+
+  // WebMCP calls can mutate the repository without going through a React
+  // button handler. Track additions after the initial shared hydration so
+  // the judge-visible panels follow the agent-created record and route.
+  useEffect(() => {
+    const knowledgeIds = new Set(snapshot.knowledge.map((item) => item.id))
+    const householdIds = new Set(snapshot.households.map((item) => item.id))
+    const routeHouseholdIds = new Set(Object.keys(snapshot.routes))
+    const sharedHydrationPending = repositoryStatus.mode === 'SUPABASE_SHARED' && repositoryStatus.connection !== 'CONNECTED'
+
+    if (!sharedSnapshotHydrated.current) {
+      if (sharedHydrationPending) return
+      sharedSnapshotHydrated.current = true
+      knownKnowledgeIds.current = knowledgeIds
+      knownHouseholdIds.current = householdIds
+      knownRouteHouseholdIds.current = routeHouseholdIds
+      return
+    }
+    if (sharedHydrationPending) return
+
+    const previousKnowledgeIds = knownKnowledgeIds.current
+    const addedKnowledge = previousKnowledgeIds && snapshot.knowledge.find((item) => !previousKnowledgeIds.has(item.id) && item.source_kind !== 'official')
+    if (addedKnowledge) {
+      setLastKnowledgeId(addedKnowledge.id)
+      setSelectedKnowledgeId(addedKnowledge.id)
+    }
+
+    const previousHouseholdIds = knownHouseholdIds.current
+    const addedHousehold = previousHouseholdIds && snapshot.households.find((item) => !previousHouseholdIds.has(item.id) && item.location_scope === 'temporary_drill')
+    if (addedHousehold) setSelectedHouseholdId(addedHousehold.id)
+
+    const previousRouteHouseholdIds = knownRouteHouseholdIds.current
+    const addedRouteHouseholdId = previousRouteHouseholdIds && [...routeHouseholdIds].find((id) => !previousRouteHouseholdIds.has(id))
+    if (addedRouteHouseholdId) setSelectedHouseholdId(addedRouteHouseholdId)
+
+    knownKnowledgeIds.current = knowledgeIds
+    knownHouseholdIds.current = householdIds
+    knownRouteHouseholdIds.current = routeHouseholdIds
+  }, [repositoryStatus.connection, repositoryStatus.mode, snapshot.households, snapshot.knowledge, snapshot.routes])
 
   const transitionTo = useCallback((nextPanel: Phase | 'reports' | 'admin') => {
     setPanel(nextPanel)
@@ -528,7 +571,7 @@ function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, locale, mod
 function AdminStage({ registry, phase, phaseMeta, locale, mode, onSelectPhase, onReset, snapshot, currentEvidence, evidenceByPhase, evidenceJson, onCopyEvidence, onDownloadEvidence, repositoryStatus, onRetry, onFallbackToLocal }: { registry: RegistryStatus; phase: Phase; phaseMeta: Array<{ key: Phase; index: string; short: string; label: string; description: string }>; locale: Locale; mode: ExperienceMode; onSelectPhase: (phase: Phase) => void; onReset: () => void; snapshot: TownSnapshot; currentEvidence: WebMcpEvidenceSnapshot; evidenceByPhase: Partial<Record<Phase, WebMcpEvidenceSnapshot>>; evidenceJson: string; onCopyEvidence: () => void; onDownloadEvidence: () => void; repositoryStatus: ReturnType<typeof townRepository.getStatus>; onRetry: () => void; onFallbackToLocal: () => void }) {
   const t = useTranslator(locale)
   const checks = [
-    [t('admin.toolSurface'), registry.registeredToolNames.length > 0],
+    [t('admin.toolSurface'), currentEvidence.exactMatch],
     [t(mode === 'simple' ? 'admin.privacyCheckSimple' : 'admin.privacyCheck'), snapshot.households.every((household) => household.constraints.every((constraint) => ['wheelchair', 'infant', 'elderly', 'pet'].includes(constraint)))],
     [t('admin.fallbackCheck'), true],
     [t('admin.explainableCheck'), Object.values(snapshot.routes).some((route) => route.avoided.length > 0)],
@@ -558,9 +601,16 @@ function WebMcpDiagnostics({ current, evidenceByPhase, phaseMeta, locale, eviden
         <div><span className="eyebrow">EVIDENCE GATE</span><h3 id="webmcp-diagnostics-title">{t('diagnostics.title')}</h3></div>
         <span className={`api-badge${current.exactMatch ? ' api-badge--live' : ''}`}>{current.exactMatch ? (locale === 'ja' ? '完全一致' : 'EXACT PASS') : (locale === 'ja' ? '未検証' : 'NOT VERIFIED')}</span>
       </div>
+      <div className={`webmcp-summary webmcp-summary--${current.mode.toLowerCase()}`} role="status" aria-label="WebMCP submission summary">
+        <div><span>WebMCP</span><strong>{current.mode}</strong></div>
+        <div><span>Phase</span><strong>{current.phase.toUpperCase()}</strong></div>
+        <div><span>Tools</span><strong>{current.actualLivingTownTools.length} / {current.expectedLivingTownTools.length}</strong></div>
+        <div><span>Surface Match</span><strong className={current.exactMatch ? 'diagnostics-pass' : 'diagnostics-fail'}>{current.exactMatch ? 'PASS' : 'FAIL'}</strong></div>
+      </div>
       <div className={`webmcp-diagnostics__mode webmcp-diagnostics__mode--${current.mode.toLowerCase()}`}>
         <strong>{current.mode}</strong>
         <span>{modeMessage}</span>
+        {current.mode === 'SIMULATED' && <small>This is not native WebMCP evidence.</small>}
       </div>
       <dl className="diagnostics-grid">
         <div><dt>{t('diagnostics.browser')}</dt><dd>{current.nativeAvailable ? 'YES' : 'NO'}</dd></div>

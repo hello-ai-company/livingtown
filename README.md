@@ -12,7 +12,7 @@ LivingTownは、住民エージェントとの日常会話を検証可能な街�
 - **Hosted Expand:** Phase 8／Phase 10のExpand migration適用済み。実Supabaseのremote migration historyは8本。
 - **Disposable DB:** GitHub Actions上の一時Supabaseで0004／0005／0006を実行し、169 pgTAP testsがPASS。
 - **Real shared gate:** Phase 10.3のidentity、owner CRUD、privacy、Realtime、cleanupをPASS。最終証跡は [SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md)。
-- **まだ未完了:** RPC-only contractは未適用、公開NetlifyはPhase 7 baselineのまま、Phase 10 Native WebMCP実機ゲート・動画・Devpost最終提出は未実施。
+- **まだ未完了:** RPC-only contractは未適用、公開NetlifyはPhase 7 baselineのまま。現行feature branchのNative WebMCP local/preview gateはPASSだが、公開URLの再検証、動画、Devpost最終提出は未実施。
 
 下記に残る古い「未適用」「未実行」の記述は、各時点の履歴として保持しています。現在の判断には上記の最新証跡を使います。
 
@@ -30,7 +30,7 @@ npm run dev
 
 審査員向けのPrimary Live URLは [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) です。現在公開されているURLは、公開GitHubリポジトリの `main`（`27a303f`）からNetlify Free planで継続デプロイしているPhase 7の検証済みベースラインです。Phase 8のreal map／community CRUD／i18n変更を含むfeature branchは、まだ本番へデプロイしていません。Production buildには `VITE_LIVINGTOWN_DATA_MODE=shared` と既存Livingtown Supabaseのブラウザ公開可能な設定をNetlifyのEnvironment variablesへ登録しています。値はこのrepositoryへcommitしていません。
 
-新しいブラウザタブで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録と説明可能な経路計算を確認済みです。Chrome 152.0.7977.64とCodex + Chrome DevTools for agentsによるNative WebMCPの実agent検証もPhase 7の本番URLで完了し、証跡は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) にあります。この証跡は既存の3本MAP surfaceに対する歴史的記録であり、Phase 8の5本surfaceやPhase 9の3D表示へは自動的に継承しません。Phase 9のfeature branchは本番へデプロイしていません。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` を維持し、Native WebMCPのPASSとは扱いません。
+新しいブラウザタブで、HTTPS、`SUPABASE_SHARED`、Anonymous Auth、`CONNECTED`、`Realtime CONNECTED`、MAP → DRILL → REPLAY、世帯登録と説明可能な経路計算を確認済みです。Phase 7の本番URLに対する過去のNative WebMCP実agent検証は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) に残し、現行ブランチのNative gateは [docs/evidence/WEBMCP_NATIVE_GATE_2026-09-01.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-09-01.md) に分離して記録します。現行feature branchは本番へまだデプロイしていないため、公開URLはデプロイ後に再検証します。ブラウザにNative WebMCPがない場合は、画面が明示する `SIMULATED` と **This is not native WebMCP evidence.** を維持し、Native WebMCPのPASSとは扱いません。
 
 GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-ai-company.github.io/livingtown/) はfallbackとして残しています。Netlifyの詳細な確認結果は [docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md](./docs/evidence/NETLIFY_PRODUCTION_DEPLOYMENT_2026-08-31.md) を参照してください。
 
@@ -38,7 +38,7 @@ GitHub Pagesの [https://hello-ai-company.github.io/livingtown/](https://hello-a
 
 手順は [docs/DEMO_SCRIPT.md](./docs/DEMO_SCRIPT.md) を参照してください。中心シーンは次の一連です。
 
-1. MAPの5本のtool（`contribute_knowledge` / `delete_knowledge` / `query_area` / `update_knowledge` / `verify_knowledge`）を確認し、Simpleの一行composerで雨天の横断歩道を入力して、previewの確認後に投稿。Advancedでは従来の5段階フォームも使える
+1. MAPの3本のtool（`contribute_knowledge` / `verify_knowledge` / `query_area`）を確認し、Simpleの一行composerで雨天の横断歩道を入力して、previewの確認後に投稿。Advancedでは従来の5段階フォームも使える
 2. `verify_knowledge` を2つのpseudonymous identifier（`anon-demo-neighbor-a` / `anon-demo-neighbor-b`）で1回ずつ実行
 3. `drill` で車椅子世帯の洪水・雨天ルートを計算
 4. `avoided[].reason` と `avoided[].edge_ids` が、実際に外れたグラフ辺を説明していることを確認
@@ -98,7 +98,7 @@ UI、WebMCP、決定的route engineは `TownRepository` に依存します。`Lo
 
 WebMCP固有のブラウザAPIは [`src/webmcp/register.ts`](./src/webmcp/register.ts) に隔離しています。対応ブラウザでは現行Imperative APIの `document.modelContext.registerTool`、登録ごとの `AbortSignal`、`getTools()`、`toolchange` を使います。非対応ブラウザでは同じ定義をローカルシミュレーターから呼び出します。
 
-- `map`: `contribute_knowledge`, `delete_knowledge`, `query_area`, `update_knowledge`, `verify_knowledge`
+- `map`: `contribute_knowledge`, `verify_knowledge`, `query_area`
 - `drill`: `register_household`, `get_evacuation_route`, `report_bottleneck`
 - `replay`: `control_replay`, `get_debrief_summary`
 
@@ -108,7 +108,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 右上の `管理ビュー` にある `WebMCP Diagnostics` では、ブラウザAPIの有無、`NATIVE` / `SIMULATED` mode、現在phase、transition、phase AbortSignal、`getTools()` から分離したLivingTown toolと外部tool、exact surface match、`toolchange` の状態を確認できます。`Evidence JSONをコピー` または `Evidence JSONを保存` で、現在の診断と確認済みphaseのメタデータを一つに出力できます。Evidence JSONにはknowledge本文やhousehold profileを含めません。
 
-`SIMULATED` は通常ブラウザ用の動作確認であり、**This is not real-device WebMCP evidence.** と表示されます。今回のNative判定は、対応ChromeでCodex agentがChrome DevTools for agents経由で `getTools()`相当のtool discovery、live schema、tool実行、phase切替、旧toolの消滅を確認した記録を対象にしています。Phase 8の5本surfaceはまだ実機再確認前です。詳細は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md)、[docs/evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md](./docs/evidence/WEBMCP_REAL_MAP_CRUD_STATUS_2026-08-31.md)、[docs/WEBMCP_REAL_DEVICE.md](./docs/WEBMCP_REAL_DEVICE.md) を参照してください。
+`SIMULATED` は通常ブラウザ用の動作確認であり、**This is not native WebMCP evidence.** と表示されます。Native判定は、対応ChromeでCodex agentがChrome DevTools for agents経由で `getTools()`相当のtool discovery、live schema、tool実行、phase切替、旧toolの消滅を確認した記録だけを対象にします。現行ブランチのlocal gateは [docs/evidence/WEBMCP_NATIVE_GATE_2026-09-01.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-09-01.md)、公開URLの過去記録は [docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md](./docs/evidence/WEBMCP_NATIVE_GATE_2026-08-31.md) を参照してください。
 
 ## Privacy and verification boundary
 
@@ -124,7 +124,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 - 3Dは環境変数ではなく、`@navaramap/three@0.1.1` の遅延チャンクを利用者の明示操作で読み込みます。対応API、WASM、Worker、WebGL2が不足する端末では3Dを開始せず、2Dへフォールバックします。
 - `VITE_MAPLIBRE_STYLE_URL` を設定する場合は、MapLibre向けのスタイルURLと利用規約を確認してください。決定的なローカル地図はネットワーク障害時のフォールバックです。
-- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。Phase 8／10 Expand migration、Security Advisor、real shared CRUD／privacy／Realtime／cleanupの最新結果は [`SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) に記録しています。Disposable Supabaseの0004／0005／0006はGitHub Actionsで169 tests PASSです。Network failure injection、完全な匿名性、moderation、Native WebMCP、feature branchのNetlify反映は未実施です。
+- `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` はshared modeの接続設定です。ブラウザへservice role keyを入れてはいけません。Phase 8／10 Expand migration、Security Advisor、real shared CRUD／privacy／Realtime／cleanupの最新結果は [`SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) に記録しています。Disposable Supabaseの0004／0005／0006はGitHub Actionsで169 tests PASSです。Network failure injection、完全な匿名性、moderation、feature branchのNetlify反映は未実施です。現行ブランチのNative WebMCP local gateは別証跡です。
 
 ## Repository contract
 
@@ -140,8 +140,8 @@ Phase 10では、MAPに一行投稿欄「この場所で何がありましたか
 
 既存Knowledgeの検証・所有権・Realtime・route・WebMCP・MapLibre・Navaraを再利用し、地域からの報告と「地域確認 2件以上」を公式情報から分離します。盗難、ハラスメント、暴力、紛争関連は断定的な文言を避け、公開Knowledgeへraw sensitive descriptionを保存しません。盗難／ハラスメントは避難routeへ影響させません。紛争は2kmの地域単位・中立的な地図表示に留め、軍人・部隊・装備・作戦の精密位置はブロックします。昨日／昨夜などのrelative timeを解釈し、第三者視点のincidentは保守的に聞いた話として扱います。一般的な浸水・段差・バリアフリー情報の地図位置は維持します。
 
-MAPのWebMCP surfaceは5本（contribute_knowledge、delete_knowledge、query_area、update_knowledge、verify_knowledge）のままです。新しいreport_observation toolは追加せず、既存contribute_knowledgeを新カテゴリと任意のreport_type / observed_atへ後方互換に拡張します。詳細な設計、制約、未実施ゲートは [docs/LIVING_OBSERVATION_LAYER.md](./docs/LIVING_OBSERVATION_LAYER.md) と [Phase 10 local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) を参照してください。
+MAPのWebMCP surfaceは3本（contribute_knowledge、verify_knowledge、query_area）に固定しています。owner-onlyのupdate/deleteは人間向けRepository/UIの安全な管理操作として残しますが、agent-facing WebMCP surfaceには公開しません。新しいreport_observation toolは追加せず、既存contribute_knowledgeを新カテゴリと任意のreport_type / observed_atへ後方互換に拡張します。詳細な設計、制約、ゲートは [docs/LIVING_OBSERVATION_LAYER.md](./docs/LIVING_OBSERVATION_LAYER.md) と [Phase 10 local evidence](./docs/evidence/LIVING_OBSERVATION_LOCAL_GATE_2026-08-31.md) を参照してください。
 
-Phase 10のSupabase migrationはExpandとして実Supabaseへ適用済みで、pgTAPはGitHub Actionsの一時Supabaseで0006を含む169 testsをPASSしています。最終のRPC-only contractは未適用です。feature branchは本番Netlifyへデプロイしておらず、Phase 10のNative WebMCP実機ゲートもまだ実施していません。Phase 10.3のreal shared gateは [最新証跡](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) を参照してください。
+Phase 10のSupabase migrationはExpandとして実Supabaseへ適用済みで、pgTAPはGitHub Actionsの一時Supabaseで0006を含む169 testsをPASSしています。最終のRPC-only contractは未適用です。現行ブランチのNative WebMCP local gateは別証跡で確認し、feature branchの本番Netlify反映後に公開URLを再検証します。Phase 10.3のreal shared gateは [最新証跡](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) を参照してください。
 
 写真アップロードはPhase 10.2では扱いません。顔・ナンバープレート・EXIF位置情報の保護、moderation／redaction、retention、Storage権限、コスト、bot／abuse対策を先に設計する必要があるためです。

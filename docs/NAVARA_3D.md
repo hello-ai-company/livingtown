@@ -162,7 +162,7 @@ the 3D action.
 Pure tests cover the loader success/failure boundary, required capabilities,
 Tokyo/San Francisco camera round-trip, all tour stops, visual-weather policy,
 shared snapshot projection, and localization. The full local suite retains all
-Phase 8 tests and currently runs 23 files / 147 tests; the Phase 10.2 clustering
+Phase 8 tests and currently runs 23 files / 149 tests; the Phase 10.2 clustering
 assertion covers the native GeoJSON source configuration.
 
 The browser checklist and result are kept separately in

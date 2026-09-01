@@ -15,7 +15,7 @@ export function drillTools(store: TownRepository): ToolDefinition[] {
       inputSchema: {
         type: 'object',
         properties: {
-          label: { type: 'string', maxLength: 20 },
+          label: { type: 'string', maxLength: 20, pattern: '^\\u4e16\\u5e2f[A-Z0-9]{1,3}$', description: 'Optional anonymous display label, for example a household letter.' },
           constraints: { type: 'array', items: { type: 'string', enum: ['wheelchair', 'infant', 'elderly', 'pet'] } },
           start_lat: { type: 'number' },
           start_lng: { type: 'number' },

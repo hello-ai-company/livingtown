@@ -82,5 +82,5 @@ export function createEvidenceBundle(
 export function diagnosticsModeMessage(mode: WebMcpMode) {
   return mode === 'NATIVE'
     ? 'Native WebMCP surface is being observed in this browser.'
-    : 'This is not real-device WebMCP evidence.'
+    : 'This is not native WebMCP evidence.'
 }

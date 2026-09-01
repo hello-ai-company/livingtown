@@ -18,7 +18,7 @@
 
 ## 0:30 — 幕1：会話を地図にする
 
-1. `街の記憶` を表示し、右側のMAP toolが5本（`contribute_knowledge` / `delete_knowledge` / `query_area` / `update_knowledge` / `verify_knowledge`）であることを見せる。Simpleではtool名ではなく、利用者向けの操作名が表示される。Advancedのbasemap selectorで `Auto`／`Japan (GSI)`／`Worldwide (OpenFreeMap)` を示し、海外へ移動するとOpenFreeMapへ切り替わることを見せる。
+1. `街の記憶` を表示し、右側のMAP toolが3本（`contribute_knowledge` / `verify_knowledge` / `query_area`）であることを見せる。Simpleではtool名ではなく、利用者向けの操作名が表示される。Advancedのbasemap selectorで `Auto`／`Japan (GSI)`／`Worldwide (OpenFreeMap)` を示し、海外へ移動するとOpenFreeMapへ切り替わることを見せる。
 2. SimpleのAround You Nowで周辺の地域報告を確認し、表示されている一行composerへ雨天の横断歩道を入力する。Enterでpreviewを開き、カテゴリ・時刻・安全な公開要約・位置の扱いを確認してから明示的に `投稿` を押す。Advancedでは必要に応じて位置→カテゴリ→条件→確度→説明・確認の5段階フォームを使える。説明は200文字以内で、個人情報を含めない確認が必須。保存すると`contribute_knowledge`がActivityに出て、該当座標へPENDING visualが現れる。visualをクリックしてdetail cardの `未検証`、条件、確度、カウンタを見せる。
 3. 同じカードの「追認する」を1回クリックする。LOCAL_DEMOではfixtureのpseudonymous identifierが使われ、shared modeでは入力schemaにverifier_idがなく、Auth identityからserver-sideでopaqueなpseudonymous identifierが導出される。visualはまだPENDINGのまま。
 4. もう1回クリックする。LOCAL_DEMOでは別fixtureを使う。shared modeでは同じAuth identityの再送はduplicateになり、threshold到達には別Auth identityが必要になる。2つのidentityでthresholdへ到達したら、短いtransitionと `Community verified` feedbackの後、visualがVERIFIEDへ変わる。
@@ -48,7 +48,7 @@
 
 管理ビューに戻り、フェーズを `MAP → DRILL → REPLAY` と切り替える。
 
-- 右側のtool名が `5本 → 3本 → 2本` に変わる。
+- 右側のtool名が `3本 → 3本 → 2本` に変わる。
 - `WebMCP Diagnostics` では `Browser WebMCP available`、`NATIVE / SIMULATED`、`transition_id`、expected／actual LivingTown tools、external tools、exact surface match、`nativeRegistered`、`toolchangeCount`、`lastToolchangeAt`、phase AbortSignalを確認できる。
 - 対応実機では `document.modelContext.getTools()` の結果も同じphase集合になる。MAP、DRILL、REPLAYを確認したら `Evidence JSONを保存` で3phaseの証跡をまとめる。
 - 前phaseのtoolは登録解除用AbortSignalで解除され、実行中toolにはphase cancellation signalも伝搬される。`toolchange` 後に既知LivingTown tool集合が再照合される。

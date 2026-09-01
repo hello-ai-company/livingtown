@@ -5,9 +5,7 @@ import type { ToolDefinition } from './types'
 
 export const LIVING_TOWN_TOOL_NAMES = [
   'contribute_knowledge',
-  'delete_knowledge',
   'query_area',
-  'update_knowledge',
   'verify_knowledge',
   'register_household',
   'get_evacuation_route',

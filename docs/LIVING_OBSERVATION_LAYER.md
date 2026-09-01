@@ -14,10 +14,10 @@ tests, and the Phase 10.3 real shared identity, owner-CRUD, privacy, Realtime,
 and cleanup gates are recorded as PASS in
 [`docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md`](./evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md).
 The final RPC-only contract is not applied. The public Netlify URL still serves
-the Phase 7 baseline, the Phase 10 Native WebMCP gate has not been run, and the
-video and final Devpost submission are still pending. Any older blocked or
-unapplied statements below describe their historical checkpoint and do not
-override this status.
+the Phase 7 baseline. The current feature branch's Native WebMCP local/preview
+gate is PASS; public URL revalidation, the video, and final Devpost submission
+are still pending. Any older blocked or unapplied statements below describe
+their historical checkpoint and do not override this status.
 
 ## Product flow
 
@@ -159,8 +159,9 @@ meaningful edit is confirmed.
 The source migration is now applied to the hosted project as an Expand rollout,
 and the Phase 10 pgTAP suite is exercised by the disposable GitHub Actions
 database gate. The RPC-only contract remains intentionally separate and is not
-applied. The public Netlify deployment and Native WebMCP gate remain pending for
-this feature branch.
+applied. The current feature branch's Native WebMCP local/preview gate is PASS;
+the public Netlify deployment and post-deploy Native revalidation remain
+pending.
 
 ## Rendering and tools
 
@@ -171,14 +172,14 @@ markers use a neutral alert treatment. Navara falls back to a generic
 community marker for unsupported categories and never owns a duplicate
 observation store.
 
-The MAP WebMCP surface remains exactly five tools:
+The MAP WebMCP surface is fixed at exactly three tools:
 
-contribute_knowledge, delete_knowledge, query_area, update_knowledge, and
-verify_knowledge.
+contribute_knowledge, verify_knowledge, and query_area.
 
 contribute_knowledge accepts the expanded category enum plus optional
-report_type and observed_at; query_area and update_knowledge accept the
-corresponding optional filters/metadata. There is deliberately no
+report_type and observed_at; query_area accepts the corresponding optional
+filters. Owner-only update/delete remains a human-facing Repository/UI
+management path, not an agent-facing WebMCP tool. There is deliberately no
 report_observation tool, so existing agent calls using the original flood
 contract remain valid.
 
