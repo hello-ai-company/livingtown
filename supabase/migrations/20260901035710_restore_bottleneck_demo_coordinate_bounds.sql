@@ -1,6 +1,7 @@
 -- Restore the original demonstration-area integrity boundary after the
--- Phase 8/10 rollout. Existing rows were preflighted before this migration;
--- no out-of-area bottleneck row is rewritten.
+-- Phase 8/10 rollout. The hosted application is recorded under remote
+-- migration version 20260901035710. Existing rows were preflighted before
+-- this migration; no out-of-area bottleneck row is rewritten.
 do $$
 begin
   if not exists (

@@ -1,7 +1,10 @@
--- Phase 10 draft only. Do not apply this migration from the browser, CI, or
--- production. It is intentionally stacked after the Phase 8 ownership CRUD
--- migration and must first be reviewed and exercised against a disposable
--- Supabase database.
+-- Phase 10 reviewed Expand migration.
+-- Originally staged behind the shared rollout gate; the hosted application is
+-- recorded under remote migration version 20260901035444 in
+-- docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md.
+-- Apply through the migration runner against a disposable or target project;
+-- never execute this file from a browser. The SQL remains unchanged apart from
+-- this historical/source-identity comment.
 
 alter table public.knowledge
   add column if not exists report_type text,

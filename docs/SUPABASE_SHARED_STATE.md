@@ -20,10 +20,9 @@ pending. Historical blocked checkpoints later in this document are retained
 for auditability and are not the current hosted status.
 
 The hosted evidence records the server-assigned remote migration-history
-versions separately from the source filenames listed below (for example, the
-remote `20260901...` entries correspond to the Phase 8/10 source files).
-Migration history was not rewritten; do not reapply these source migrations to
-the hosted project.
+versions separately from the migration application event. The canonical source
+filenames listed below now use those same version prefixes. Migration history was
+not rewritten; do not reapply these source migrations to the hosted project.
 
 ## Modes
 
@@ -113,9 +112,9 @@ Apply migrations in filename order:
 3. `20260830143717_knowledge_counter_privileges.sql` — zero-counter insert trigger and knowledge column privileges.
 4. `20260830143808_shared_state_trust_boundary.sql` — owner scope, RPC-only private writes, server-derived verifier identity, Knowledge trust checks, and Knowledge-only Realtime publication membership.
 5. `20260830162803_function_execute_boundary.sql` — remove default browser-role EXECUTE grants from internal helpers and grant the three public RPCs to `authenticated` only. This hardening migration is applied to the Livingtown hosted project; its local filename follows the remote migration version.
-6. `20260831075455_real_map_knowledge_ownership_crud.sql` — Phase 8 worldwide Web Mercator-safe Knowledge bounds, `updated_at`, private `knowledge_owner`, owned-ID RPC, owner-only update/delete RPCs, vote reset confirmation, and Knowledge-only Realtime invariants. Applied to the hosted project as part of the approved Expand rollout.
-7. `20260831142006_living_observation_layer.sql` — Phase 10 observation categories, incident metadata, expiry, sensitive-summary normalization, and conservative coordinate handling. Applied to the hosted project as part of the approved Expand rollout.
-8. `20260901035628_restore_bottleneck_demo_coordinate_bounds.sql` — restores the demo-area bottleneck integrity check after the worldwide Knowledge expansion. Applied as a follow-up integrity-boundary migration.
+6. `20260901035430_real_map_knowledge_ownership_crud.sql` — Phase 8 worldwide Web Mercator-safe Knowledge bounds, `updated_at`, private `knowledge_owner`, owned-ID RPC, owner-only update/delete RPCs, vote reset confirmation, and Knowledge-only Realtime invariants. Applied to the hosted project as part of the approved Expand rollout.
+7. `20260901035444_living_observation_layer.sql` — Phase 10 observation categories, incident metadata, expiry, sensitive-summary normalization, and conservative coordinate handling. Applied to the hosted project as part of the approved Expand rollout.
+8. `20260901035710_restore_bottleneck_demo_coordinate_bounds.sql` — restores the demo-area bottleneck integrity check after the worldwide Knowledge expansion. Applied as a follow-up integrity-boundary migration.
 
 The initial four migrations use `if not exists`, named `drop policy if exists`, trigger replacement, and guarded publication changes where possible. `20260830143808_shared_state_trust_boundary.sql` revokes browser SELECT/INSERT/UPDATE/DELETE on Verification and drops the earlier authenticated read policy. If a deployed project already added Verification to `supabase_realtime`, its guarded block executes `ALTER PUBLICATION supabase_realtime DROP TABLE public.verification`; this changes publication exposure, not stored records. Do not edit an applied migration in a deployed project; apply `20260830162803_function_execute_boundary.sql` as a new migration.
 
@@ -218,7 +217,7 @@ present.
 9. Register a temporary wheelchair household and calculate the route. Confirm the deterministic `avoided.reason`, `knowledge_id`, and edge IDs match the shared Knowledge.
 10. Stop Realtime or disconnect the network, confirm the last snapshot remains visible, the error is surfaced, and retry/refetch recovers without a false local success.
 
-For the Phase 8 CRUD gate, use two authenticated identities and a disposable project after applying migration `20260831075455_real_map_knowledge_ownership_crud.sql`. Confirm that each identity can edit/delete only its own Knowledge, that direct `knowledge_owner` SELECT/INSERT/UPDATE/DELETE is denied for both browser roles, that a vote-bearing update requires `confirm_reverification_reset`, and that update/delete clear routes. Record this as a new evidence file; do not overwrite the historical Phase 7/6 evidence.
+For the Phase 8 CRUD gate, use two authenticated identities and a disposable project after applying migration `20260901035430_real_map_knowledge_ownership_crud.sql`. Confirm that each identity can edit/delete only its own Knowledge, that direct `knowledge_owner` SELECT/INSERT/UPDATE/DELETE is denied for both browser roles, that a vote-bearing update requires `confirm_reverification_reset`, and that update/delete clear routes. Record this as a new evidence file; do not overwrite the historical Phase 7/6 evidence.
 
 Record the project, migration revision, browser roles, UTC timestamps, and observed pass/fail result. Never record access tokens, keys, raw user IDs, or verifier IDs.
 

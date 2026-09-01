@@ -325,8 +325,9 @@ export class SupabaseTownRepository implements TownRepository {
   /**
    * Ownership is intentionally reduced to an ID set at the repository
    * boundary. The browser never receives or stores the private owner_id.
-   * Missing-function errors are treated as an empty set while the Phase 8
-   * migration is still a draft; this keeps public reads fail-closed.
+   * Missing-function errors are treated as an empty set for older deployments
+   * that have not received the Phase 8 ownership migration; this keeps public
+   * reads fail-closed.
    */
   private async loadOwnedKnowledgeIds(signal?: AbortSignal) {
     if (!this.status.authenticated || typeof this.client.rpc !== 'function') return new Set<string>()

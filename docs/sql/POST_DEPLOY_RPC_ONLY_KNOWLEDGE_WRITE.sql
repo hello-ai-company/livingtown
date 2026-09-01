@@ -6,8 +6,8 @@
 -- migration run cannot revoke the temporary Phase 8 compatibility grant early.
 --
 -- Prerequisites:
---   1. 20260831075455_real_map_knowledge_ownership_crud.sql is applied.
---   2. 20260831142006_living_observation_layer.sql is applied and the
+--   1. 20260901035430_real_map_knowledge_ownership_crud.sql is applied.
+--   2. 20260901035444_living_observation_layer.sql is applied and the
 --      knowledge_normalize_public_write trigger remains installed.
 --   3. Existing clients no longer rely on direct domain-column INSERT.
 --   4. create_knowledge/update_knowledge/delete_knowledge and

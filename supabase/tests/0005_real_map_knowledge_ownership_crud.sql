@@ -1,6 +1,7 @@
--- Phase 8.1 functional draft checks. Run only after the Phase 8.1 migration
--- is intentionally applied to a disposable local/test database. The
--- repository change does not apply this migration.
+-- Phase 8.1 functional checks for the reviewed Expand migration.
+-- Run only after the Phase 8.1 migration is applied to a disposable
+-- local/test database. The repository CI workflow applies all source
+-- migrations before this suite.
 --
 -- pgTAP cannot create two truly parallel sessions inside one transaction.
 -- These tests use two transaction-local Auth identities for owner and

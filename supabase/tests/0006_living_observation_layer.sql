@@ -1,6 +1,7 @@
--- Phase 10 draft checks. Do not execute until migration
--- 20260831142006_living_observation_layer.sql is intentionally applied to a
--- disposable database. This file never runs against the project's real data.
+-- Phase 10 disposable-database regression checks.
+-- The source migration 20260901035444_living_observation_layer.sql is applied
+-- to a disposable database before this suite. This file never runs against
+-- the project's real data.
 create extension if not exists pgtap with schema extensions;
 
 begin;

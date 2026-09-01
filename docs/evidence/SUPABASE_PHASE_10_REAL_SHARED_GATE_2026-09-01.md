@@ -47,9 +47,10 @@ project through the authenticated Supabase migration path:
 | `20260901035710` | `restore_bottleneck_demo_coordinate_bounds` |
 
 The last three remote versions are the Phase 8 / Phase 10 Expand rollout and
-the follow-up integrity-boundary migration. The remote migration service
-assigned the `20260901...` versions at apply time; the source files remain in
-`supabase/migrations/`.
+the follow-up integrity-boundary migration. The canonical source files now use
+these same version prefixes. The hosted history was not rewritten; this
+repository-only alignment makes future local migration-list comparisons
+deterministic.
 
 The public URL used for the browser smoke check,
 `https://livingtown-webmcp.netlify.app/`, still serves the Phase 7 baseline

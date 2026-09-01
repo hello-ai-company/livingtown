@@ -1,7 +1,10 @@
--- Phase 8.1 draft only. Do not apply this migration from the browser or CI.
--- Apply only after the shared CRUD gate has been run with two authenticated
--- clients against a disposable database. No existing production data is
--- changed by this repository patch.
+-- Phase 8.1 reviewed Expand migration.
+-- Originally staged behind the shared CRUD gate; the hosted application is
+-- recorded under remote migration version 20260901035430 in
+-- docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md.
+-- Apply through the migration runner against a disposable or target project;
+-- never execute this file from a browser. No hosted history is rewritten by
+-- this source-filename alignment.
 --
 -- Knowledge is worldwide. Household origins, bottlenecks, and the routing
 -- graph remain protected by the existing LivingTown demonstration-area
