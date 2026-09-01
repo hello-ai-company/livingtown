@@ -31,6 +31,10 @@ begin
     alter table public.knowledge add constraint knowledge_description_is_nonblank
       check (char_length(trim(description)) between 1 and 200);
   end if;
+  if not exists (select 1 from pg_constraint where conname = 'bottleneck_demo_coordinate_bounds') then
+    alter table public.bottleneck add constraint bottleneck_demo_coordinate_bounds
+      check (lat between 35.67 and 35.69 and lng between 139.75 and 139.77);
+  end if;
 end $$;
 
 -- The browser never supplies this value. It is derived from auth.uid() inside a

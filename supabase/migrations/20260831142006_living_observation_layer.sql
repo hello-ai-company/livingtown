@@ -206,7 +206,7 @@ begin
   end;
   if resolved_precision > 0 then
     new.lat := pg_catalog.round(new.lat / (resolved_precision / 110540.0)) * (resolved_precision / 110540.0);
-    new.lng := pg_catalog.round(new.lng / (resolved_precision / (111320.0 * pg_catalog.greatest(pg_catalog.abs(pg_catalog.cos(pg_catalog.radians(new.lat))), 0.01::double precision)))) * (resolved_precision / (111320.0 * pg_catalog.greatest(pg_catalog.abs(pg_catalog.cos(pg_catalog.radians(new.lat))), 0.01::double precision)));
+    new.lng := pg_catalog.round(new.lng / (resolved_precision / (111320.0 * greatest(pg_catalog.abs(pg_catalog.cos(pg_catalog.radians(new.lat))), 0.01::double precision)))) * (resolved_precision / (111320.0 * greatest(pg_catalog.abs(pg_catalog.cos(pg_catalog.radians(new.lat))), 0.01::double precision)));
   end if;
   return new;
 end;
