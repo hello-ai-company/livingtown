@@ -170,6 +170,9 @@ Phase 8 `0005` and Phase 10 `0006` suites), and always destroys the temporary
 stack. It requires no Supabase token, database password, project secret, or
 hosted connection.
 
+The latest successful result is recorded in
+[`PHASE_10_2_GITHUB_DISPOSABLE_DB_GATE_2026-09-01.md`](evidence/PHASE_10_2_GITHUB_DISPOSABLE_DB_GATE_2026-09-01.md).
+
 ### Real hosted project
 
 Use the authenticated ChatGPT Supabase MCP or safe read-only SQL/Advisor queries to audit migration history, privileges, RLS, functions, and publication membership. Browser A/B/C is a separate real-application gate.
