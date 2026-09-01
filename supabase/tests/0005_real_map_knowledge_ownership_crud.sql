@@ -6,6 +6,8 @@
 -- These tests use two transaction-local Auth identities for owner and
 -- non-owner behavior, plus a function-definition lock assertion. The final
 -- concurrency gate must still run two real clients concurrently before apply.
+create extension if not exists pgtap with schema extensions;
+
 begin;
 
 select plan(74);

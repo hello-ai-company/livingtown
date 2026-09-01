@@ -3,6 +3,8 @@
 -- migration.
 -- These checks cover grants/RLS metadata. Browser-role mutation checks still
 -- need the manual client runbook in docs/SUPABASE_SHARED_STATE.md.
+create extension if not exists pgtap with schema extensions;
+
 begin;
 
 select plan(30);

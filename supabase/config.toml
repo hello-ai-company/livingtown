@@ -1,0 +1,8 @@
+# Local-only Supabase configuration for disposable development and CI tests.
+# This file contains no hosted project reference, token, key, or password.
+
+project_id = "livingtown"
+
+[db]
+# Keep the local engine aligned with the hosted project's current major version.
+major_version = 17

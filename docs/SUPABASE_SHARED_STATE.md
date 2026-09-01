@@ -160,6 +160,16 @@ npx supabase test db
 
 `supabase test db --linked` is not evidence that the hosted project passed pgTAP. If the CLI or Docker daemon is unavailable, record `LOCAL_PGTAP_BLOCKED`.
 
+The repository now commits a minimal [`supabase/config.toml`](../supabase/config.toml)
+with no hosted project reference or secret. The pull-request workflow
+[`database-tests.yml`](../.github/workflows/database-tests.yml) installs the
+exact stable Supabase CLI version (`2.116.0`), starts a fresh PostgreSQL 17
+local stack on the
+GitHub-hosted runner, runs every file in `supabase/tests/` (including the
+Phase 8 `0005` and Phase 10 `0006` suites), and always destroys the temporary
+stack. It requires no Supabase token, database password, project secret, or
+hosted connection.
+
 ### Real hosted project
 
 Use the authenticated ChatGPT Supabase MCP or safe read-only SQL/Advisor queries to audit migration history, privileges, RLS, functions, and publication membership. Browser A/B/C is a separate real-application gate.

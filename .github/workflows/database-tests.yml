@@ -1,0 +1,58 @@
+name: Database Tests
+
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/database-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SUPABASE_TELEMETRY_DISABLED: "1"
+
+jobs:
+  disposable-db:
+    name: Disposable Supabase + pgTAP
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          # v2.116.0 is the current stable release as of 2026-09-01.
+          # Keep this exact rather than following latest or beta.
+          version: "2.116.0"
+
+      - name: Verify Supabase CLI version
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase --version
+          supabase --version | grep -F "2.116.0"
+
+      - name: Start disposable Supabase
+        run: supabase db start
+
+      - name: Run all pgTAP suites against the local stack
+        run: supabase test db --local
+
+      - name: Destroy disposable Supabase
+        if: ${{ always() }}
+        run: supabase stop --no-backup
