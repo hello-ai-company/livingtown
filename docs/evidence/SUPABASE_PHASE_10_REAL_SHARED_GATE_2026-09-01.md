@@ -165,6 +165,102 @@ SAFE_TO_MERGE_PR_12: NO
 SAFE_TO_DEPLOY_PHASE_10_2: NO
 ```
 
+## Phase 10.3B — audited orphan synthetic test cleanup
+
+Cleanup date: 2026-09-01 (JST)<br>
+Cleanup HEAD before this evidence-only update: `bd8c0b2b7bbb06b81a82176e83ab0896d61826db`<br>
+Branch: `feat/living-observation-layer`<br>
+PR: `#12` remained OPEN and MERGEABLE.
+
+This was a narrowly scoped operational cleanup of the one known orphaned
+synthetic legacy-compatibility test row. It was not an owner-CRUD test, an RLS
+bypass test, an application feature, a migration, or a schema change. No
+service-role key, owner ID, verifier ID, Auth session, or secret was recorded.
+
+The preflight checks passed before any hosted DML:
+
+| Check | Result |
+|---|---|
+| Git branch and clean worktree | PASS |
+| Hosted migration history | PASS — 8 migrations, unchanged |
+| Knowledge before | `6` |
+| Verification before | `3` |
+| knowledge_owner rows before | `1` |
+| Exact target row and safety fields | PASS |
+| Target verification rows before | `0` |
+| Target owner mapping before | `1` |
+| Complete identifying predicate candidate count | `1` |
+
+The target matched the known synthetic legacy compatibility state exactly:
+`theft`, server-safe public description, `incident`, `community`, 150 m
+precision, and zero agree/disagree counters. Its synthetic test timestamp was
+inside the recorded Phase 10.3 window and its expiry was inside the expected
+30-day window.
+
+The only hosted DML was one transaction. It locked the exact target row,
+rechecked every identifying field and dependent-row precondition, deleted only
+that exact UUID with the safety fields in the predicate, asserted that exactly
+one row was deleted, and committed. No broad category, description-pattern,
+or multi-row delete was used.
+
+Post-cleanup read-only checks passed:
+
+| Check | Result |
+|---|---|
+| Target Knowledge row exists | NO |
+| Target owner mapping | `0` — FK cascade PASS |
+| Target Verification rows | `0` |
+| Knowledge after | `5` |
+| Verification after | `3` |
+| Remaining application rows | `5` flood / persistent-condition / community rows |
+| Original application baseline | RESTORED |
+| Operator cleanup reused as owner-delete evidence | NO |
+
+The five original application rows remain structurally intact. The final
+counts restore the pre-test application baseline without directly deleting a
+Verification row or touching an unrelated Knowledge row.
+
+The security boundary was unchanged after cleanup: RLS remains enabled on all
+six target tables, Realtime still publishes `knowledge` only, browser access
+to `verification` and `knowledge_owner` remains denied, and the post-cleanup
+query found no anonymous-executable SECURITY DEFINER function. Security
+Advisor remains `PASS_WITH_DOCUMENTED_BASELINE` with the same documented
+categories: 2 private no-policy INFO findings, 8 intentional authenticated
+SECURITY DEFINER warnings, 3 existing anonymous-auth policy warnings, and the
+existing leaked-password-protection warning.
+
+No migration was applied, migration history was not changed, the schema and
+RLS were not changed, the RPC-only contract was not applied, Netlify was not
+changed, and PR/Devpost/video operations were not performed. No paid resource
+was created.
+
+The independently completed Phase 10.3 identity, owner-CRUD, privacy,
+Realtime, Japanese/English, Around You Now, and My Reports evidence is not
+derived from this operator cleanup. The cleanup only closes the orphan-data
+operational gap.
+
+The local quality gate passed after cleanup: `npm ci`, typecheck, 147 Vitest
+tests, build, seed, and diff check. GitHub CI and Database Tests also passed
+on the preceding feature HEAD; the final evidence-only commit is tracked
+below and is subject to the same checks.
+
+Latest Phase 10.3B status:
+
+```text
+ORPHAN_TARGET_PRECONDITION: PASS
+ORPHAN_KNOWLEDGE_REMOVED: PASS
+OWNER_MAPPING_CASCADE: PASS
+NO_TARGET_VERIFICATIONS: PASS
+APPLICATION_DATA_BASELINE_RESTORED: PASS
+POST_CLEANUP_SECURITY_GATE: PASS
+SECURITY_ADVISOR: PASS_WITH_DOCUMENTED_BASELINE
+PHASE_10_3_CLEANUP_BASELINE: PASS
+REAL_SHARED_PHASE10_GATE: PASS
+SAFE_TO_RETARGET_PR_12_TO_MAIN: YES
+SAFE_TO_MERGE_PR_12: NO
+SAFE_TO_DEPLOY_PHASE_10_2: NO
+```
+
 The remaining blocker is evidence, not a migration failure: deploy the
 feature branch to a controlled preview or use two isolated browser profiles,
 then repeat the Phase 10.2 five-tool and owner-scoped CRUD gate before
