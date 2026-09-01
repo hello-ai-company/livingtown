@@ -169,3 +169,76 @@ The remaining blocker is evidence, not a migration failure: deploy the
 feature branch to a controlled preview or use two isolated browser profiles,
 then repeat the Phase 10.2 five-tool and owner-scoped CRUD gate before
 merging or deploying.
+
+## Phase 10.3 continuation after interrupted cleanup
+
+Continuation check date: 2026-09-01 (JST)<br>
+Feature-branch HEAD: `fc557baf229a6f44d8956652b3b1115a6afa2515`<br>
+PR: `#12` remains OPEN and MERGEABLE, with the feature branch still based on
+`feat/navara-immersive-disaster-map`.
+
+This continuation did not apply a migration, change the hosted schema, reset
+data, change Netlify, retarget or merge the PR, or modify Devpost/video
+materials. No service-role credential, raw Auth identity, verifier ID, owner
+ID, or browser storage was inspected.
+
+The Phase 10.3 browser checks used synthetic observations only. A, B, and C
+were separate local origins (`4173`, `4174`, and `4175`) so their browser
+storage and anonymous Auth sessions were independent; this is not claimed as
+three separate Chrome profiles. The following checks passed before cleanup:
+
+- shared Simple/Advanced UI and the five-tool surface were connected to the
+  hosted database and Realtime;
+- A created a normal observation, B could read it but could not edit or delete
+  it, and anonymous-client ownership attacks were denied;
+- B's first confirmation was accepted, its duplicate was not, and C's
+  independent confirmation moved the row to two community confirmations;
+- A's edit required explicit re-verification reset and cleared prior votes;
+  B and C received the update without reload;
+- Sensitive English input was parsed as theft, `yesterday` was converted to
+  the prior date, its public text was server-normalized, its location was
+  coarsened to 150 m, the raw sentence was not stored, and it did not affect
+  route status;
+- the six-column legacy direct INSERT compatibility path also normalized the
+  synthetic sensitive input and did not expose owner identity;
+- raw browser SELECT on `verification` and `knowledge_owner` was denied;
+- My Reports remained owner-scoped, Around You Now was shared, and Japanese
+  and English Simple flows were exercised.
+
+The normal, sensitive, and Japanese temporary observations were removed by
+their owner sessions. The final sensitive cleanup completed before the
+interruption was confirmed by a read-only query. One synthetic legacy
+compatibility row remains because the owner browser tab and its anonymous
+session ended when the previous run was interrupted. Its current normalized
+state is one safe community theft summary; no raw test sentence is stored.
+The current hosted counts are therefore `6` Knowledge rows and `3`
+Verification rows. The original five Knowledge rows and three Verification
+rows were not modified.
+
+The owner session cannot be reconstructed from the current browser tab. The
+runbook prohibits using an administrator or service-role deletion for this
+cleanup, so the remaining row was intentionally not removed. A Realtime
+delete observation for this final row is consequently not claimed.
+
+Read-only post-checks at the same time confirmed RLS on all six target tables,
+Realtime publication of `knowledge` only, no anonymous-executable SECURITY
+DEFINER function, and the expected browser-role privilege boundary. Security
+Advisor still reports only the documented baseline/intentional findings:
+private RLS tables without policies, authenticated SECURITY DEFINER RPCs,
+existing anonymous-auth read policies, and disabled leaked-password
+protection. Status remains `PASS_WITH_DOCUMENTED_BASELINE`.
+
+The latest CI and Database Tests both passed at the feature HEAD above. The
+disposable database suites remain green with 169 tests. Because the hosted
+test data baseline is not yet restored and the final Realtime delete is not
+verified, the Phase 10.3 gate remains blocked:
+
+```text
+PHASE_10_3_APPLICATION_AND_SECURITY_CHECKS: PASS
+PHASE_10_3_OWNER_CRUD_AND_PRIVACY_CHECKS: PASS
+PHASE_10_3_CLEANUP_BASELINE: BLOCKED
+REAL_SHARED_PHASE10_GATE: BLOCKED
+SAFE_TO_RETARGET_PR_12: NO
+SAFE_TO_MERGE_PR_12: NO
+SAFE_TO_DEPLOY_PHASE_10_2: NO
+```
