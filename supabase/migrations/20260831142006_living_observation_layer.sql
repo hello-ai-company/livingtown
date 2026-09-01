@@ -116,7 +116,7 @@ set description = normalized.public_description,
     end,
     lng = case
       when normalized.precision_m = 0 then k.lng
-      else round(k.lng / (normalized.precision_m / (111320.0 * greatest(abs(cos(radians(k.lat))), 0.01)))) * (normalized.precision_m / (111320.0 * greatest(abs(cos(radians(k.lat))), 0.01)))
+      else round(k.lng / (normalized.precision_m / (111320.0 * greatest(abs(cos(radians(k.lat))), 0.01::double precision)))) * (normalized.precision_m / (111320.0 * greatest(abs(cos(radians(k.lat))), 0.01::double precision)))
     end
 from normalized
 where k.id = normalized.id;
@@ -162,7 +162,7 @@ begin
     when new.category = 'explosion' then 500
     when new.category = 'conflict' then 2000
     when potentially_sensitive then 2000
-    else greatest(coalesce(new.location_precision_m, 0), 0)
+    else greatest(coalesce(new.location_precision_m, 0::double precision), 0::double precision)
   end;
   legacy_insert := tg_op = 'INSERT'
     and new.observed_at is null
@@ -206,7 +206,7 @@ begin
   end;
   if resolved_precision > 0 then
     new.lat := pg_catalog.round(new.lat / (resolved_precision / 110540.0)) * (resolved_precision / 110540.0);
-    new.lng := pg_catalog.round(new.lng / (resolved_precision / (111320.0 * pg_catalog.greatest(pg_catalog.abs(pg_catalog.cos(pg_catalog.radians(new.lat))), 0.01)))) * (resolved_precision / (111320.0 * pg_catalog.greatest(pg_catalog.abs(pg_catalog.cos(pg_catalog.radians(new.lat))), 0.01)));
+    new.lng := pg_catalog.round(new.lng / (resolved_precision / (111320.0 * pg_catalog.greatest(pg_catalog.abs(pg_catalog.cos(pg_catalog.radians(new.lat))), 0.01::double precision)))) * (resolved_precision / (111320.0 * pg_catalog.greatest(pg_catalog.abs(pg_catalog.cos(pg_catalog.radians(new.lat))), 0.01::double precision)));
   end if;
   return new;
 end;
@@ -336,7 +336,7 @@ begin
     else trim(p_description)
   end;
   stored_lat := case when resolved_precision = 0 then p_lat else round(p_lat / (resolved_precision / 110540.0)) * (resolved_precision / 110540.0) end;
-  stored_lng := case when resolved_precision = 0 then p_lng else round(p_lng / (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01)))) * (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01))) end;
+  stored_lng := case when resolved_precision = 0 then p_lng else round(p_lng / (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01::double precision)))) * (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01::double precision))) end;
 
   insert into public.knowledge (
     category, lat, lng, condition, description, confidence,
@@ -458,7 +458,7 @@ begin
     else trim(p_description)
   end;
   stored_lat := case when resolved_precision = 0 then p_lat else round(p_lat / (resolved_precision / 110540.0)) * (resolved_precision / 110540.0) end;
-  stored_lng := case when resolved_precision = 0 then p_lng else round(p_lng / (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01)))) * (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01))) end;
+  stored_lng := case when resolved_precision = 0 then p_lng else round(p_lng / (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01::double precision)))) * (resolved_precision / (111320.0 * greatest(abs(cos(radians(p_lat))), 0.01::double precision))) end;
 
   if has_votes then delete from public.verification where knowledge_id = p_knowledge_id; end if;
   update public.knowledge set
@@ -468,7 +468,7 @@ begin
     expires_at = resolved_expires_at, source_kind = 'community', location_precision_m = resolved_precision,
     agree_count = case when has_votes then 0 else agree_count end,
     disagree_count = case when has_votes then 0 else disagree_count end,
-    updated_at = now()
+    updated_at = pg_catalog.clock_timestamp()
   where id = p_knowledge_id returning * into updated;
 
   return jsonb_build_object(

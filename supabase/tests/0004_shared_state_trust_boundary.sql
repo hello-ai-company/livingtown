@@ -39,7 +39,8 @@ select ok(not has_function_privilege('anon', 'public.initialize_knowledge_counte
 select ok(not has_function_privilege('authenticated', 'public.initialize_knowledge_counters()', 'EXECUTE'), 'authenticated cannot call knowledge counter helper');
 select ok(exists (
   select 1 from pg_constraint
-  where conrelid = 'public.knowledge'::regclass and conname = 'knowledge_demo_coordinate_bounds'
+  where conrelid = 'public.knowledge'::regclass
+    and conname in ('knowledge_demo_coordinate_bounds', 'knowledge_world_coordinate_bounds')
 ), 'knowledge coordinate constraint exists');
 select ok(exists (
   select 1 from pg_constraint

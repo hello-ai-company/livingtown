@@ -187,7 +187,7 @@ begin
       confidence = p_confidence,
       agree_count = case when has_votes then 0 else agree_count end,
       disagree_count = case when has_votes then 0 else disagree_count end,
-      updated_at = now()
+      updated_at = pg_catalog.clock_timestamp()
   where id = p_knowledge_id
   returning * into updated;
 

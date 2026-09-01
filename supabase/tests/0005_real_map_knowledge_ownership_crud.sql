@@ -39,11 +39,11 @@ select ok((select prosecdef from pg_proc where oid = 'public.get_my_knowledge_id
 select ok((select prosecdef from pg_proc where oid = 'public.update_knowledge(uuid,text,double precision,double precision,text,text,text,boolean)'::regprocedure), 'update RPC is security definer');
 select ok((select prosecdef from pg_proc where oid = 'public.delete_knowledge(uuid,boolean)'::regprocedure), 'delete RPC is security definer');
 select ok((select prosecdef from pg_proc where oid = 'public.submit_verification(uuid,text,text)'::regprocedure), 'verification RPC is security definer');
-select ok((select coalesce(proconfig, '{}'::text[]) = '{}'::text[] from pg_proc where oid = 'public.attach_knowledge_owner()'::regprocedure), 'owner trigger uses an empty search_path');
-select ok((select coalesce(proconfig, '{}'::text[]) = '{}'::text[] from pg_proc where oid = 'public.get_my_knowledge_ids()'::regprocedure), 'owned-id RPC uses an empty search_path');
-select ok((select coalesce(proconfig, '{}'::text[]) = '{}'::text[] from pg_proc where oid = 'public.update_knowledge(uuid,text,double precision,double precision,text,text,text,boolean)'::regprocedure), 'update RPC uses an empty search_path');
-select ok((select coalesce(proconfig, '{}'::text[]) = '{}'::text[] from pg_proc where oid = 'public.delete_knowledge(uuid,boolean)'::regprocedure), 'delete RPC uses an empty search_path');
-select ok((select coalesce(proconfig, '{}'::text[]) = '{}'::text[] from pg_proc where oid = 'public.submit_verification(uuid,text,text)'::regprocedure), 'verification RPC uses an empty search_path');
+select ok((select exists (select 1 from unnest(coalesce(proconfig, '{}'::text[])) as config(setting) where split_part(config.setting, '=', 1) = 'search_path' and btrim(split_part(config.setting, '=', 2), ' "') = '') from pg_proc where oid = 'public.attach_knowledge_owner()'::regprocedure), 'owner trigger uses an empty search_path');
+select ok((select exists (select 1 from unnest(coalesce(proconfig, '{}'::text[])) as config(setting) where split_part(config.setting, '=', 1) = 'search_path' and btrim(split_part(config.setting, '=', 2), ' "') = '') from pg_proc where oid = 'public.get_my_knowledge_ids()'::regprocedure), 'owned-id RPC uses an empty search_path');
+select ok((select exists (select 1 from unnest(coalesce(proconfig, '{}'::text[])) as config(setting) where split_part(config.setting, '=', 1) = 'search_path' and btrim(split_part(config.setting, '=', 2), ' "') = '') from pg_proc where oid = 'public.update_knowledge(uuid,text,double precision,double precision,text,text,text,boolean)'::regprocedure), 'update RPC uses an empty search_path');
+select ok((select exists (select 1 from unnest(coalesce(proconfig, '{}'::text[])) as config(setting) where split_part(config.setting, '=', 1) = 'search_path' and btrim(split_part(config.setting, '=', 2), ' "') = '') from pg_proc where oid = 'public.delete_knowledge(uuid,boolean)'::regprocedure), 'delete RPC uses an empty search_path');
+select ok((select exists (select 1 from unnest(coalesce(proconfig, '{}'::text[])) as config(setting) where split_part(config.setting, '=', 1) = 'search_path' and btrim(split_part(config.setting, '=', 2), ' "') = '') from pg_proc where oid = 'public.submit_verification(uuid,text,text)'::regprocedure), 'verification RPC uses an empty search_path');
 select ok((select pg_get_functiondef('public.submit_verification(uuid,text,text)'::regprocedure) like '%for update%'), 'verification RPC locks the Knowledge row');
 select ok(not has_table_privilege('authenticated', 'public.knowledge', 'UPDATE'), 'authenticated cannot update knowledge directly');
 select ok(not has_table_privilege('authenticated', 'public.knowledge', 'DELETE'), 'authenticated cannot delete knowledge directly');
@@ -97,7 +97,10 @@ select ok((public.update_knowledge((select id from phase81_fixture_knowledge whe
 select ok(exists (select 1 from public.knowledge where id = (select id from phase81_fixture_knowledge where label = 'editable-worldwide') and description = 'A moved the report to London.' and lat = 51.5074 and lng = -0.1278), 'owner update changes worldwide content');
 select ok(exists (select 1 from public.knowledge where id = (select id from phase81_fixture_knowledge where label = 'editable-worldwide') and agree_count = 0 and disagree_count = 0), 'reverification reset clears counters');
 select ok((select count(*) from public.verification where knowledge_id = (select id from phase81_fixture_knowledge where label = 'editable-worldwide')) = 0, 'reverification reset cascades private verification rows');
-select ok((select updated_at > first_updated_at from phase81_fixture_knowledge where label = 'editable-worldwide'), 'owner update advances updated_at');
+select ok((select k.updated_at > f.first_updated_at
+  from public.knowledge as k
+  join phase81_fixture_knowledge as f on f.id = k.id
+  where f.label = 'editable-worldwide'), 'owner update advances updated_at');
 select ok(not (public.update_knowledge((select id from phase81_fixture_knowledge where label = 'editable-worldwide'), 'barrier', 51.5075, -0.1277, 'always', 'Second safe edit.', 'heard', false) ? 'owner_id'), 'owner update RPC never returns owner_id');
 
 with inserted as (
