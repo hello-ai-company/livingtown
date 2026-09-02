@@ -77,6 +77,9 @@ and attribution.
   story frame was observed.
 - Manual pause race: PASS; a pause issued immediately after restart remained
   paused and did not get overwritten by an older motion operation.
+- Manual camera → AUTO pause: not separately isolated in this production run;
+  no failure was observed in the executed pause/resume and rapid-navigation
+  checks.
 - Fatal application console errors: 0 observed.
 - WebGL context loss: 0 observed.
 
@@ -195,7 +198,7 @@ schema, RLS, Auth, or Realtime configuration file changes.
 ## Gate result
 
 ```text
-Application production gate: PASS
+Application production gate: PASS for executed checks; manual camera → AUTO was not separately isolated
 Native WebMCP production gate: ENVIRONMENT BLOCKED
 SAFE TO RECORD FINAL VIDEO: NO
 SAFE TO SUBMIT: NO — public video URL has not been provided
