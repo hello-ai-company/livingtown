@@ -381,11 +381,11 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
     const photorealScene = plugin.addDefaultPhotorealScene()
     view.toneMappingExposure = qualityPolicy.toneMappingExposure
     try {
-      photorealScene.sky.delete()
       photorealScene.aerialPerspective.update({ aerialPerspective: { sky: true } })
+      photorealScene.sky.delete()
     } catch {
-      // The default sky is already a safe scene when an optional atmosphere
-      // update is unavailable in a partial runtime.
+      // Keep the default photorealistic sky when the optional atmosphere update
+      // is unavailable in a partial runtime.
     }
     try {
       photorealScene.sun.update({ sun: { castShadow: qualityPolicy.shadows, shadowCascadeCount: qualityPolicy.shadowCascadeCount } })
