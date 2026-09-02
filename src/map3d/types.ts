@@ -6,6 +6,7 @@ export type WeatherVisualMode = 'clear' | 'rain' | 'heavy_rain' | 'night'
 export type SceneResourceStatus = 'pending' | 'ready' | 'blocked' | 'not_applicable'
 export type Knowledge3DState = 'PENDING' | 'VERIFIED' | 'AFFECTING_ROUTE'
 export type NavaraImageryStatus = 'pending' | 'seamlessphoto' | 'standard' | 'osm'
+export type PlateauSwitchState = 'idle' | 'loading' | 'ready' | 'blocked' | 'not_applicable'
 
 export interface GeoCamera {
   lng: number
@@ -69,6 +70,12 @@ export interface NavaraSceneDiagnostics {
   imageryUrl: string
   plateau: SceneResourceStatus
   plateauUrl: string
+  plateauAttributionUrl?: string
+  plateauDatasetId?: string
+  plateauMunicipality?: string
+  plateauSwitchState: PlateauSwitchState
+  plateauSwitchTargetId?: string
+  plateauSwitchError?: string
   weather: WeatherVisualState
   quality: QualityPreset
   fps?: number

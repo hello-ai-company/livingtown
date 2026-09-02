@@ -7,6 +7,8 @@ import type { Locale } from '../i18n'
 import { geoCameraToNavara, navaraCameraToGeo } from './navaraCamera'
 import { knowledgeMarkerColor } from './navaraKnowledge'
 import { loadNavara, type NavaraRuntimeModules } from './navaraLoader'
+import { findPlateauDataset } from './plateauDatasets'
+import { DynamicPlateauLoader, type PlateauLoaderAdapter, type PlateauLoaderStatus } from './plateauLoader'
 import {
   GSI_SEAMLESSPHOTO_URL,
   GSI_TERRAIN_URL,
@@ -26,11 +28,6 @@ import type {
 } from './types'
 
 export { GSI_RASTER_ENGLISH_URL, GSI_RASTER_URL, GSI_SEAMLESSPHOTO_URL, GSI_TERRAIN_URL, OSM_RASTER_URL } from './navaraPhotorealistic'
-export const PLATEAU_CHIYODA_TILESET_URL = 'https://assets.cms.plateau.reearth.io/assets/db/070026-aa27-431b-8d53-7cc6b03244f8/13101_chiyoda-ku_pref_2023_citygml_1_op_bldg_3dtiles_13101_chiyoda-ku_lod2_no_texture/tileset.json'
-export const PLATEAU_DATASET_URL = 'https://www.geospatial.jp/ckan/dataset/plateau-13101-chiyoda-ku-2023'
-
-const PLATEAU_ATTRIBUTION = '3D City Model (Project PLATEAU) Chiyoda Ward (FY2023) - MLIT PLATEAU'
-const PLATEAU_BOUNDS = { minLat: 35.67, maxLat: 35.70, minLng: 139.74, maxLng: 139.78 }
 
 type NavaraView = ThreeView<DefaultDescriptions>
 type Deletable = { delete: () => void }
@@ -90,11 +87,6 @@ async function probeUrl(url: string, timeoutMs = 4500, parentSignal?: AbortSigna
     window.clearTimeout(timeout)
     parentSignal?.removeEventListener('abort', abortProbe)
   }
-}
-
-function isInPlateauBounds(camera: GeoCamera) {
-  return camera.lat >= PLATEAU_BOUNDS.minLat && camera.lat <= PLATEAU_BOUNDS.maxLat
-    && camera.lng >= PLATEAU_BOUNDS.minLng && camera.lng <= PLATEAU_BOUNDS.maxLng
 }
 
 function updateDiagnostics(options: NavaraSceneOptions, diagnostics: NavaraSceneDiagnostics) {
@@ -346,7 +338,8 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
     imagery: 'pending',
     imageryUrl: GSI_SEAMLESSPHOTO_URL,
     plateau: 'pending',
-    plateauUrl: PLATEAU_CHIYODA_TILESET_URL,
+    plateauUrl: '',
+    plateauSwitchState: 'idle',
     weather: initialWeather,
     quality: options.quality,
   }
@@ -360,6 +353,7 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
   let disposed = false
   let applyingCamera = false
   let currentDataset = options.dataset
+  let plateauLoader: DynamicPlateauLoader | undefined
   let fpsFrameCount = 0
   let fpsStartedAt = 0
 
@@ -437,40 +431,81 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
     baseLayers.push(imageryLayer)
     view.attribution?.add([imagery.attribution])
 
-    if (japan && qualityPolicy.loadPlateau && isInPlateauBounds(target)) {
-      if (await probeUrl(PLATEAU_CHIYODA_TILESET_URL, 4500, options.signal)) {
-        throwIfAborted(options.signal)
-        try {
-          const plateauSource = view.addSource({ id: 'livingtown-plateau-chiyoda', type: '3d-tiles', url: PLATEAU_CHIYODA_TILESET_URL })
-          const plateauLayer = view.addLayer({
-            type: '3d-tiles',
-            source: plateauSource,
-            model: {
-              color: makeColor(runtime, 0xf5f2ea),
-              metalness: 0,
-              roughness: 0.95,
-              castShadow: qualityPolicy.shadows,
-              receiveShadow: qualityPolicy.shadows,
-            },
-          })
-          baseSources.push(plateauSource)
-          baseLayers.push(plateauLayer)
-          view.attribution?.add([{ attribution: PLATEAU_ATTRIBUTION, attributionUrl: PLATEAU_DATASET_URL }])
-          diagnostics.plateau = 'ready'
-        } catch {
-          diagnostics.plateau = 'blocked'
-        }
-      } else {
-        diagnostics.plateau = 'blocked'
+    const updatePlateauDiagnostics = (status: PlateauLoaderStatus) => {
+      diagnostics.plateauSwitchState = status.state
+      diagnostics.plateauSwitchTargetId = status.target?.id
+      diagnostics.plateauSwitchError = status.error
+      diagnostics.plateauDatasetId = status.current?.id
+      diagnostics.plateauMunicipality = status.current
+        ? options.locale === 'ja' ? status.current.municipality : status.current.municipalityEn
+        : undefined
+      diagnostics.plateauUrl = status.current?.tilesetUrl ?? ''
+      diagnostics.plateauAttributionUrl = status.current?.officialDatasetUrl
+      diagnostics.plateau = status.current
+        ? 'ready'
+        : status.state === 'blocked'
+          ? 'blocked'
+          : status.state === 'not_applicable'
+            ? 'not_applicable'
+            : 'pending'
+      updateDiagnostics(options, diagnostics)
+    }
+
+    if (qualityPolicy.loadPlateau) {
+      const plateauAdapter: PlateauLoaderAdapter = {
+        probe: (dataset, signal) => probeUrl(dataset.tilesetUrl, 4500, signal),
+        add: (dataset) => {
+          const plateauSource = view!.addSource({ id: `livingtown-plateau-${dataset.id}`, type: '3d-tiles', url: dataset.tilesetUrl })
+          let plateauLayer: Deletable | undefined
+          const attribution = [{ attribution: dataset.attribution, attributionUrl: dataset.attributionUrl }]
+          try {
+            plateauLayer = view!.addLayer({
+              type: '3d-tiles',
+              source: plateauSource,
+              model: {
+                color: makeColor(runtime, 0xf5f2ea),
+                metalness: 0,
+                roughness: 0.95,
+                castShadow: qualityPolicy.shadows,
+                receiveShadow: qualityPolicy.shadows,
+              },
+            })
+            view!.attribution?.add(attribution)
+            return {
+              dispose() {
+                view?.attribution?.remove(attribution)
+                try { plateauLayer?.delete() } catch { /* best effort */ }
+                try { plateauSource.delete() } catch { /* best effort */ }
+              },
+            }
+          } catch (error) {
+            try { plateauLayer?.delete() } catch { /* best effort */ }
+            try { plateauSource.delete() } catch { /* best effort */ }
+            throw error
+          }
+        },
       }
+      plateauLoader = new DynamicPlateauLoader(plateauAdapter, { signal: options.signal, onStatus: updatePlateauDiagnostics })
+      await plateauLoader.switchNow(japan ? findPlateauDataset(target.lat, target.lng) : undefined)
+      throwIfAborted(options.signal)
     } else {
       diagnostics.plateau = 'not_applicable'
+      diagnostics.plateauSwitchState = 'not_applicable'
+      updateDiagnostics(options, diagnostics)
+    }
+
+    const schedulePlateauForCamera = (camera: GeoCamera) => {
+      if (!plateauLoader) return
+      const nextDataset = isInJapanRegion(camera.lat, camera.lng) ? findPlateauDataset(camera.lat, camera.lng) : undefined
+      plateauLoader.schedule(nextDataset)
     }
 
     const onCameraMoveEnd = () => {
       if (disposed || applyingCamera) return
       try {
-        options.onCameraChange?.(navaraCameraToGeo({ positionGeographic: view!.camera.positionGeographic, zoom: view!.camera.zoom, orientation: view!.camera.orientation }))
+        const nextCamera = navaraCameraToGeo({ positionGeographic: view!.camera.positionGeographic, zoom: view!.camera.zoom, orientation: view!.camera.orientation })
+        options.onCameraChange?.(nextCamera)
+        schedulePlateauForCamera(nextCamera)
       } catch {
         // Camera reads can race with context loss; the last React camera remains valid.
       }
@@ -529,6 +564,7 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
         if (disposed || !view) return
         applyingCamera = true
         view.setCamera(navaraTargetCamera(camera))
+        schedulePlateauForCamera(camera)
         queueMicrotask(() => { applyingCamera = false })
       },
       update(input) {
@@ -545,9 +581,12 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
         try {
           if (options.reducedMotion || durationMs <= 0) {
             view.setCamera(navaraTargetCamera(camera))
+            schedulePlateauForCamera(camera)
             return true
           }
-          return await view.flyTo(navaraTargetCamera(camera), { duration: durationMs })
+          const result = await view.flyTo(navaraTargetCamera(camera), { duration: durationMs })
+          schedulePlateauForCamera(camera)
+          return result
         } finally {
           queueMicrotask(() => { applyingCamera = false })
         }
@@ -555,6 +594,8 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
       dispose() {
         if (disposed) return
         disposed = true
+        plateauLoader?.dispose()
+        plateauLoader = undefined
         deleteHandles([...overlayHandles, ...weatherHandles])
         overlayHandles.length = 0
         weatherHandles.length = 0
@@ -571,6 +612,8 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
       },
     }
   } catch (error) {
+    plateauLoader?.dispose()
+    plateauLoader = undefined
     deleteHandles([...overlayHandles, ...weatherHandles, ...baseLayers])
     for (const source of baseSources) {
       try { source.delete() } catch { /* best effort */ }

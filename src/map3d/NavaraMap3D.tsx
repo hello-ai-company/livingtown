@@ -5,7 +5,7 @@ import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
 import type { RouteResult, TownSnapshot } from '../sim/types'
 import { buildRouteCameraTour } from './navaraCamera'
 import { buildSceneDataset } from './navaraDatasets'
-import { createNavaraScene, GSI_SEAMLESSPHOTO_URL, PLATEAU_CHIYODA_TILESET_URL, PLATEAU_DATASET_URL, type NavaraSceneController } from './NavaraScene'
+import { createNavaraScene, GSI_SEAMLESSPHOTO_URL, type NavaraSceneController } from './NavaraScene'
 import { resolveWeatherVisualState, weatherModeLabelKey } from './navaraWeather'
 import { getNavaraCapabilities } from './navaraCapabilities'
 import { buildSimple3DStoryCopy, type NavaraStoryStep } from './navaraStory'
@@ -61,7 +61,8 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
     imagery: 'pending',
     imageryUrl: GSI_SEAMLESSPHOTO_URL,
     plateau: 'pending',
-    plateauUrl: PLATEAU_CHIYODA_TILESET_URL,
+    plateauUrl: '',
+    plateauSwitchState: 'idle',
     weather: resolveWeatherVisualState(),
     quality: 'medium',
   })
@@ -200,7 +201,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         : t('map.title3dMap')
 
   return (
-    <div className={`map-frame navara-map-frame navara-map-frame--${surface}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-imagery={diagnostics.imagery} data-navara-plateau={diagnostics.plateau} data-surface={surface} data-replay-camera={snapshot.replay.camera}>
+    <div className={`map-frame navara-map-frame navara-map-frame--${surface}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-imagery={diagnostics.imagery} data-navara-plateau={diagnostics.plateau} data-navara-plateau-dataset={diagnostics.plateauDatasetId ?? ''} data-navara-plateau-municipality={diagnostics.plateauMunicipality ?? ''} data-navara-plateau-switch={diagnostics.plateauSwitchState} data-surface={surface} data-replay-camera={snapshot.replay.camera}>
       <div className="map-frame__topline">
         <div><span className="eyebrow">{t('map.eyebrow3d')}</span><span className="map-frame__title">{surfaceTitle}</span></div>
         <span className="map-frame__mode"><span className={`status-dot${diagnostics.readiness === 'ready' ? ' status-dot--live' : ''}`} /> {diagnostics.renderer}</span>
@@ -235,6 +236,8 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         <div className="navara-map-overlay__status">
           <strong>{diagnostics.readiness === 'ready' ? t('map.ready3d') : t('map.loading3d')}</strong>
           {mode === 'advanced' && <span>{t('map.weatherSimulation')}</span>}
+          {mode === 'simple' && diagnostics.plateauSwitchState === 'loading' && <span>{t('map.plateauLoading')}</span>}
+          {mode === 'simple' && diagnostics.plateau === 'not_applicable' && <span>{t('map.plateauNoDataset')}</span>}
           {tourPlaying && <span className="navara-tour-status">{tourPaused ? t('map.guidePaused') : tourStepLabel}</span>}
         </div>
       </div>
@@ -244,7 +247,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
           <span>{t('map.renderer')}<strong>{diagnostics.renderer}</strong></span>
           <span>{t('map.terrain')}<strong>{statusLabel(diagnostics.terrain, locale)}</strong></span>
           <span>{t('map.imagery')}<strong>{imageryLabel(diagnostics.imagery, locale)}</strong></span>
-          <span>{t('map.plateau')}<strong>{statusLabel(diagnostics.plateau, locale)}</strong></span>
+          <span>{t('map.plateau')}<strong>{statusLabel(diagnostics.plateau, locale)}{diagnostics.plateauMunicipality ? ` · ${diagnostics.plateauMunicipality}` : ''}</strong></span>
           <span>{t('map.visualWeather')}<strong>{t(weatherModeLabelKey(diagnostics.weather.mode))}</strong></span>
           <span>{t('map.quality')}<strong>{t(`map.quality.${diagnostics.quality}`)}</strong></span>
           {diagnostics.fps !== undefined && <span>FPS<strong>{diagnostics.fps}</strong></span>}
@@ -265,7 +268,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
             <option value="high">{t('map.quality.high')}</option>
           </select>
         </label>
-        <p className="navara-advanced-panel__note">{t('map.noRealWeather')} · {diagnostics.plateau === 'ready' ? <a href={PLATEAU_DATASET_URL} target="_blank" rel="noreferrer">{t('map.plateauAttribution')}</a> : t('map.plateauOptional')}</p>
+        <p className="navara-advanced-panel__note">{t('map.noRealWeather')} · {diagnostics.plateauSwitchState === 'loading' ? t('map.plateauLoading') : diagnostics.plateau === 'ready' && diagnostics.plateauAttributionUrl ? <a href={diagnostics.plateauAttributionUrl} target="_blank" rel="noreferrer">{diagnostics.plateauMunicipality ? `${diagnostics.plateauMunicipality} · ` : ''}{t('map.plateauAttribution')}</a> : diagnostics.plateauSwitchState === 'blocked' ? t('map.plateauSwitchFailed') : diagnostics.plateau === 'not_applicable' ? t('map.plateauNoDataset') : t('map.plateauOptional')}</p>
       </div>}
       {tourPlaying && <div className="navara-tour-controls" role="group" aria-label={t('map.guide')}>
         <span>{tourStepLabel}</span>
@@ -273,7 +276,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         <button type="button" className="text-button" onClick={() => { setSelectedTourIndex(0); setTourPaused(false) }}>{t('map.guideOverview')}</button>
         <button type="button" className="text-button" onClick={exitTour}>{t('map.guideExit')}</button>
       </div>}
-      <div className="navara-attribution">Navara Map · {t('map.gsiAttribution')}{diagnostics.plateau === 'ready' && ` · ${t('map.plateauAttribution')}`}</div>
+      <div className="navara-attribution">Navara Map · {t('map.gsiAttribution')}{diagnostics.plateau === 'ready' && ` · ${t('map.plateauAttribution')}${diagnostics.plateauMunicipality ? ` · ${diagnostics.plateauMunicipality}` : ''}`}</div>
       {selectedView && <KnowledgeDetailCard view={selectedView} selectedHousehold={dataset.household} locale={locale} mode={mode} onClose={() => onClearKnowledge?.()} onEdit={onEditKnowledge} onDelete={onDeleteKnowledge} />}
     </div>
   )
