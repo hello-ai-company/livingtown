@@ -24,6 +24,7 @@ import { useTranslator, useUiPreferences, type ExperienceMode, type Locale, type
 import { DEFAULT_TOKYO_CAMERA } from '../map3d/navaraCamera'
 import { getNavaraCapabilities, resolveInitialMapDimension, persistMapDimension } from '../map3d/navaraCapabilities'
 import type { GeoCamera, MapDimension, WeatherVisualMode } from '../map3d/types'
+import { getMapDimensionTransition } from './mapDimension'
 
 const PHASE_BASE: Array<{ key: Phase; index: string; short: string }> = [
   { key: 'map', index: '01', short: 'MAP' },
@@ -298,9 +299,15 @@ function AppShell() {
     setSelectedHouseholdId(householdId)
   }
 
+  const changeMapDimension = useCallback((nextDimension: MapDimension) => {
+    const transition = getMapDimensionTransition(nextDimension, selectedKnowledgeId)
+    setSelectedKnowledgeId(transition.selectedKnowledgeId)
+    setMapDimension(transition.dimension)
+  }, [selectedKnowledgeId])
+
   const open3D = () => {
     persistMapDimension('3d')
-    setMapDimension('3d')
+    changeMapDimension('3d')
   }
 
   const submitKnowledge = async (input: ContributeKnowledgeInput | UpdateKnowledgeInput) => {
@@ -394,7 +401,7 @@ function AppShell() {
     mode,
     dimension: mapDimension,
     camera: mapCamera,
-    onDimensionChange: setMapDimension,
+    onDimensionChange: changeMapDimension,
     onCameraChange: setMapCamera,
     onNotice: setNotice,
     weatherMode: weatherVisualMode,
