@@ -98,6 +98,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
   const walkthroughStateRef = useRef(INITIAL_WALKTHROUGH_STATE)
   const walkthroughOriginRef = useRef<GeoCamera | undefined>(undefined)
   const walkthroughMotionRef = useRef(false)
+  const walkthroughMotionGenerationRef = useRef(0)
   const walkthroughTimerRef = useRef<number | undefined>(undefined)
   walkthroughStateRef.current = walkthrough
   const capabilities = useMemo(() => getNavaraCapabilities(), [])
@@ -164,6 +165,8 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
     return () => {
       alive = false
       initializationController.abort()
+      walkthroughMotionGenerationRef.current += 1
+      walkthroughMotionRef.current = false
       sceneRef.current?.dispose()
       sceneRef.current = undefined
       setScene(undefined)
@@ -221,11 +224,14 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
   const flyWalkthroughFrame = useCallback(async (frame: WalkthroughFrame, durationMs: number) => {
     const controller = sceneRef.current
     if (!controller) return false
+    const motionGeneration = ++walkthroughMotionGenerationRef.current
     walkthroughMotionRef.current = true
     try {
       return await controller.flyTo(frame.camera, durationMs, true)
     } finally {
-      window.setTimeout(() => { walkthroughMotionRef.current = false }, 0)
+      window.setTimeout(() => {
+        if (motionGeneration === walkthroughMotionGenerationRef.current) walkthroughMotionRef.current = false
+      }, 0)
     }
   }, [])
 
@@ -234,6 +240,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
     window.clearTimeout(walkthroughTimerRef.current)
     walkthroughTimerRef.current = undefined
     walkthroughOriginRef.current = undefined
+    walkthroughMotionGenerationRef.current += 1
     walkthroughMotionRef.current = false
     setWalkthrough(INITIAL_WALKTHROUGH_STATE)
     if (origin) sceneRef.current?.setCamera(origin)

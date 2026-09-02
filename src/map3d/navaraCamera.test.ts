@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bearingBetween, buildRouteCameraTour, DEFAULT_TOKYO_CAMERA, geoCameraToNavara, interpolateGeoCamera, navaraCameraToGeo } from './navaraCamera'
+import { bearingBetween, buildRouteCameraTour, createLatestOperationGuard, DEFAULT_TOKYO_CAMERA, geoCameraToNavara, interpolateGeoCamera, navaraCameraToGeo } from './navaraCamera'
 import type { Household, Knowledge, RouteResult } from '../sim/types'
 
 const household: Household = {
@@ -68,5 +68,48 @@ describe('Navara camera bridge', () => {
 
   it('interpolates headings over the shortest turn', () => {
     expect(interpolateGeoCamera({ ...DEFAULT_TOKYO_CAMERA, heading: 350 }, { ...DEFAULT_TOKYO_CAMERA, heading: 10 }, 0.5).heading).toBeCloseTo(0)
+  })
+
+  it('drops delayed terrain results from an older camera operation', async () => {
+    const guard = createLatestOperationGuard()
+    const applied: string[] = []
+    let resolveB!: () => void
+    let resolveC!: () => void
+    const terrainB = new Promise<void>((resolve) => { resolveB = resolve })
+    const terrainC = new Promise<void>((resolve) => { resolveC = resolve })
+    const bToken = guard.begin()
+    const bRequest = terrainB.then(() => {
+      if (guard.isCurrent(bToken)) applied.push('B')
+    })
+    const cToken = guard.begin()
+    const cRequest = terrainC.then(() => {
+      if (guard.isCurrent(cToken)) applied.push('C')
+    })
+
+    resolveC()
+    await cRequest
+    resolveB()
+    await bRequest
+    expect(applied).toEqual(['C'])
+  })
+
+  it('invalidates a pending operation when the walkthrough exits', async () => {
+    const guard = createLatestOperationGuard()
+    let camera = 'origin'
+    const pendingToken = guard.begin()
+    guard.invalidate()
+    await Promise.resolve()
+    if (guard.isCurrent(pendingToken)) camera = 'stale walkthrough frame'
+    expect(camera).toBe('origin')
+  })
+
+  it('keeps the latest rapid navigation command as the winner', () => {
+    const guard = createLatestOperationGuard()
+    let finalIndex = 0
+    const previousToken = guard.begin()
+    const nextToken = guard.begin()
+    if (guard.isCurrent(previousToken)) finalIndex = -1
+    if (guard.isCurrent(nextToken)) finalIndex = 1
+    expect(finalIndex).toBe(1)
   })
 })

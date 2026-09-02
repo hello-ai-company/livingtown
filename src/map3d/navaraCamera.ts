@@ -1,6 +1,28 @@
 import type { Household, Knowledge, RouteResult } from '../sim/types'
 import type { GeoCamera, RouteCameraTour } from './types'
 
+export interface LatestOperationGuard {
+  begin(): number
+  isCurrent(token: number): boolean
+  invalidate(): void
+}
+
+export function createLatestOperationGuard(): LatestOperationGuard {
+  let latestToken = 0
+  return {
+    begin() {
+      latestToken += 1
+      return latestToken
+    },
+    isCurrent(token) {
+      return token === latestToken
+    },
+    invalidate() {
+      latestToken += 1
+    },
+  }
+}
+
 export const DEFAULT_TOKYO_CAMERA: GeoCamera = {
   lng: 139.7611,
   lat: 35.6813,

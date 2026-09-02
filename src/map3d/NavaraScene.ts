@@ -4,7 +4,7 @@ import type { EffectHandle, MeshHandle, Source } from '@navaramap/three'
 import type { PickedFeature } from '@navaramap/three'
 import { isInJapanRegion } from '../map/basemaps'
 import type { Locale } from '../i18n'
-import { geoCameraToNavara, navaraCameraToGeo } from './navaraCamera'
+import { createLatestOperationGuard, geoCameraToNavara, navaraCameraToGeo } from './navaraCamera'
 import { knowledgeMarkerColor } from './navaraKnowledge'
 import { loadNavara, type NavaraRuntimeModules } from './navaraLoader'
 import { findPlateauDataset } from './plateauDatasets'
@@ -410,6 +410,7 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
   let terrainSource: Source | undefined
   let disposed = false
   let applyingCamera = false
+  const cameraOperations = createLatestOperationGuard()
   let currentDataset = options.dataset
   let plateauLoader: DynamicPlateauLoader | undefined
   let fpsFrameCount = 0
@@ -559,7 +560,8 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
     }
 
     const walkthroughTerrainHeightCache = new Map<string, number>()
-    const getWalkthroughCamera = async (camera: GeoCamera) => {
+    const getWalkthroughCamera = async (camera: GeoCamera, operationToken: number) => {
+      if (disposed || !cameraOperations.isCurrent(operationToken)) return undefined
       let terrainHeight = view!.sampleTerrainHeight({ lat: camera.lat, lng: camera.lng })
       const cacheKey = `${camera.lng.toFixed(5)},${camera.lat.toFixed(5)}`
       if (terrainHeight === undefined) terrainHeight = walkthroughTerrainHeightCache.get(cacheKey)
@@ -575,7 +577,14 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
           // terrain sampling is unavailable during a partial tile load.
         }
       }
+      if (disposed || !cameraOperations.isCurrent(operationToken)) return undefined
       return navaraWalkthroughCamera(camera, terrainHeight)
+    }
+
+    const finishCameraOperation = (operationToken: number) => {
+      queueMicrotask(() => {
+        if (cameraOperations.isCurrent(operationToken)) applyingCamera = false
+      })
     }
 
     const onCameraMoveEnd = () => {
@@ -640,15 +649,16 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
       diagnostics,
       setCamera(camera, walkthrough = false) {
         if (disposed || !view) return
+        const operationToken = cameraOperations.begin()
         applyingCamera = true
         if (walkthrough) {
-          void getWalkthroughCamera(camera).then((targetCamera) => {
-            if (disposed || !view) return
+          void getWalkthroughCamera(camera, operationToken).then((targetCamera) => {
+            if (!targetCamera || disposed || !view || !cameraOperations.isCurrent(operationToken)) return
             view.setCamera(targetCamera)
-          }).finally(() => { queueMicrotask(() => { applyingCamera = false }) })
+          }).catch(() => undefined).finally(() => { finishCameraOperation(operationToken) })
         } else {
           view.setCamera(navaraTargetCamera(camera))
-          queueMicrotask(() => { applyingCamera = false })
+          finishCameraOperation(operationToken)
         }
         schedulePlateauForCamera(camera)
       },
@@ -662,23 +672,27 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
       },
       async flyTo(camera, durationMs = 600, walkthrough = false) {
         if (disposed || !view) return false
+        const operationToken = cameraOperations.begin()
         applyingCamera = true
         try {
-          const targetCamera = walkthrough ? await getWalkthroughCamera(camera) : navaraTargetCamera(camera)
+          const targetCamera = walkthrough ? await getWalkthroughCamera(camera, operationToken) : navaraTargetCamera(camera)
+          if (!targetCamera || disposed || !view || !cameraOperations.isCurrent(operationToken)) return false
           if (options.reducedMotion || durationMs <= 0) {
             view.setCamera(targetCamera)
             schedulePlateauForCamera(camera)
             return true
           }
           const result = await view.flyTo(targetCamera, { duration: durationMs })
+          if (disposed || !view || !cameraOperations.isCurrent(operationToken)) return false
           schedulePlateauForCamera(camera)
           return result
         } finally {
-          queueMicrotask(() => { applyingCamera = false })
+          finishCameraOperation(operationToken)
         }
       },
       dispose() {
         if (disposed) return
+        cameraOperations.invalidate()
         disposed = true
         plateauLoader?.dispose()
         plateauLoader = undefined
