@@ -28,7 +28,7 @@ import type {
   WeatherVisualState,
 } from './types'
 
-export { GSI_RASTER_ENGLISH_URL, GSI_RASTER_URL, GSI_SEAMLESSPHOTO_URL, GSI_TERRAIN_URL, OSM_RASTER_URL } from './navaraPhotorealistic'
+export { GSI_RASTER_URL, GSI_SEAMLESSPHOTO_URL, GSI_TERRAIN_URL, OSM_RASTER_URL } from './navaraPhotorealistic'
 
 type NavaraView = ThreeView<DefaultDescriptions>
 type Deletable = { delete: () => void }

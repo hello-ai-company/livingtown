@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   GSI_ATTRIBUTION_EN,
   GSI_ATTRIBUTION_JA,
-  GSI_ENGLISH_TILES,
+  GSI_STANDARD_TILES,
   OPENFREEMAP_STYLE_URL,
   WORLD_MAP_BOUNDS,
+  createGsiStyle,
   isInJapanRegion,
   preserveCamera,
   resolveBasemapProvider,
@@ -41,7 +42,7 @@ describe('worldwide basemap routing', () => {
 
   it('keeps the official provider resources and required GSI attribution link', () => {
     expect(OPENFREEMAP_STYLE_URL).toBe('https://tiles.openfreemap.org/styles/liberty')
-    expect(GSI_ENGLISH_TILES).toContain('/english/{z}/{x}/{y}.png')
+    expect(JSON.stringify(createGsiStyle('en'))).toContain(GSI_STANDARD_TILES)
     expect(GSI_ATTRIBUTION_JA).toContain('https://maps.gsi.go.jp/development/ichiran.html')
     expect(GSI_ATTRIBUTION_EN).toContain('https://maps.gsi.go.jp/development/ichiran.html')
   })

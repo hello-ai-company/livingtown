@@ -1,7 +1,6 @@
 import type { QualityPreset } from './types'
 
 export const GSI_RASTER_URL = 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'
-export const GSI_RASTER_ENGLISH_URL = 'https://cyberjapandata.gsi.go.jp/xyz/english/{z}/{x}/{y}.png'
 export const GSI_SEAMLESSPHOTO_URL = 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'
 export const GSI_TERRAIN_URL = 'https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png'
 export const OSM_RASTER_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
@@ -59,7 +58,7 @@ export function selectNavaraImagery(input: { japan: boolean; locale: 'ja' | 'en'
   }
   return {
     mode: 'standard',
-    url: input.locale === 'en' ? GSI_RASTER_ENGLISH_URL : GSI_RASTER_URL,
+    url: GSI_RASTER_URL,
     attribution: GSI_STANDARD_ATTRIBUTION,
   }
 }

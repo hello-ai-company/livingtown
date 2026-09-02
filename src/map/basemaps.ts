@@ -19,7 +19,6 @@ export type BasemapMode = 'auto' | 'gsi' | 'global'
 export type BasemapProvider = 'gsi' | 'global'
 
 export const GSI_STANDARD_TILES = 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'
-export const GSI_ENGLISH_TILES = 'https://cyberjapandata.gsi.go.jp/xyz/english/{z}/{x}/{y}.png'
 export const OPENFREEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 export const GSI_ATTRIBUTION_JA = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noreferrer">国土地理院</a>'
 export const GSI_ATTRIBUTION_EN = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noreferrer">Geospatial Information Authority of Japan (GSI)</a>'
@@ -47,11 +46,10 @@ export function resolveBasemapProvider(mode: BasemapMode, center: { lat: number;
 
 export function createGsiStyle(locale: 'ja' | 'en'): StyleSpecification {
   const attribution = locale === 'en' ? GSI_ATTRIBUTION_EN : GSI_ATTRIBUTION_JA
-  const tiles = locale === 'en' ? GSI_ENGLISH_TILES : GSI_STANDARD_TILES
   return {
     version: 8,
     sources: {
-      gsi: { type: 'raster', tiles: [tiles], tileSize: 256, minzoom: 2, maxzoom: 18, attribution },
+      gsi: { type: 'raster', tiles: [GSI_STANDARD_TILES], tileSize: 256, minzoom: 2, maxzoom: 18, attribution },
     },
     layers: [{ id: 'gsi-raster', type: 'raster', source: 'gsi', minzoom: 2, maxzoom: 18 }],
   } as StyleSpecification

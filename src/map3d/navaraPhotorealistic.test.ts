@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getNavaraPhotorealisticQualityPolicy, GSI_SEAMLESSPHOTO_URL, selectNavaraImagery } from './navaraPhotorealistic'
+import { getNavaraPhotorealisticQualityPolicy, GSI_RASTER_URL, GSI_SEAMLESSPHOTO_URL, selectNavaraImagery } from './navaraPhotorealistic'
 
 describe('Navara photorealistic display policy', () => {
   it('selects GSI seamless photo imagery for a healthy Japan photo tile', () => {
@@ -15,7 +15,7 @@ describe('Navara photorealistic display policy', () => {
 
   it('falls back to the standard GSI map without failing the scene', () => {
     expect(selectNavaraImagery({ japan: true, locale: 'ja', photoAvailable: false })).toMatchObject({ mode: 'standard', url: expect.stringContaining('/std/') })
-    expect(selectNavaraImagery({ japan: true, locale: 'en', photoAvailable: false })).toMatchObject({ mode: 'standard', url: expect.stringContaining('/english/') })
+    expect(selectNavaraImagery({ japan: true, locale: 'en', photoAvailable: false })).toMatchObject({ mode: 'standard', url: GSI_RASTER_URL })
   })
 
   it('uses OSM outside Japan', () => {

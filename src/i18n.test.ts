@@ -13,7 +13,8 @@ describe('LivingTown display preferences', () => {
     expect(createTranslator('ja')('missing.key')).toBe('missing.key')
   })
 
-  it('defaults to the simple experience mode outside a browser', () => {
+  it('defaults to English and the simple experience mode outside a browser', () => {
+    expect(readUiPreferences().locale).toBe('en')
     expect(readUiPreferences().mode).toBe('simple')
   })
 })

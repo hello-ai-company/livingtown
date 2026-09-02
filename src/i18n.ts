@@ -1214,7 +1214,7 @@ function readStorage(key: string) {
 }
 
 function browserLocale(): Locale {
-  return typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('ja') ? 'ja' : 'en'
+  return 'en'
 }
 
 export function readUiPreferences(): UiPreferences {
