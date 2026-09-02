@@ -79,6 +79,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
       container,
       camera,
       dataset,
+      selectedKnowledgeId,
       weatherMode,
       quality,
       locale,
@@ -121,8 +122,8 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
   }, [capabilities.mobile, locale, prefersReducedMotion, quality])
 
   useEffect(() => {
-    sceneRef.current?.update({ dataset, weatherMode })
-  }, [dataset, weatherMode])
+    sceneRef.current?.update({ dataset, selectedKnowledgeId, weatherMode })
+  }, [dataset, selectedKnowledgeId, weatherMode])
 
   useEffect(() => {
     const reported = cameraReportedRef.current
@@ -170,6 +171,18 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
   }
 
   const tourStepLabel = selectedTourIndex >= 0 ? t(`map.guide${tour.steps[selectedTourIndex]?.id === 'safe_route' ? 'SafeRoute' : tour.steps[selectedTourIndex]?.id ? tour.steps[selectedTourIndex].id[0].toUpperCase() + tour.steps[selectedTourIndex].id.slice(1) : 'Overview'}`) : undefined
+  const storyStepId = selectedTourIndex >= 0 && tour.steps[selectedTourIndex] ? tour.steps[selectedTourIndex].id : 'overview'
+  const storyCopy = {
+    overview: { number: undefined, title: t('map.storyOverview'), body: t('map.storyOverviewBody') },
+    household: { number: '01', title: t('map.storyHousehold'), body: t('map.storyHouseholdBody') },
+    hazard: { number: '02', title: t('map.storyHazard'), body: t('map.storyHazardBody') },
+    avoided: { number: '03', title: t('map.storyAvoided'), body: t('map.storyAvoidedBody') },
+    safe_route: { number: '04', title: t('map.storySafeRoute'), body: t('map.storySafeRouteBody') },
+    destination: { number: '05', title: t('map.storyDestination'), body: t('map.storyDestinationBody') },
+  }[storyStepId]
+  const affectingKnowledge = dataset.knowledge.find((item) => item.state === 'AFFECTING_ROUTE')
+  const storyDetail = storyStepId === 'hazard' ? affectingKnowledge?.item.description : storyStepId === 'avoided' ? affectingKnowledge?.reason : undefined
+  const showSimpleStory = mode === 'simple' && Boolean(dataset.route?.avoided.length)
 
   return (
     <div className={`map-frame navara-map-frame navara-map-frame--${surface}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-plateau={diagnostics.plateau} data-surface={surface} data-replay-camera={snapshot.replay.camera}>
@@ -178,6 +191,26 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         <span className="map-frame__mode"><span className={`status-dot${diagnostics.readiness === 'ready' ? ' status-dot--live' : ''}`} /> {diagnostics.renderer}</span>
       </div>
       <div ref={containerRef} className="navara-canvas" role="region" aria-label={t('map.knowledgeMap3dAlt')} aria-busy={diagnostics.readiness === 'loading'} />
+      <div className="navara-map-key" role="list" aria-label={t('map.markerLegend')}>
+        <span className="navara-map-key__item" role="listitem"><i className="navara-map-key__swatch navara-map-key__swatch--start" />{t('map.markerStart')}</span>
+        <span className="navara-map-key__item" role="listitem"><i className="navara-map-key__swatch navara-map-key__swatch--hazard" />{t('map.markerHazard')}</span>
+        <span className="navara-map-key__item" role="listitem"><i className="navara-map-key__swatch navara-map-key__swatch--destination" />{t('map.markerDestination')}</span>
+      </div>
+      {showSimpleStory && <div className="navara-story" data-story-step={storyStepId} role="status" aria-live="polite" aria-label={t('map.storyAria')}>
+        <div className="navara-story__head">
+          {storyCopy.number && <span className="navara-story__number">{storyCopy.number}</span>}
+          <div><span className="eyebrow">{t('map.storyEyebrow')}</span><h3>{storyCopy.title}</h3></div>
+        </div>
+        <p>{storyCopy.body}</p>
+        {storyDetail && <span className="navara-story__detail">{storyDetail}</span>}
+        <div className="navara-story__flow" aria-label={t('map.storyFlow')}>
+          <span>{t('map.markerStartShort')}</span><b aria-hidden="true">→</b>
+          <span>{t('map.markerHazardShort')}</span><b aria-hidden="true">→</b>
+          <span>{t('map.markerAvoidedShort')}</span><b aria-hidden="true">→</b>
+          <span>{t('map.markerSafeRouteShort')}</span><b aria-hidden="true">→</b>
+          <span>{t('map.markerDestinationShort')}</span>
+        </div>
+      </div>}
       <div className="navara-map-overlay">
         <div className="navara-map-overlay__actions">
           <button type="button" className="secondary-button" onClick={onBackTo2D}>{t('map.backTo2d')}</button>

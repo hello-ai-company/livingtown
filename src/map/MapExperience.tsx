@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Map2D, type Map2DProps, type MapSurface } from './Map2D'
 import { getNavaraCapabilities, persistMapDimension } from '../map3d/navaraCapabilities'
+import { selectThreeDProvider } from '../map3d/provider'
 import type { GeoCamera, MapDimension, WeatherVisualMode } from '../map3d/types'
 import type { Locale } from '../i18n'
 
@@ -102,6 +103,7 @@ function BoundaryFallback({ reason, locale, onFallback, mapProps, camera, surfac
 
 export function MapExperience({ dimension, camera, onDimensionChange, onCameraChange, onNotice, weatherMode, onWeatherModeChange, surface = 'map', ...mapProps }: MapExperienceProps) {
   const [capabilities] = useState(() => getNavaraCapabilities())
+  const provider = useMemo(() => selectThreeDProvider('navara', { navara: capabilities.supported, cesium: false }), [capabilities.supported])
   const [replayCameraOverride, setReplayCameraOverride] = useState<GeoCamera>()
   const t = useMemo(() => mapProps.locale === 'en' ? {
     view2d: 'Map',
@@ -115,7 +117,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
     fallback: '3Dを初期化できないため、2D地図を表示しています。',
   }, [mapProps.locale])
   const changeDimension = useCallback((next: MapDimension) => {
-    if (next === '3d' && !capabilities.supported) {
+    if (next === '3d' && !provider) {
       onNotice?.(`${t.unavailable}${capabilities.reason ? ` (${capabilities.reason})` : ''}`)
       persistMapDimension('2d')
       onDimensionChange('2d')
@@ -123,7 +125,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
     }
     persistMapDimension(next)
     onDimensionChange(next)
-  }, [capabilities.reason, capabilities.supported, onDimensionChange, onNotice, t.unavailable])
+  }, [capabilities.reason, onDimensionChange, onNotice, provider, t.unavailable])
   const handleFallback = useCallback((reason?: string) => {
     persistMapDimension('2d')
     onDimensionChange('2d')
@@ -159,7 +161,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
           <NavaraMap3D {...mapProps} locale={mapProps.locale ?? 'ja'} mode={mapProps.mode ?? 'simple'} surface={surface} camera={effectiveCamera} weatherMode={weatherMode} onWeatherModeChange={onWeatherModeChange} onCameraChange={onCameraChange} onBackTo2D={() => changeDimension('2d')} onFallback={handleFallback} />
         </Suspense>
       </ThreeDErrorBoundary> : <Map2D {...mapProps} surface={surface} camera={effectiveCamera} onCameraChange={onCameraChange} />}
-      <MapSurfaceSummary surface={surface} mapProps={{ ...mapProps, focusHouseholdId: surface === 'replay' && mapProps.snapshot.replay.camera !== 'household' ? undefined : mapProps.focusHouseholdId }} />
+      {dimension !== '3d' && <MapSurfaceSummary surface={surface} mapProps={{ ...mapProps, focusHouseholdId: surface === 'replay' && mapProps.snapshot.replay.camera !== 'household' ? undefined : mapProps.focusHouseholdId }} />}
     </div>
   )
 }

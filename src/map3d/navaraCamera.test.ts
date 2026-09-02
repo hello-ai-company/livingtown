@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRouteCameraTour, DEFAULT_TOKYO_CAMERA, geoCameraToNavara, navaraCameraToGeo } from './navaraCamera'
+import { bearingBetween, buildRouteCameraTour, DEFAULT_TOKYO_CAMERA, geoCameraToNavara, interpolateGeoCamera, navaraCameraToGeo } from './navaraCamera'
 import type { Household, Knowledge, RouteResult } from '../sim/types'
 
 const household: Household = {
@@ -58,5 +58,15 @@ describe('Navara camera bridge', () => {
     expect(buildRouteCameraTour({ route, household, knowledge: [knowledge] }).steps.map((step) => step.id)).toEqual([
       'overview', 'household', 'hazard', 'avoided', 'safe_route', 'destination',
     ])
+  })
+
+  it('derives a non-zero compass heading from the route', () => {
+    expect(bearingBetween([139.76, 35.681], [139.76, 35.682])).toBeCloseTo(0, 0)
+    expect(bearingBetween([139.76, 35.681], [139.761, 35.681])).toBeCloseTo(90, 0)
+    expect(buildRouteCameraTour({ route, household, knowledge: [knowledge] }).steps.every((step) => (step.camera.heading ?? 0) !== 0)).toBe(true)
+  })
+
+  it('interpolates headings over the shortest turn', () => {
+    expect(interpolateGeoCamera({ ...DEFAULT_TOKYO_CAMERA, heading: 350 }, { ...DEFAULT_TOKYO_CAMERA, heading: 10 }, 0.5).heading).toBeCloseTo(0)
   })
 })

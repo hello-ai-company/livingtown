@@ -37,6 +37,7 @@ export interface NavaraSceneOptions {
   container: HTMLElement
   camera: GeoCamera
   dataset: SceneDataset
+  selectedKnowledgeId?: string
   weatherMode?: WeatherVisualMode
   quality: QualityPreset
   locale: Locale
@@ -51,7 +52,7 @@ export interface NavaraSceneOptions {
 export interface NavaraSceneController {
   readonly diagnostics: NavaraSceneDiagnostics
   setCamera(camera: GeoCamera): void
-  update(input: { dataset: SceneDataset; weatherMode?: WeatherVisualMode }): void
+  update(input: { dataset: SceneDataset; selectedKnowledgeId?: string; weatherMode?: WeatherVisualMode }): void
   flyTo(camera: GeoCamera, durationMs?: number): Promise<boolean>
   dispose(): void
 }
@@ -106,56 +107,163 @@ function terrainHeightReference(terrain: SceneResourceStatus) {
   return terrain === 'ready' ? 'terrain' as const : 'ellipsoid' as const
 }
 
+function navaraTargetCamera(camera: GeoCamera) {
+  // Navara treats lng/lat as the look-at target when height is zero; keep the
+  // shared camera height as distance so route overlays stay centered in view.
+  const target = geoCameraToNavara(camera)
+  const distance = target.height
+  return { ...target, height: 0, distance }
+}
+
+function circlePoints(center: [number, number], radiusMeters: number, height: number, segments = 20) {
+  const latDelta = radiusMeters / 111_320
+  const lngDelta = radiusMeters / (111_320 * Math.max(0.2, Math.cos((center[1] * Math.PI) / 180)))
+  return Array.from({ length: segments }, (_, index) => {
+    const angle = (index / segments) * Math.PI * 2
+    return {
+      lng: center[0] + Math.cos(angle) * lngDelta,
+      lat: center[1] + Math.sin(angle) * latDelta,
+      height,
+    }
+  })
+}
+
+function addGroundRing(view: NavaraView, id: string, center: [number, number], radiusMeters: number, height: number, color: number, lineWidth: number, dashed = false) {
+  return view.addMesh({
+    id,
+    smoothLines: {
+      points: circlePoints(center, radiusMeters, height),
+      tension: 0,
+      closed: true,
+      segments: 1,
+      lineWidth,
+      color,
+      dashed,
+      dashSize: 16,
+      gapSize: 10,
+      showPoints: false,
+    },
+  })
+}
+
 function addKnowledgeMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dataset: SceneDataset, terrain: SceneResourceStatus, selectedKnowledgeId?: string) {
   const handles: MeshHandle[] = []
   const heightReference = terrainHeightReference(terrain)
   for (const knowledge of dataset.knowledge) {
     const color = knowledgeMarkerColor(knowledge)
+    const affectingRoute = knowledge.state === 'AFFECTING_ROUTE'
+    const verified = knowledge.state === 'VERIFIED'
+    const selected = knowledge.item.id === selectedKnowledgeId
+    const center: [number, number] = [knowledge.item.lng, knowledge.item.lat]
     handles.push(view.addMesh({
       id: `navara-knowledge-${knowledge.item.id}`,
-      geodetic: { lng: knowledge.item.lng, lat: knowledge.item.lat, height: 14, heightReference },
+      geodetic: { lng: knowledge.item.lng, lat: knowledge.item.lat, height: affectingRoute ? 78 : verified ? 56 : 44, heightReference },
       sphere: {
-        radius: knowledge.item.id === selectedKnowledgeId ? 34 : knowledge.state === 'AFFECTING_ROUTE' ? 30 : 24,
+        radius: selected ? 36 : affectingRoute ? 31 : verified ? 26 : 21,
         color: makeColor(runtime, color),
         emissiveColor: makeColor(runtime, color),
-        emissiveIntensity: knowledge.state === 'AFFECTING_ROUTE' ? 0.55 : 0.25,
+        emissiveIntensity: affectingRoute ? 0.72 : verified ? 0.34 : 0.16,
         transparent: knowledge.state === 'PENDING',
-        opacity: knowledge.state === 'PENDING' ? 0.72 : 1,
+        opacity: knowledge.state === 'PENDING' ? 0.42 : 1,
         castShadow: false,
       },
       pickable: true,
     }))
+    if (affectingRoute) {
+      handles.push(view.addMesh({
+        id: `navara-knowledge-halo-${knowledge.item.id}`,
+        geodetic: { lng: knowledge.item.lng, lat: knowledge.item.lat, height: 4, heightReference },
+        cylinder: {
+          radiusTop: selected ? 62 : 54,
+          radiusBottom: selected ? 62 : 54,
+          height: 2,
+          radialSegments: 24,
+          color: makeColor(runtime, color),
+          opacity: 0.16,
+          transparent: true,
+          castShadow: false,
+          receiveShadow: false,
+        },
+      }))
+      handles.push(addGroundRing(view, `navara-knowledge-ring-${knowledge.item.id}`, center, selected ? 62 : 54, 32, color, selected ? 5 : 4))
+    } else if (verified) {
+      handles.push(addGroundRing(view, `navara-knowledge-ring-${knowledge.item.id}`, center, selected ? 38 : 31, 28, color, selected ? 3 : 2))
+    }
   }
   return handles
 }
 
 function addRouteMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dataset: SceneDataset, terrain: SceneResourceStatus) {
   const handles: MeshHandle[] = []
-  const height = terrain === 'ready' ? 7 : 32
+  const height = terrain === 'ready' ? 120 : 140
+  const markerHeight = terrain === 'ready' ? 170 : 190
   const heightReference = terrainHeightReference(terrain)
   const points = routeCoordinates(dataset.route).map(([lng, lat]) => ({ lng, lat, height }))
   if (points.length > 1) {
     handles.push(view.addMesh({
+      id: 'navara-route-glow',
+      smoothLines: { points: points.map((point) => ({ ...point, height: point.height - 5 })), tension: 0, segments: 1, lineWidth: 22, color: 0x54754f, dashed: false, showPoints: false },
+    }))
+    handles.push(view.addMesh({
       id: 'navara-route',
-      smoothLines: { points, lineWidth: 9, color: 0xc1e06e, dashed: false, showPoints: false },
+      smoothLines: { points, tension: 0, segments: 1, lineWidth: 13, color: 0xc1e06e, dashed: false, showPoints: true, pointSize: 4, pointColor: 0xf2ffb0 },
     }))
   }
   for (const road of dataset.avoidedRoads) {
-    const avoidedPoints = road.coordinates.map(([lng, lat]) => ({ lng, lat, height: height + 3 }))
+    const avoidedHeight = height + 8
+    const avoidedPoints = road.coordinates.map(([lng, lat]) => ({ lng, lat, height: avoidedHeight }))
     if (avoidedPoints.length < 2) continue
     handles.push(view.addMesh({
+      id: `navara-avoided-underlay-${road.knowledgeId}-${road.id}`,
+      smoothLines: { points: avoidedPoints, tension: 0, segments: 1, lineWidth: 17, color: 0x7f4241, dashed: false, showPoints: false },
+    }))
+    handles.push(view.addMesh({
       id: `navara-avoided-${road.knowledgeId}-${road.id}`,
-      smoothLines: { points: avoidedPoints, lineWidth: 10, color: 0xef7772, dashed: true, dashSize: 18, gapSize: 10, showPoints: false },
+      smoothLines: { points: avoidedPoints, tension: 0, segments: 1, lineWidth: 11, color: 0xef7772, dashed: true, dashSize: 20, gapSize: 12, showPoints: false },
       pickable: true,
     }))
+    const knowledge = dataset.knowledge.find((item) => item.item.id === road.knowledgeId)
+    if (knowledge) {
+      const roadCenter = road.coordinates[Math.floor(road.coordinates.length / 2)]
+      handles.push(view.addMesh({
+        id: `navara-avoided-cause-${road.knowledgeId}-${road.id}`,
+        smoothLines: {
+          points: [
+            { lng: knowledge.item.lng, lat: knowledge.item.lat, height: avoidedHeight },
+            { lng: roadCenter[0], lat: roadCenter[1], height: avoidedHeight },
+          ],
+          tension: 0,
+          segments: 1,
+          lineWidth: 3,
+          color: 0xf6a064,
+          dashed: true,
+          dashSize: 10,
+          gapSize: 9,
+          showPoints: false,
+        },
+      }))
+    }
   }
   if (dataset.household) {
+    const start: [number, number] = [dataset.household.start_lng, dataset.household.start_lat]
     handles.push(view.addMesh({
       id: `navara-household-${dataset.household.id}`,
-      geodetic: { lng: dataset.household.start_lng, lat: dataset.household.start_lat, height: 26, heightReference },
-      sphere: { radius: 38, color: makeColor(runtime, 0xf6a064), emissiveColor: makeColor(runtime, 0xf6a064), emissiveIntensity: 0.45 },
+      geodetic: { lng: dataset.household.start_lng, lat: dataset.household.start_lat, height: markerHeight, heightReference },
+      cylinder: { radiusTop: 9, radiusBottom: 23, height: 46, radialSegments: 20, color: makeColor(runtime, 0xf6a064), emissiveColor: makeColor(runtime, 0xf6a064), emissiveIntensity: 0.55, castShadow: false },
       pickable: false,
     }))
+    handles.push(addGroundRing(view, `navara-start-ring-${dataset.household.id}`, start, 35, height - 5, 0xf6a064, 3))
+  }
+  const routeEnd = points[points.length - 1]
+  if (routeEnd) {
+    const destination: [number, number] = [routeEnd.lng, routeEnd.lat]
+    handles.push(view.addMesh({
+      id: 'navara-destination',
+      geodetic: { lng: routeEnd.lng, lat: routeEnd.lat, height: markerHeight, heightReference },
+      cylinder: { radiusTop: 8, radiusBottom: 24, height: 54, radialSegments: 20, color: makeColor(runtime, 0xc1e06e), emissiveColor: makeColor(runtime, 0xc1e06e), emissiveIntensity: 0.62, castShadow: false },
+      pickable: false,
+    }))
+    handles.push(addGroundRing(view, 'navara-destination-ring', destination, 39, height - 5, 0xc1e06e, 3))
   }
   for (const bottleneck of dataset.bottlenecks) {
     const highlighted = dataset.snapshot.replay.highlighted_bottleneck_id === bottleneck.id
@@ -246,6 +354,7 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
   const baseSources: Deletable[] = []
   let disposed = false
   let applyingCamera = false
+  let currentDataset = options.dataset
   let fpsFrameCount = 0
   let fpsStartedAt = 0
 
@@ -267,7 +376,7 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
     plugin.addDefaultPhotorealScene()
 
     const target = options.camera
-    view.setCamera(geoCameraToNavara(target))
+    view.setCamera(navaraTargetCamera(target))
     view.camera.options = { enableSpin: false, enableZoom: true, enableTilt: true }
 
     const japan = isInJapanRegion(target.lat, target.lng)
@@ -333,7 +442,10 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
       const knowledgePrefix = 'navara-knowledge-'
       const avoidedPrefix = 'navara-avoided-'
       if (id.startsWith(knowledgePrefix)) options.onKnowledgeClick?.(id.slice(knowledgePrefix.length))
-      else if (id.startsWith(avoidedPrefix)) options.onKnowledgeClick?.(id.slice(avoidedPrefix.length).split('-')[0])
+      else if (id.startsWith(avoidedPrefix)) {
+        const road = currentDataset.avoidedRoads.find((candidate) => id === `navara-avoided-${candidate.knowledgeId}-${candidate.id}`)
+        if (road) options.onKnowledgeClick?.(road.knowledgeId)
+      }
     }
     const onPostRender = (timestamp: number) => {
       if (fpsStartedAt === 0) fpsStartedAt = timestamp
@@ -354,10 +466,11 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
     view.on('postRender', onPostRender)
     view.canvas.addEventListener('webglcontextlost', onContextLost)
 
-    const redrawOverlays = (dataset: SceneDataset) => {
+    const redrawOverlays = (dataset: SceneDataset, selectedKnowledgeId?: string) => {
+      currentDataset = dataset
       deleteHandles(overlayHandles)
       overlayHandles.length = 0
-      overlayHandles.push(...addKnowledgeMeshes(runtime, view!, dataset, diagnostics.terrain))
+      overlayHandles.push(...addKnowledgeMeshes(runtime, view!, dataset, diagnostics.terrain, selectedKnowledgeId))
       overlayHandles.push(...addRouteMeshes(runtime, view!, dataset, diagnostics.terrain))
     }
     const redrawWeather = (weather: WeatherVisualState) => {
@@ -366,7 +479,7 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
       weatherHandles.push(...addWeather(runtime, view!, weather, options.quality, options.mobile))
     }
 
-    redrawOverlays(options.dataset)
+    redrawOverlays(options.dataset, options.selectedKnowledgeId)
     redrawWeather(initialWeather)
     diagnostics.readiness = 'ready'
     updateDiagnostics(options, diagnostics)
@@ -376,13 +489,13 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
       setCamera(camera) {
         if (disposed || !view) return
         applyingCamera = true
-        view.setCamera(geoCameraToNavara(camera))
+        view.setCamera(navaraTargetCamera(camera))
         queueMicrotask(() => { applyingCamera = false })
       },
       update(input) {
         if (disposed || !view) return
         const weather = resolveWeatherVisualState(input.dataset.route, input.weatherMode)
-        redrawOverlays(input.dataset)
+        redrawOverlays(input.dataset, input.selectedKnowledgeId)
         redrawWeather(weather)
         diagnostics.weather = weather
         updateDiagnostics(options, diagnostics)
@@ -392,10 +505,10 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
         applyingCamera = true
         try {
           if (options.reducedMotion || durationMs <= 0) {
-            view.setCamera(geoCameraToNavara(camera))
+            view.setCamera(navaraTargetCamera(camera))
             return true
           }
-          return await view.flyTo(geoCameraToNavara(camera), { duration: durationMs })
+          return await view.flyTo(navaraTargetCamera(camera), { duration: durationMs })
         } finally {
           queueMicrotask(() => { applyingCamera = false })
         }
