@@ -45,6 +45,13 @@ export interface Map2DProps {
   onCameraChange?: (camera: GeoCamera) => void
 }
 
+type MapFilterState = {
+  status: KnowledgeStatusFilter
+  category: KnowledgeCategoryFilter | 'bottleneck'
+  group: KnowledgeGroupFilter
+  time: KnowledgeTimeFilter
+}
+
 interface MapBounds {
   minLat: number
   maxLat: number
@@ -91,6 +98,15 @@ function nearestNodeForHousehold(household: Household) {
   }, DEMO_GRAPH_NODES[0])
 }
 
+function activeFilterCount(filters: MapFilterState, mode: ExperienceMode) {
+  return [
+    filters.status !== 'all',
+    mode === 'advanced' && filters.category !== 'all',
+    filters.group !== 'all',
+    filters.time !== 'now',
+  ].filter(Boolean).length
+}
+
 const VISUAL_CLUSTER_RADIUS_DEGREES = 0.00012
 
 function overlapOffset(view: KnowledgeVisualView, views: KnowledgeVisualView[]) {
@@ -103,7 +119,8 @@ function overlapOffset(view: KnowledgeVisualView, views: KnowledgeVisualView[]) 
 
 function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onVerifyKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, onEditKnowledge, onDeleteKnowledge, locale = 'ja', mode = 'simple', surface = 'map', compact = false }: Map2DProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
-  const [filters, setFilters] = useState<{ status: KnowledgeStatusFilter; category: KnowledgeCategoryFilter | 'bottleneck'; group: KnowledgeGroupFilter; time: KnowledgeTimeFilter }>({ status: 'all', category: 'all', group: 'all', time: 'now' })
+  const [filters, setFilters] = useState<MapFilterState>({ status: 'all', category: 'all', group: 'all', time: 'now' })
+  const [filtersOpen, setFiltersOpen] = useState(mode === 'advanced')
   const [postingMode, setPostingMode] = useState(false)
   const [internalSelectedKnowledgeId, setInternalSelectedKnowledgeId] = useState<string>()
   const previousStates = useRef(new Map<string, KnowledgeVisualState>())
@@ -146,6 +163,12 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
   const selectedRouteEdges = useMemo(() => routeEdgeIds(selectedRoute), [selectedRoute])
   const avoidedEdgeIds = useMemo(() => new Set(selectedRoute?.avoided.flatMap((item) => item.edge_ids) ?? []), [selectedRoute])
   const visibleAffectingViews = visibleKnowledge.filter((view) => view.affectsCurrentRoute)
+  const filterCount = activeFilterCount(filters, mode)
+
+  useEffect(() => {
+    setFiltersOpen(mode === 'advanced')
+    if (mode === 'simple') setFilters((current) => current.category === 'all' ? current : { ...current, category: 'all' })
+  }, [mode])
 
   useEffect(() => {
     const nextStates = new Map(visualViews.map((view) => [view.item.id, view.state]))
@@ -224,43 +247,49 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
   }
 
   return (
-    <div className={`map-frame map-frame--${surface}${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-surface={surface}>
-      <div className="map-frame__topline">
-        <div>
-          <span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : t('map.simpleMode')}</span>
-          <span className="map-frame__title">{surface === 'drill' ? t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title') : surface === 'replay' ? t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title') : t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span>
-        </div>
-        <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? 'offline graph · MapLibre fallback' : t('map.fallbackMode')}</span>
-      </div>
-
-      {surface === 'map' && <div className="map-filter-bar" aria-label={t('map.filterGroup')}>
-        <div className="map-filter-bar__status" role="group" aria-label={t('map.filterGroup')}>
-          <span className="map-filter-bar__label">{t('map.filterLabel')}</span>
-          {([
-            ['all', t('map.all')],
-            ['verified', t('map.verifiedOnly')],
-            ['affecting_route', t('map.affecting')],
-          ] as Array<[KnowledgeStatusFilter, string]>).map(([value, label]) => (
-            <button key={value} type="button" className={filters.status === value ? 'is-active' : ''} aria-pressed={filters.status === value} onClick={() => setFilters((current) => ({ ...current, status: value }))}>{label}</button>
-          ))}
-        </div>
-        {mode === 'advanced' && <label htmlFor="map-category" className="map-filter-bar__category">{t('map.category')}
-          <select id="map-category" name="category" aria-label={t('map.category')} value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value as KnowledgeCategoryFilter | 'bottleneck' }))}>
-            <option value="all">{t('map.allSignals')}</option>
-            {MAP_CATEGORY_ORDER.map((category) => <option key={category} value={category}>{category === 'bottleneck' ? t('map.bottleneck') : t(`category.${category}`)}</option>)}
-          </select>
-        </label>}
-        <label htmlFor="map-group" className="map-filter-bar__category">{t('map.group')}
-          <select id="map-group" name="group" aria-label={t('map.group')} value={filters.group} onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value as KnowledgeGroupFilter }))}>
-            <option value="all">{t('map.groupAll')}</option><option value="disaster">{t('map.groupDisaster')}</option><option value="safety">{t('map.groupSafety')}</option><option value="crime_harassment">{t('map.groupCrime')}</option><option value="community">{t('map.groupCommunity')}</option>
-          </select>
-        </label>
-        <label htmlFor="map-time" className="map-filter-bar__category">{t('map.time')}
-          <select id="map-time" name="time" aria-label={t('map.time')} value={filters.time} onChange={(event) => setFilters((current) => ({ ...current, time: event.target.value as KnowledgeTimeFilter }))}>
+    <>
+      {surface === 'map' && <div className="map-filter-shell">
+        <button type="button" className="map-filter-toggle" aria-expanded={filtersOpen} aria-controls="svg-filter-panel" onClick={() => setFiltersOpen((current) => !current)}>
+          <span>{t('map.filters')}</span>{filterCount > 0 && <span className="map-filter-toggle__count"> · {filterCount}</span>}
+        </button>
+        {filtersOpen && <div id="svg-filter-panel" className="map-filter-bar" aria-label={t('map.filterPanel')}>
+          <div className="map-filter-bar__status" role="group" aria-label={t('map.filterGroup')}>
+            <span className="map-filter-bar__label">{t('map.filterLabel')}</span>
+            {([
+              ['all', t('map.all')],
+              ['verified', t('map.verifiedOnly')],
+              ['affecting_route', t('map.affecting')],
+            ] as Array<[KnowledgeStatusFilter, string]>).map(([value, label]) => (
+              <button key={value} type="button" className={filters.status === value ? 'is-active' : ''} aria-pressed={filters.status === value} onClick={() => setFilters((current) => ({ ...current, status: value }))}>{label}</button>
+            ))}
+          </div>
+          {mode === 'advanced' && <label htmlFor="map-category" className="map-filter-bar__category">{t('map.category')}
+            <select id="map-category" name="category" aria-label={t('map.category')} value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value as KnowledgeCategoryFilter | 'bottleneck' }))}>
+              <option value="all">{t('map.allSignals')}</option>
+              {MAP_CATEGORY_ORDER.map((category) => <option key={category} value={category}>{category === 'bottleneck' ? t('map.bottleneck') : t(`category.${category}`)}</option>)}
+            </select>
+          </label>}
+          <label htmlFor="map-group" className="map-filter-bar__category">{t('map.group')}
+            <select id="map-group" name="group" aria-label={t('map.group')} value={filters.group} onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value as KnowledgeGroupFilter }))}>
+              <option value="all">{t('map.groupAll')}</option><option value="disaster">{t('map.groupDisaster')}</option><option value="safety">{t('map.groupSafety')}</option><option value="crime_harassment">{t('map.groupCrime')}</option><option value="community">{t('map.groupCommunity')}</option>
+            </select>
+          </label>
+          <label htmlFor="map-time" className="map-filter-bar__category">{t('map.time')}
+            <select id="map-time" name="time" aria-label={t('map.time')} value={filters.time} onChange={(event) => setFilters((current) => ({ ...current, time: event.target.value as KnowledgeTimeFilter }))}>
             <option value="now">{t('map.now')}</option><option value="today">{t('map.today')}</option><option value="this_week">{t('map.thisWeek')}</option><option value="all">{t('map.allTime')}</option>
           </select>
         </label>
+        </div>}
       </div>}
+
+      <div className={`map-frame map-frame--${surface}${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-surface={surface}>
+        <div className="map-frame__topline">
+          <div>
+            <span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : t('map.simpleMode')}</span>
+            <span className="map-frame__title">{surface === 'drill' ? t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title') : surface === 'replay' ? t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title') : t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span>
+          </div>
+          <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? 'offline graph · MapLibre fallback' : t('map.fallbackMode')}</span>
+        </div>
 
         <svg className="town-map" viewBox="0 0 900 540" role="region" aria-label={t('map.knowledgeMapAlt')} onClickCapture={handleMapClick}>
         <defs>
@@ -383,7 +412,8 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
       )}
 
       {selectedView && <KnowledgeDetailCard view={selectedView} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onClose={clearKnowledge} onVerify={onVerifyKnowledge} onEdit={onEditKnowledge} onDelete={onDeleteKnowledge} />}
-    </div>
+      </div>
+    </>
   )
 }
 
