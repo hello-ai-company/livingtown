@@ -1,12 +1,18 @@
 import type ThreeView from '@navaramap/three'
 import type { DefaultDescriptions } from '@navaramap/three-default-plugin'
-import type { EffectHandle, Layer, MeshHandle, Source } from '@navaramap/three'
+import type { EffectHandle, MeshHandle, Source } from '@navaramap/three'
 import type { PickedFeature } from '@navaramap/three'
 import { isInJapanRegion } from '../map/basemaps'
 import type { Locale } from '../i18n'
 import { geoCameraToNavara, navaraCameraToGeo } from './navaraCamera'
 import { knowledgeMarkerColor } from './navaraKnowledge'
 import { loadNavara, type NavaraRuntimeModules } from './navaraLoader'
+import {
+  GSI_SEAMLESSPHOTO_URL,
+  GSI_TERRAIN_URL,
+  getNavaraPhotorealisticQualityPolicy,
+  selectNavaraImagery,
+} from './navaraPhotorealistic'
 import { resolveWeatherVisualState } from './navaraWeather'
 import { routeCoordinates } from './navaraRoute'
 import type {
@@ -19,14 +25,10 @@ import type {
   WeatherVisualState,
 } from './types'
 
-export const GSI_RASTER_URL = 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'
-export const GSI_RASTER_ENGLISH_URL = 'https://cyberjapandata.gsi.go.jp/xyz/english/{z}/{x}/{y}.png'
-export const GSI_TERRAIN_URL = 'https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png'
-export const OSM_RASTER_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+export { GSI_RASTER_ENGLISH_URL, GSI_RASTER_URL, GSI_SEAMLESSPHOTO_URL, GSI_TERRAIN_URL, OSM_RASTER_URL } from './navaraPhotorealistic'
 export const PLATEAU_CHIYODA_TILESET_URL = 'https://assets.cms.plateau.reearth.io/assets/db/070026-aa27-431b-8d53-7cc6b03244f8/13101_chiyoda-ku_pref_2023_citygml_1_op_bldg_3dtiles_13101_chiyoda-ku_lod2_no_texture/tileset.json'
 export const PLATEAU_DATASET_URL = 'https://www.geospatial.jp/ckan/dataset/plateau-13101-chiyoda-ku-2023'
 
-const GSI_ATTRIBUTION_URL = 'https://maps.gsi.go.jp/development/ichiran.html'
 const PLATEAU_ATTRIBUTION = '3D City Model (Project PLATEAU) Chiyoda Ward (FY2023) - MLIT PLATEAU'
 const PLATEAU_BOUNDS = { minLat: 35.67, maxLat: 35.70, minLng: 139.74, maxLng: 139.78 }
 
@@ -336,10 +338,13 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
   }
 
   const initialWeather = resolveWeatherVisualState(options.dataset.route, options.weatherMode)
+  const qualityPolicy = getNavaraPhotorealisticQualityPolicy(options.quality, options.mobile)
   const diagnostics: NavaraSceneDiagnostics = {
     renderer: 'WebGL2',
     readiness: 'loading',
     terrain: 'pending',
+    imagery: 'pending',
+    imageryUrl: GSI_SEAMLESSPHOTO_URL,
     plateau: 'pending',
     plateauUrl: PLATEAU_CHIYODA_TILESET_URL,
     weather: initialWeather,
@@ -362,9 +367,9 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
     view = new runtime.ThreeView<DefaultDescriptions>({
       container: options.container,
       animation: true,
-      shadow: options.quality !== 'low',
+      shadow: qualityPolicy.shadows,
       mobileOptimization: options.mobile,
-      pixelRatio: options.quality === 'low' ? 1 : Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 1.5),
+      pixelRatio: options.mobile || options.quality === 'low' ? 1 : Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 1.5),
       defaultAttribution: { position: 'bottom-right' },
       picking: true,
     })
@@ -373,7 +378,20 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
     await view.init()
     throwIfAborted(options.signal)
     if (disposed) throw new NavaraSceneError('runtime', 'Navara scene was disposed during initialization')
-    plugin.addDefaultPhotorealScene()
+    const photorealScene = plugin.addDefaultPhotorealScene()
+    view.toneMappingExposure = qualityPolicy.toneMappingExposure
+    try {
+      photorealScene.sky.delete()
+      photorealScene.aerialPerspective.update({ aerialPerspective: { sky: true } })
+    } catch {
+      // The default sky is already a safe scene when an optional atmosphere
+      // update is unavailable in a partial runtime.
+    }
+    try {
+      photorealScene.sun.update({ sun: { castShadow: qualityPolicy.shadows, shadowCascadeCount: qualityPolicy.shadowCascadeCount } })
+    } catch {
+      // Shadows are an enhancement; the route scene remains usable without it.
+    }
 
     const target = options.camera
     view.setCamera(navaraTargetCamera(target))
@@ -390,8 +408,8 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
         throw new NavaraSceneError('terrain', 'GSI terrain tile is unreachable')
       }
       throwIfAborted(options.signal)
-      const terrainSource = view.addSource({ id: 'livingtown-gsi-terrain', type: 'raster-dem', url: GSI_TERRAIN_URL, minZoom: 5, maxZoom: 15, elevationDecoder: runtime.JAPAN_GSI_ELEVATION_DECODER() })
-      const terrainLayer = view.addLayer({ type: 'terrain', source: terrainSource, terrain: { show: true, receiveShadow: options.quality !== 'low', castShadow: options.quality === 'high' } })
+      const terrainSource = view.addSource({ id: 'livingtown-gsi-terrain', type: 'raster-dem', url: GSI_TERRAIN_URL, minZoom: 6, maxZoom: 15, elevationDecoder: runtime.JAPAN_GSI_ELEVATION_DECODER() })
+      const terrainLayer = view.addLayer({ type: 'terrain', source: terrainSource, terrain: { show: true, receiveShadow: qualityPolicy.shadows, castShadow: qualityPolicy.shadows && options.quality === 'high' } })
       baseSources.push(terrainSource)
       baseLayers.push(terrainLayer)
       diagnostics.terrain = 'ready'
@@ -401,19 +419,40 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
       diagnostics.terrain = 'not_applicable'
     }
 
-    const imageryUrl = japan ? (options.locale === 'en' ? GSI_RASTER_ENGLISH_URL : GSI_RASTER_URL) : OSM_RASTER_URL
-    const imagerySource = view.addSource({ id: 'livingtown-imagery', type: 'raster-tile', url: imageryUrl, minZoom: 2, maxZoom: 18 })
+    let photoAvailable = false
+    if (japan) {
+      const photoProbeUrl = GSI_SEAMLESSPHOTO_URL
+        .replace('{z}', '14')
+        .replace('{x}', String(tileX(target.lng, 14)))
+        .replace('{y}', String(tileY(target.lat, 14)))
+      photoAvailable = await probeUrl(photoProbeUrl, 4500, options.signal)
+      throwIfAborted(options.signal)
+    }
+    const imagery = selectNavaraImagery({ japan, locale: options.locale, photoAvailable })
+    diagnostics.imagery = imagery.mode
+    diagnostics.imageryUrl = imagery.url
+    const imagerySource = view.addSource({ id: 'livingtown-imagery', type: 'raster-tile', url: imagery.url, minZoom: 2, maxZoom: 18 })
     const imageryLayer = view.addLayer({ type: 'raster', source: imagerySource })
     baseSources.push(imagerySource)
     baseLayers.push(imageryLayer)
-    view.attribution?.add([{ attribution: japan ? 'Geospatial Information Authority of Japan (GSI)' : '© OpenStreetMap contributors', attributionUrl: japan ? GSI_ATTRIBUTION_URL : 'https://www.openstreetmap.org/copyright' }])
+    view.attribution?.add([imagery.attribution])
 
-    if (japan && isInPlateauBounds(target)) {
+    if (japan && qualityPolicy.loadPlateau && isInPlateauBounds(target)) {
       if (await probeUrl(PLATEAU_CHIYODA_TILESET_URL, 4500, options.signal)) {
         throwIfAborted(options.signal)
         try {
           const plateauSource = view.addSource({ id: 'livingtown-plateau-chiyoda', type: '3d-tiles', url: PLATEAU_CHIYODA_TILESET_URL })
-          const plateauLayer = view.addLayer({ type: '3d-tiles', source: plateauSource })
+          const plateauLayer = view.addLayer({
+            type: '3d-tiles',
+            source: plateauSource,
+            model: {
+              color: makeColor(runtime, 0xf5f2ea),
+              metalness: 0,
+              roughness: 0.95,
+              castShadow: qualityPolicy.shadows,
+              receiveShadow: qualityPolicy.shadows,
+            },
+          })
           baseSources.push(plateauSource)
           baseLayers.push(plateauLayer)
           view.attribution?.add([{ attribution: PLATEAU_ATTRIBUTION, attributionUrl: PLATEAU_DATASET_URL }])

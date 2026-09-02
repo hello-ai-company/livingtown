@@ -5,7 +5,7 @@ import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
 import type { RouteResult, TownSnapshot } from '../sim/types'
 import { buildRouteCameraTour } from './navaraCamera'
 import { buildSceneDataset } from './navaraDatasets'
-import { createNavaraScene, PLATEAU_CHIYODA_TILESET_URL, PLATEAU_DATASET_URL, type NavaraSceneController } from './NavaraScene'
+import { createNavaraScene, GSI_SEAMLESSPHOTO_URL, PLATEAU_CHIYODA_TILESET_URL, PLATEAU_DATASET_URL, type NavaraSceneController } from './NavaraScene'
 import { resolveWeatherVisualState, weatherModeLabelKey } from './navaraWeather'
 import { getNavaraCapabilities } from './navaraCapabilities'
 import { buildSimple3DStoryCopy, type NavaraStoryStep } from './navaraStory'
@@ -40,6 +40,13 @@ function statusLabel(status: NavaraSceneDiagnostics['terrain'], locale: Locale) 
   return locale === 'ja' ? '確認中' : 'Checking'
 }
 
+function imageryLabel(status: NavaraSceneDiagnostics['imagery'], locale: Locale) {
+  if (status === 'seamlessphoto') return locale === 'ja' ? '航空写真' : 'Aerial photo'
+  if (status === 'standard') return locale === 'ja' ? '標準地図' : 'Standard map'
+  if (status === 'osm') return 'OpenStreetMap'
+  return locale === 'ja' ? '確認中' : 'Checking'
+}
+
 export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, camera, locale, mode, surface = 'map', weatherMode, onWeatherModeChange, onCameraChange, onSelectKnowledge, onClearKnowledge, onBackTo2D, onFallback, onEditKnowledge, onDeleteKnowledge }: NavaraMap3DProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
   const containerRef = useRef<HTMLDivElement>(null)
@@ -51,6 +58,8 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
     renderer: 'WebGL2',
     readiness: 'loading',
     terrain: 'pending',
+    imagery: 'pending',
+    imageryUrl: GSI_SEAMLESSPHOTO_URL,
     plateau: 'pending',
     plateauUrl: PLATEAU_CHIYODA_TILESET_URL,
     weather: resolveWeatherVisualState(),
@@ -191,7 +200,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         : t('map.title3dMap')
 
   return (
-    <div className={`map-frame navara-map-frame navara-map-frame--${surface}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-plateau={diagnostics.plateau} data-surface={surface} data-replay-camera={snapshot.replay.camera}>
+    <div className={`map-frame navara-map-frame navara-map-frame--${surface}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-imagery={diagnostics.imagery} data-navara-plateau={diagnostics.plateau} data-surface={surface} data-replay-camera={snapshot.replay.camera}>
       <div className="map-frame__topline">
         <div><span className="eyebrow">{t('map.eyebrow3d')}</span><span className="map-frame__title">{surfaceTitle}</span></div>
         <span className="map-frame__mode"><span className={`status-dot${diagnostics.readiness === 'ready' ? ' status-dot--live' : ''}`} /> {diagnostics.renderer}</span>
@@ -234,6 +243,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         <div className="navara-diagnostics-grid">
           <span>{t('map.renderer')}<strong>{diagnostics.renderer}</strong></span>
           <span>{t('map.terrain')}<strong>{statusLabel(diagnostics.terrain, locale)}</strong></span>
+          <span>{t('map.imagery')}<strong>{imageryLabel(diagnostics.imagery, locale)}</strong></span>
           <span>{t('map.plateau')}<strong>{statusLabel(diagnostics.plateau, locale)}</strong></span>
           <span>{t('map.visualWeather')}<strong>{t(weatherModeLabelKey(diagnostics.weather.mode))}</strong></span>
           <span>{t('map.quality')}<strong>{t(`map.quality.${diagnostics.quality}`)}</strong></span>

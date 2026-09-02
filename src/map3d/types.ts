@@ -5,6 +5,7 @@ export type QualityPreset = 'low' | 'medium' | 'high'
 export type WeatherVisualMode = 'clear' | 'rain' | 'heavy_rain' | 'night'
 export type SceneResourceStatus = 'pending' | 'ready' | 'blocked' | 'not_applicable'
 export type Knowledge3DState = 'PENDING' | 'VERIFIED' | 'AFFECTING_ROUTE'
+export type NavaraImageryStatus = 'pending' | 'seamlessphoto' | 'standard' | 'osm'
 
 export interface GeoCamera {
   lng: number
@@ -64,6 +65,8 @@ export interface NavaraSceneDiagnostics {
   renderer: 'WebGL2' | 'unavailable'
   readiness: 'loading' | 'ready' | 'fallback'
   terrain: SceneResourceStatus
+  imagery: NavaraImageryStatus
+  imageryUrl: string
   plateau: SceneResourceStatus
   plateauUrl: string
   weather: WeatherVisualState
