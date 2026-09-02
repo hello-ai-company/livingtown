@@ -51,7 +51,7 @@ export interface NavaraSceneOptions {
 export interface NavaraSceneController {
   readonly diagnostics: NavaraSceneDiagnostics
   setCamera(camera: GeoCamera): void
-  update(input: { dataset: SceneDataset; selectedKnowledgeId?: string; weatherMode?: WeatherVisualMode }): void
+  update(input: { dataset: SceneDataset; selectedKnowledgeId?: string; weatherMode?: WeatherVisualMode; walkthrough?: boolean }): void
   flyTo(camera: GeoCamera, durationMs?: number): Promise<boolean>
   dispose(): void
 }
@@ -140,7 +140,7 @@ function addGroundRing(view: NavaraView, id: string, center: [number, number], r
   })
 }
 
-function addKnowledgeMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dataset: SceneDataset, terrain: SceneResourceStatus, selectedKnowledgeId?: string) {
+function addKnowledgeMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dataset: SceneDataset, terrain: SceneResourceStatus, selectedKnowledgeId?: string, walkthrough = false) {
   const handles: MeshHandle[] = []
   const heightReference = terrainHeightReference(terrain)
   for (const knowledge of dataset.knowledge) {
@@ -149,11 +149,13 @@ function addKnowledgeMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dat
     const verified = knowledge.state === 'VERIFIED'
     const selected = knowledge.item.id === selectedKnowledgeId
     const center: [number, number] = [knowledge.item.lng, knowledge.item.lat]
+    const markerHeight = walkthrough ? affectingRoute ? 8 : verified ? 7 : 6 : affectingRoute ? 78 : verified ? 56 : 44
+    const markerRadius = walkthrough ? selected ? 16 : affectingRoute ? 14 : verified ? 11 : 9 : selected ? 36 : affectingRoute ? 31 : verified ? 26 : 21
     handles.push(view.addMesh({
       id: `navara-knowledge-${knowledge.item.id}`,
-      geodetic: { lng: knowledge.item.lng, lat: knowledge.item.lat, height: affectingRoute ? 78 : verified ? 56 : 44, heightReference },
+      geodetic: { lng: knowledge.item.lng, lat: knowledge.item.lat, height: markerHeight, heightReference },
       sphere: {
-        radius: selected ? 36 : affectingRoute ? 31 : verified ? 26 : 21,
+        radius: markerRadius,
         color: makeColor(runtime, color),
         emissiveColor: makeColor(runtime, color),
         emissiveIntensity: affectingRoute ? 0.72 : verified ? 0.34 : 0.16,
@@ -166,11 +168,11 @@ function addKnowledgeMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dat
     if (affectingRoute) {
       handles.push(view.addMesh({
         id: `navara-knowledge-halo-${knowledge.item.id}`,
-        geodetic: { lng: knowledge.item.lng, lat: knowledge.item.lat, height: 4, heightReference },
+        geodetic: { lng: knowledge.item.lng, lat: knowledge.item.lat, height: walkthrough ? 2 : 4, heightReference },
         cylinder: {
-          radiusTop: selected ? 62 : 54,
-          radiusBottom: selected ? 62 : 54,
-          height: 2,
+          radiusTop: walkthrough ? selected ? 38 : 32 : selected ? 62 : 54,
+          radiusBottom: walkthrough ? selected ? 38 : 32 : selected ? 62 : 54,
+          height: walkthrough ? 1 : 2,
           radialSegments: 24,
           color: makeColor(runtime, color),
           opacity: 0.16,
@@ -179,32 +181,56 @@ function addKnowledgeMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dat
           receiveShadow: false,
         },
       }))
-      handles.push(addGroundRing(view, `navara-knowledge-ring-${knowledge.item.id}`, center, selected ? 62 : 54, 32, color, selected ? 5 : 4))
+      handles.push(addGroundRing(view, `navara-knowledge-ring-${knowledge.item.id}`, center, walkthrough ? selected ? 38 : 32 : selected ? 62 : 54, walkthrough ? 38 : 32, color, walkthrough ? selected ? 3 : 2 : selected ? 5 : 4))
     } else if (verified) {
-      handles.push(addGroundRing(view, `navara-knowledge-ring-${knowledge.item.id}`, center, selected ? 38 : 31, 28, color, selected ? 3 : 2))
+      handles.push(addGroundRing(view, `navara-knowledge-ring-${knowledge.item.id}`, center, walkthrough ? selected ? 25 : 19 : selected ? 38 : 31, walkthrough ? 36 : 28, color, selected ? 3 : 2))
     }
   }
   return handles
 }
 
-function addRouteMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dataset: SceneDataset, terrain: SceneResourceStatus) {
+function addRouteMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dataset: SceneDataset, terrain: SceneResourceStatus, walkthrough = false) {
   const handles: MeshHandle[] = []
-  const height = terrain === 'ready' ? 120 : 140
-  const markerHeight = terrain === 'ready' ? 170 : 190
+  // Smooth-line points use ellipsoid heights, so the walkthrough keeps a
+  // conservative visible offset above the Tokyo terrain while markers remain
+  // terrain-relative through their geodetic placement.
+  const height = walkthrough ? terrain === 'ready' ? 42 : 55 : terrain === 'ready' ? 120 : 140
+  const markerHeight = walkthrough ? 14 : terrain === 'ready' ? 170 : 190
   const heightReference = terrainHeightReference(terrain)
+  const routeGlowColor = walkthrough ? 0x1d4f3a : 0x54754f
+  const routeColor = walkthrough ? 0x4d9d58 : 0xc1e06e
+  const routePointColor = walkthrough ? 0xb9ed73 : 0xf2ffb0
   const points = routeCoordinates(dataset.route).map(([lng, lat]) => ({ lng, lat, height }))
   if (points.length > 1) {
     handles.push(view.addMesh({
       id: 'navara-route-glow',
-      smoothLines: { points: points.map((point) => ({ ...point, height: point.height - 5 })), tension: 0, segments: 1, lineWidth: 22, color: 0x54754f, dashed: false, showPoints: false },
+      smoothLines: { points: points.map((point) => ({ ...point, height: point.height - 5 })), tension: 0, segments: 1, lineWidth: 22, color: routeGlowColor, dashed: false, showPoints: false },
     }))
     handles.push(view.addMesh({
       id: 'navara-route',
-      smoothLines: { points, tension: 0, segments: 1, lineWidth: 13, color: 0xc1e06e, dashed: false, showPoints: true, pointSize: 4, pointColor: 0xf2ffb0 },
+      smoothLines: { points, tension: 0, segments: 1, lineWidth: 13, color: routeColor, dashed: false, showPoints: true, pointSize: 4, pointColor: routePointColor },
     }))
+    if (walkthrough) {
+      const markerStep = Math.max(1, Math.ceil(points.length / 40))
+      points.forEach((point, index) => {
+        if (index !== 0 && index !== points.length - 1 && index % markerStep !== 0) return
+        handles.push(view.addMesh({
+          id: `navara-walkthrough-route-point-${index}`,
+          geodetic: { lng: point.lng, lat: point.lat, height: 5, heightReference },
+          sphere: {
+            radius: 5,
+            color: makeColor(runtime, routeColor),
+            emissiveColor: makeColor(runtime, routePointColor),
+            emissiveIntensity: 0.75,
+            castShadow: false,
+          },
+          pickable: false,
+        }))
+      })
+    }
   }
   for (const road of dataset.avoidedRoads) {
-    const avoidedHeight = height + 8
+    const avoidedHeight = height + (walkthrough ? 3 : 8)
     const avoidedPoints = road.coordinates.map(([lng, lat]) => ({ lng, lat, height: avoidedHeight }))
     if (avoidedPoints.length < 2) continue
     handles.push(view.addMesh({
@@ -216,6 +242,24 @@ function addRouteMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dataset
       smoothLines: { points: avoidedPoints, tension: 0, segments: 1, lineWidth: 11, color: 0xef7772, dashed: true, dashSize: 20, gapSize: 12, showPoints: false },
       pickable: true,
     }))
+    if (walkthrough) {
+      const markerStep = Math.max(1, Math.ceil(road.coordinates.length / 20))
+      road.coordinates.forEach(([lng, lat], index) => {
+        if (index !== 0 && index !== road.coordinates.length - 1 && index % markerStep !== 0) return
+        handles.push(view.addMesh({
+          id: `navara-walkthrough-avoided-point-${road.knowledgeId}-${road.id}-${index}`,
+          geodetic: { lng, lat, height: 5, heightReference },
+          sphere: {
+            radius: 3.5,
+            color: makeColor(runtime, 0xef7772),
+            emissiveColor: makeColor(runtime, 0xffb09a),
+            emissiveIntensity: 0.65,
+            castShadow: false,
+          },
+          pickable: false,
+        }))
+      })
+    }
     const knowledge = dataset.knowledge.find((item) => item.item.id === road.knowledgeId)
     if (knowledge) {
       const roadCenter = road.coordinates[Math.floor(road.coordinates.length / 2)]
@@ -243,10 +287,10 @@ function addRouteMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dataset
     handles.push(view.addMesh({
       id: `navara-household-${dataset.household.id}`,
       geodetic: { lng: dataset.household.start_lng, lat: dataset.household.start_lat, height: markerHeight, heightReference },
-      cylinder: { radiusTop: 9, radiusBottom: 23, height: 46, radialSegments: 20, color: makeColor(runtime, 0xf6a064), emissiveColor: makeColor(runtime, 0xf6a064), emissiveIntensity: 0.55, castShadow: false },
+      cylinder: { radiusTop: walkthrough ? 3 : 9, radiusBottom: walkthrough ? 7 : 23, height: walkthrough ? 8 : 46, radialSegments: 20, color: makeColor(runtime, 0xf6a064), emissiveColor: makeColor(runtime, 0xf6a064), emissiveIntensity: 0.55, castShadow: false },
       pickable: false,
     }))
-    handles.push(addGroundRing(view, `navara-start-ring-${dataset.household.id}`, start, 35, height - 5, 0xf6a064, 3))
+    handles.push(addGroundRing(view, `navara-start-ring-${dataset.household.id}`, start, walkthrough ? 24 : 35, height - 5, 0xf6a064, 3))
   }
   const routeEnd = points[points.length - 1]
   if (routeEnd) {
@@ -254,17 +298,17 @@ function addRouteMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dataset
     handles.push(view.addMesh({
       id: 'navara-destination',
       geodetic: { lng: routeEnd.lng, lat: routeEnd.lat, height: markerHeight, heightReference },
-      cylinder: { radiusTop: 8, radiusBottom: 24, height: 54, radialSegments: 20, color: makeColor(runtime, 0xc1e06e), emissiveColor: makeColor(runtime, 0xc1e06e), emissiveIntensity: 0.62, castShadow: false },
+      cylinder: { radiusTop: walkthrough ? 3 : 8, radiusBottom: walkthrough ? 8 : 24, height: walkthrough ? 10 : 54, radialSegments: 20, color: makeColor(runtime, 0xc1e06e), emissiveColor: makeColor(runtime, 0xc1e06e), emissiveIntensity: 0.62, castShadow: false },
       pickable: false,
     }))
-    handles.push(addGroundRing(view, 'navara-destination-ring', destination, 39, height - 5, 0xc1e06e, 3))
+    handles.push(addGroundRing(view, 'navara-destination-ring', destination, walkthrough ? 26 : 39, height - 5, 0xc1e06e, 3))
   }
   for (const bottleneck of dataset.bottlenecks) {
     const highlighted = dataset.snapshot.replay.highlighted_bottleneck_id === bottleneck.id
     handles.push(view.addMesh({
       id: `navara-bottleneck-${bottleneck.id}`,
-      geodetic: { lng: bottleneck.lng, lat: bottleneck.lat, height: 24, heightReference },
-      cylinder: { radiusTop: highlighted ? 28 : 18, radiusBottom: highlighted ? 36 : 25, height: highlighted ? 58 : 42, color: makeColor(runtime, highlighted ? 0xb85e35 : 0xef7772), emissiveColor: makeColor(runtime, 0xf6a064), emissiveIntensity: highlighted ? 0.8 : 0.4 },
+      geodetic: { lng: bottleneck.lng, lat: bottleneck.lat, height: walkthrough ? 8 : 24, heightReference },
+      cylinder: { radiusTop: walkthrough ? highlighted ? 18 : 12 : highlighted ? 28 : 18, radiusBottom: walkthrough ? highlighted ? 23 : 17 : highlighted ? 36 : 25, height: walkthrough ? highlighted ? 25 : 18 : highlighted ? 58 : 42, color: makeColor(runtime, highlighted ? 0xb85e35 : 0xef7772), emissiveColor: makeColor(runtime, 0xf6a064), emissiveIntensity: highlighted ? 0.8 : 0.4 },
       pickable: false,
     }))
   }
@@ -540,12 +584,12 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
     view.on('postRender', onPostRender)
     view.canvas.addEventListener('webglcontextlost', onContextLost)
 
-    const redrawOverlays = (dataset: SceneDataset, selectedKnowledgeId?: string) => {
+    const redrawOverlays = (dataset: SceneDataset, selectedKnowledgeId?: string, walkthrough = false) => {
       currentDataset = dataset
       deleteHandles(overlayHandles)
       overlayHandles.length = 0
-      overlayHandles.push(...addKnowledgeMeshes(runtime, view!, dataset, diagnostics.terrain, selectedKnowledgeId))
-      overlayHandles.push(...addRouteMeshes(runtime, view!, dataset, diagnostics.terrain))
+      overlayHandles.push(...addKnowledgeMeshes(runtime, view!, dataset, diagnostics.terrain, selectedKnowledgeId, walkthrough))
+      overlayHandles.push(...addRouteMeshes(runtime, view!, dataset, diagnostics.terrain, walkthrough))
     }
     const redrawWeather = (weather: WeatherVisualState) => {
       deleteHandles(weatherHandles)
@@ -570,7 +614,7 @@ async function createNavaraSceneInternal(options: NavaraSceneOptions): Promise<N
       update(input) {
         if (disposed || !view) return
         const weather = resolveWeatherVisualState(input.dataset.route, input.weatherMode)
-        redrawOverlays(input.dataset, input.selectedKnowledgeId)
+        redrawOverlays(input.dataset, input.selectedKnowledgeId, input.walkthrough === true)
         redrawWeather(weather)
         diagnostics.weather = weather
         updateDiagnostics(options, diagnostics)

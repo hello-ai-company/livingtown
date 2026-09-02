@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { KnowledgeDetailCard } from '../map/KnowledgeDetailCard'
 import { getKnowledgeVisualView } from '../map/knowledgeVisuals'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
@@ -9,6 +9,7 @@ import { createNavaraScene, GSI_SEAMLESSPHOTO_URL, type NavaraSceneController } 
 import { resolveWeatherVisualState, weatherModeLabelKey } from './navaraWeather'
 import { getNavaraCapabilities } from './navaraCapabilities'
 import { buildSimple3DStoryCopy, type NavaraStoryStep } from './navaraStory'
+import { buildRouteWalkthrough, type WalkthroughFrame } from './navaraWalkthrough'
 import type { GeoCamera, NavaraSceneDiagnostics, QualityPreset, WeatherVisualMode } from './types'
 import type { MapSurface } from '../map/Map2D'
 
@@ -32,6 +33,31 @@ export interface NavaraMap3DProps {
 }
 
 const VERSION_SUMMARY = 'Navara 0.1.1 · Default plugin 0.1.1 · Three 0.185.1 · postprocessing 6.39.4'
+
+type WalkthroughMode = 'auto' | 'step'
+type WalkthroughSpeed = 'slow' | 'standard' | 'fast'
+
+interface WalkthroughState {
+  active: boolean
+  mode: WalkthroughMode
+  paused: boolean
+  index: number
+  speed: WalkthroughSpeed
+}
+
+const INITIAL_WALKTHROUGH_STATE: WalkthroughState = {
+  active: false,
+  mode: 'auto',
+  paused: false,
+  index: 0,
+  speed: 'standard',
+}
+
+const WALKTHROUGH_DURATIONS: Record<WalkthroughSpeed, number> = {
+  slow: 680,
+  standard: 460,
+  fast: 300,
+}
 
 function statusLabel(status: NavaraSceneDiagnostics['terrain'], locale: Locale) {
   if (status === 'ready') return locale === 'ja' ? '利用可能' : 'Ready'
@@ -69,11 +95,22 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
   const [selectedTourIndex, setSelectedTourIndex] = useState(-1)
   const [tourPlaying, setTourPlaying] = useState(false)
   const [tourPaused, setTourPaused] = useState(false)
+  const [walkthrough, setWalkthrough] = useState<WalkthroughState>(INITIAL_WALKTHROUGH_STATE)
+  const walkthroughStateRef = useRef(INITIAL_WALKTHROUGH_STATE)
+  const walkthroughOriginRef = useRef<GeoCamera | undefined>(undefined)
+  const walkthroughMotionRef = useRef(false)
+  const walkthroughTimerRef = useRef<number | undefined>(undefined)
+  walkthroughStateRef.current = walkthrough
   const capabilities = useMemo(() => getNavaraCapabilities(), [])
   const [quality, setQuality] = useState<QualityPreset>(capabilities.mobile ? 'low' : 'medium')
   const prefersReducedMotion = useMemo(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true, [])
   const dataset = useMemo(() => buildSceneDataset(snapshot, focusHouseholdId), [focusHouseholdId, snapshot])
   const tour = useMemo(() => buildRouteCameraTour({ route: dataset.route, household: dataset.household, knowledge: snapshot.knowledge }), [dataset.household, dataset.route, snapshot.knowledge])
+  const walkthroughFrames = useMemo<WalkthroughFrame[]>(() => buildRouteWalkthrough({
+    route: dataset.route,
+    knowledge: dataset.knowledge.map((item) => item.item),
+  }), [dataset.knowledge, dataset.route])
+  const canWalkthrough = surface !== 'map' && walkthroughFrames.length > 1
   const selectedKnowledge = selectedKnowledgeId ? snapshot.knowledge.find((item) => item.id === selectedKnowledgeId) : undefined
   const selectedView = selectedKnowledge ? getKnowledgeVisualView(selectedKnowledge, dataset.route) : undefined
 
@@ -99,6 +136,10 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
       signal: initializationController.signal,
       onCameraChange: (nextCamera) => {
         cameraReportedRef.current = nextCamera
+        const currentWalkthrough = walkthroughStateRef.current
+        if (currentWalkthrough.active && currentWalkthrough.mode === 'auto' && !walkthroughMotionRef.current) {
+          setWalkthrough((current) => current.active ? { ...current, paused: true } : current)
+        }
         callbacksRef.current.onCameraChange?.(nextCamera)
       },
       onKnowledgeClick: (knowledgeId) => callbacksRef.current.onSelectKnowledge?.(knowledgeId),
@@ -133,14 +174,28 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
   }, [capabilities.mobile, locale, prefersReducedMotion, quality])
 
   useEffect(() => {
-    sceneRef.current?.update({ dataset, selectedKnowledgeId, weatherMode })
-  }, [dataset, selectedKnowledgeId, weatherMode])
+    sceneRef.current?.update({ dataset, selectedKnowledgeId, weatherMode, walkthrough: walkthrough.active })
+  }, [dataset, selectedKnowledgeId, walkthrough.active, weatherMode])
 
   useEffect(() => {
     const reported = cameraReportedRef.current
     const sameCamera = reported && Math.abs(reported.lng - camera.lng) < 1e-7 && Math.abs(reported.lat - camera.lat) < 1e-7 && Math.abs((reported.zoom ?? 0) - (camera.zoom ?? 0)) < 1e-5 && Math.abs((reported.height ?? 0) - (camera.height ?? 0)) < 1
     if (!sameCamera) sceneRef.current?.setCamera(camera)
   }, [camera])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || !walkthrough.active || walkthrough.mode !== 'auto') return
+    const pauseForUserInteraction = () => {
+      setWalkthrough((current) => current.active && current.mode === 'auto' ? { ...current, paused: true } : current)
+    }
+    container.addEventListener('pointerdown', pauseForUserInteraction)
+    container.addEventListener('wheel', pauseForUserInteraction, { passive: true })
+    return () => {
+      container.removeEventListener('pointerdown', pauseForUserInteraction)
+      container.removeEventListener('wheel', pauseForUserInteraction)
+    }
+  }, [walkthrough.active, walkthrough.mode])
 
   useEffect(() => {
     if (!tourPlaying || tourPaused || !scene || selectedTourIndex < 0 || selectedTourIndex >= tour.steps.length) return
@@ -164,7 +219,115 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
     return () => { alive = false }
   }, [prefersReducedMotion, scene, selectedTourIndex, tour.steps, tourPaused, tourPlaying])
 
+  const flyWalkthroughFrame = useCallback(async (frame: WalkthroughFrame, durationMs: number) => {
+    const controller = sceneRef.current
+    if (!controller) return false
+    walkthroughMotionRef.current = true
+    try {
+      return await controller.flyTo(frame.camera, durationMs)
+    } finally {
+      window.setTimeout(() => { walkthroughMotionRef.current = false }, 0)
+    }
+  }, [])
+
+  const exitWalkthrough = useCallback(() => {
+    const origin = walkthroughOriginRef.current
+    window.clearTimeout(walkthroughTimerRef.current)
+    walkthroughTimerRef.current = undefined
+    walkthroughOriginRef.current = undefined
+    walkthroughMotionRef.current = false
+    setWalkthrough(INITIAL_WALKTHROUGH_STATE)
+    if (origin) sceneRef.current?.setCamera(origin)
+  }, [])
+
+  const startWalkthrough = useCallback(() => {
+    if (!canWalkthrough || !sceneRef.current) return
+    walkthroughOriginRef.current = { ...camera }
+    setTourPlaying(false)
+    setTourPaused(false)
+    setSelectedTourIndex(-1)
+    setWalkthrough({ ...INITIAL_WALKTHROUGH_STATE, active: true, mode: prefersReducedMotion ? 'step' : 'auto' })
+  }, [camera, canWalkthrough, prefersReducedMotion])
+
+  const pauseWalkthrough = useCallback(() => {
+    setWalkthrough((current) => current.active ? { ...current, paused: true } : current)
+  }, [])
+
+  const resumeWalkthrough = useCallback(() => {
+    setWalkthrough((current) => {
+      if (!current.active) return current
+      if (current.index >= walkthroughFrames.length - 1) return { ...current, paused: true }
+      const frame = walkthroughFrames[current.index]
+      const nextIndex = frame?.event === 'hazard' ? current.index + 1 : current.index
+      return { ...current, index: nextIndex, paused: false }
+    })
+  }, [walkthroughFrames])
+
+  const moveWalkthrough = useCallback((direction: -1 | 1) => {
+    setWalkthrough((current) => {
+      if (!current.active) return current
+      return {
+        ...current,
+        paused: current.mode === 'auto' ? true : current.paused,
+        index: Math.max(0, Math.min(walkthroughFrames.length - 1, current.index + direction)),
+      }
+    })
+  }, [walkthroughFrames.length])
+
+  const restartWalkthrough = useCallback(() => {
+    setWalkthrough((current) => current.active ? { ...current, index: 0, paused: false } : current)
+  }, [])
+
+  const setWalkthroughMode = useCallback((nextMode: WalkthroughMode) => {
+    setWalkthrough((current) => current.active ? { ...current, mode: nextMode, paused: false } : current)
+  }, [])
+
+  const setWalkthroughSpeed = useCallback((speed: WalkthroughSpeed) => {
+    setWalkthrough((current) => current.active ? { ...current, speed } : current)
+  }, [])
+
+  useEffect(() => {
+    if (!walkthrough.active || walkthrough.mode !== 'auto' || walkthrough.paused) return
+    const frame = walkthroughFrames[walkthrough.index]
+    if (!frame) return
+    let alive = true
+    void flyWalkthroughFrame(frame, prefersReducedMotion ? 0 : WALKTHROUGH_DURATIONS[walkthrough.speed]).then((completed) => {
+      if (!alive || !completed) return
+      if (frame.event === 'hazard' || walkthrough.index >= walkthroughFrames.length - 1) {
+        setWalkthrough((current) => current.active && current.index === walkthrough.index ? { ...current, paused: true } : current)
+        return
+      }
+      walkthroughTimerRef.current = window.setTimeout(() => {
+        if (alive) setWalkthrough((current) => current.active && current.index === walkthrough.index ? { ...current, index: current.index + 1 } : current)
+      }, prefersReducedMotion ? 0 : 110)
+    })
+    return () => {
+      alive = false
+      window.clearTimeout(walkthroughTimerRef.current)
+      walkthroughTimerRef.current = undefined
+    }
+  }, [flyWalkthroughFrame, prefersReducedMotion, walkthrough.active, walkthrough.index, walkthrough.mode, walkthrough.paused, walkthrough.speed, walkthroughFrames])
+
+  useEffect(() => {
+    if (!walkthrough.active || walkthrough.mode !== 'step') return
+    const frame = walkthroughFrames[walkthrough.index]
+    if (!frame) return
+    void flyWalkthroughFrame(frame, prefersReducedMotion ? 0 : 280)
+  }, [flyWalkthroughFrame, prefersReducedMotion, walkthrough.active, walkthrough.index, walkthrough.mode, walkthroughFrames])
+
+  useEffect(() => {
+    if (!walkthrough.active) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      exitWalkthrough()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [exitWalkthrough, walkthrough.active])
+
   const startTour = () => {
+    if (walkthrough.active) exitWalkthrough()
     // Respect reduced-motion users' control over an otherwise auto-advancing
     // sequence: the first overview is shown immediately and the user chooses
     // when to resume the remaining stops.
@@ -191,7 +354,37 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
     reason: affectingKnowledge?.reason,
     t,
   })
-  const showSimpleStory = mode === 'simple' && Boolean(dataset.route?.avoided.length)
+  const walkthroughFrame = walkthroughFrames[walkthrough.index]
+  const walkthroughStoryStep: NavaraStoryStep = walkthroughFrame?.event === 'start'
+    ? 'household'
+    : walkthroughFrame?.event === 'hazard'
+      ? 'hazard'
+      : walkthroughFrame?.event === 'avoided'
+        ? 'avoided'
+        : walkthroughFrame?.event === 'destination'
+          ? 'destination'
+          : 'safe_route'
+  const walkthroughKnowledge = walkthroughFrame?.knowledgeId
+    ? snapshot.knowledge.find((item) => item.id === walkthroughFrame.knowledgeId)
+    : affectingKnowledge?.item
+  const walkthroughAvoided = walkthroughFrame?.knowledgeId
+    ? dataset.route?.avoided.find((item) => item.knowledge_id === walkthroughFrame.knowledgeId)
+    : undefined
+  const walkthroughStoryCopyBase = buildSimple3DStoryCopy({
+    step: walkthroughStoryStep,
+    household: dataset.household,
+    knowledge: walkthroughKnowledge,
+    reason: walkthroughAvoided?.reason ?? affectingKnowledge?.reason,
+    t,
+  })
+  const walkthroughStoryCopy = walkthroughFrame?.event === 'turn'
+    ? { ...walkthroughStoryCopyBase, title: t(walkthroughFrame.turnDirection === 'left' ? 'map.walkthroughTurnLeft' : 'map.walkthroughTurnRight') }
+    : walkthroughStoryCopyBase
+  const walkthroughProgress = Math.round((walkthroughFrame?.progress ?? 0) * 100)
+  const walkthroughEventLabel = walkthroughFrame?.event === 'turn'
+    ? t(walkthroughFrame.turnDirection === 'left' ? 'map.walkthroughTurnLeft' : 'map.walkthroughTurnRight')
+    : walkthroughStoryCopy.title
+  const showSimpleStory = mode === 'simple' && Boolean(dataset.route?.avoided.length) && !walkthrough.active
   const surfaceTitle = mode === 'advanced'
     ? t('map.title')
     : surface === 'drill'
@@ -201,7 +394,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         : t('map.title3dMap')
 
   return (
-    <div className={`map-frame navara-map-frame navara-map-frame--${surface}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-imagery={diagnostics.imagery} data-navara-plateau={diagnostics.plateau} data-navara-plateau-dataset={diagnostics.plateauDatasetId ?? ''} data-navara-plateau-municipality={diagnostics.plateauMunicipality ?? ''} data-navara-plateau-switch={diagnostics.plateauSwitchState} data-surface={surface} data-replay-camera={snapshot.replay.camera}>
+    <div className={`map-frame navara-map-frame navara-map-frame--${surface}${walkthrough.active ? ' navara-map-frame--walkthrough' : ''}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-imagery={diagnostics.imagery} data-navara-plateau={diagnostics.plateau} data-navara-plateau-dataset={diagnostics.plateauDatasetId ?? ''} data-navara-plateau-municipality={diagnostics.plateauMunicipality ?? ''} data-navara-plateau-switch={diagnostics.plateauSwitchState} data-surface={surface} data-replay-camera={snapshot.replay.camera} data-walkthrough={walkthrough.active ? 'active' : 'inactive'} data-walkthrough-index={walkthrough.active ? walkthrough.index : ''} data-walkthrough-event={walkthrough.active ? walkthroughFrame?.event ?? '' : ''}>
       <div className="map-frame__topline">
         <div><span className="eyebrow">{t('map.eyebrow3d')}</span><span className="map-frame__title">{surfaceTitle}</span></div>
         <span className="map-frame__mode"><span className={`status-dot${diagnostics.readiness === 'ready' ? ' status-dot--live' : ''}`} /> {diagnostics.renderer}</span>
@@ -228,10 +421,20 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
           <span>{t('map.markerDestinationShort')}</span>
         </div>
       </div>}
+      {walkthrough.active && walkthroughFrame && <div className="navara-walkthrough-story" role="status" aria-live="polite" aria-label={t('map.walkthroughAria')}>
+        <div className="navara-walkthrough-story__head">
+          {walkthroughStoryCopy.number && <span className="navara-walkthrough-story__number">{walkthroughStoryCopy.number}</span>}
+          <div><span className="eyebrow">{t('map.walkthroughEyebrow')}</span><h3>{walkthroughStoryCopy.title}</h3></div>
+        </div>
+        <p>{walkthroughStoryCopy.body}</p>
+        {walkthroughStoryCopy.detail && <span className="navara-walkthrough-story__detail">{walkthroughStoryCopy.detail}</span>}
+        <span className="navara-walkthrough-story__note">{t('map.walkthroughVisualOnly')}</span>
+      </div>}
       <div className="navara-map-overlay">
         <div className="navara-map-overlay__actions">
           <button type="button" className="secondary-button" onClick={onBackTo2D}>{t('map.backTo2d')}</button>
-          <button type="button" className="primary-button" onClick={tourPlaying ? exitTour : startTour}>{tourPlaying ? t('map.guideExit') : t('map.guide')} <span>→</span></button>
+          {!walkthrough.active && <button type="button" className={canWalkthrough ? 'secondary-button' : 'primary-button'} onClick={tourPlaying ? exitTour : startTour}>{tourPlaying ? t('map.guideExit') : t('map.guide')} <span>→</span></button>}
+          {canWalkthrough && !walkthrough.active && <button type="button" className="primary-button navara-walkthrough-start" onClick={startWalkthrough} aria-label={t('map.walkthroughAria')}>{t('map.walkthroughStart')} <span>▶</span></button>}
         </div>
         <div className="navara-map-overlay__status">
           <strong>{diagnostics.readiness === 'ready' ? t('map.ready3d') : t('map.loading3d')}</strong>
@@ -239,8 +442,35 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
           {mode === 'simple' && diagnostics.plateauSwitchState === 'loading' && <span>{t('map.plateauLoading')}</span>}
           {mode === 'simple' && diagnostics.plateau === 'not_applicable' && <span>{t('map.plateauNoDataset')}</span>}
           {tourPlaying && <span className="navara-tour-status">{tourPaused ? t('map.guidePaused') : tourStepLabel}</span>}
+          {walkthrough.active && <span className="navara-tour-status">{walkthroughEventLabel}</span>}
         </div>
       </div>
+      {walkthrough.active && walkthroughFrame && <div className="navara-walkthrough-controls" role="group" aria-label={t('map.walkthroughAria')}>
+        <div className="navara-walkthrough-controls__progress">
+          <div className="navara-walkthrough-controls__progress-head"><span>{t('map.walkthroughProgress', { percent: walkthroughProgress })}</span><strong>{walkthroughEventLabel}</strong></div>
+          <div className="navara-walkthrough-controls__progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={walkthroughProgress} aria-label={t('map.walkthroughProgress', { percent: walkthroughProgress })}><span style={{ width: `${walkthroughProgress}%` }} /></div>
+        </div>
+        <div className="navara-walkthrough-controls__tools">
+          <div className="navara-walkthrough-controls__modes" role="group" aria-label={t('map.walkthroughAria')}>
+            <button type="button" className={walkthrough.mode === 'auto' ? 'is-active' : ''} aria-pressed={walkthrough.mode === 'auto'} onClick={() => setWalkthroughMode('auto')}>{t('map.walkthroughAuto')}</button>
+            <button type="button" className={walkthrough.mode === 'step' ? 'is-active' : ''} aria-pressed={walkthrough.mode === 'step'} onClick={() => setWalkthroughMode('step')}>{t('map.walkthroughStep')}</button>
+          </div>
+          <div className="navara-walkthrough-controls__transport">
+            <button type="button" className="text-button" onClick={() => moveWalkthrough(-1)} disabled={walkthrough.index === 0}>{t('map.walkthroughPrevious')}</button>
+            {walkthrough.mode === 'auto' && (walkthrough.paused ? <button type="button" className="text-button" onClick={resumeWalkthrough}>{t('map.walkthroughResume')}</button> : <button type="button" className="text-button" onClick={pauseWalkthrough}>{t('map.walkthroughPause')}</button>)}
+            <button type="button" className="text-button" onClick={() => moveWalkthrough(1)} disabled={walkthrough.index >= walkthroughFrames.length - 1}>{t('map.walkthroughNext')}</button>
+            <button type="button" className="text-button" onClick={restartWalkthrough}>{t('map.walkthroughRestart')}</button>
+            <button type="button" className="text-button navara-walkthrough-controls__exit" onClick={exitWalkthrough}>{t('map.walkthroughExit')}</button>
+          </div>
+          {mode === 'advanced' && <label className="navara-walkthrough-controls__speed">{t('map.walkthroughSpeed')}
+            <select value={walkthrough.speed} onChange={(event) => setWalkthroughSpeed(event.target.value as WalkthroughSpeed)}>
+              <option value="slow">{t('map.walkthroughSlow')}</option>
+              <option value="standard">{t('map.walkthroughStandard')}</option>
+              <option value="fast">{t('map.walkthroughFast')}</option>
+            </select>
+          </label>}
+        </div>
+      </div>}
       {mode === 'advanced' && <div className="navara-advanced-panel">
         <div className="navara-advanced-panel__head"><span className="eyebrow">{t('map.advanced3d')}</span><span>{VERSION_SUMMARY}</span></div>
         <div className="navara-diagnostics-grid">

@@ -109,7 +109,7 @@ export function buildRouteCameraTour(input: { route?: RouteResult; household?: H
   return tour
 }
 
-function interpolateHeading(from: number, to: number, progress: number) {
+export function interpolateHeading(from: number, to: number, progress: number) {
   const delta = ((to - from + 540) % 360) - 180
   return (from + delta * progress + 360) % 360
 }
