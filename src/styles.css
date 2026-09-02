@@ -1113,3 +1113,57 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
   .knowledge-detail-card__verify-actions { flex-direction: column; }
   .knowledge-detail-card__verify-actions button { width: 100%; }
 }
+
+/* Shared route/replay map surfaces. These are presentation-only containers;
+   the route result and replay state still come from the existing repository. */
+.map-frame.map-frame--compact,
+.map-frame.map-frame--compact .town-map,
+.map-frame.map-frame--maplibre.map-frame--compact > .maplibre-canvas,
+.map-frame.map-frame--compact .navara-canvas,
+.map-frame.navara-map-frame.map-frame--compact { min-height: 360px; height: 360px; }
+.map-frame--drill .maplibregl-ctrl-top-right,
+.map-frame--replay .maplibregl-ctrl-top-right { top: 60px; }
+.map-surface-summary { position: absolute; z-index: 7; right: 18px; bottom: 62px; width: min(390px, calc(100% - 36px)); padding: 11px 13px; border: 1px solid rgba(193,224,110,.4); border-left: 3px solid var(--orange); background: rgba(9,22,29,.9); box-shadow: 0 10px 24px rgba(0,0,0,.2); }
+.map-surface-summary strong { display: block; margin-top: 4px; color: var(--paper-soft); font-family: Georgia, serif; font-size: 13px; font-weight: 400; }
+.map-surface-summary p { margin: 5px 0 0; color: var(--text-dim); font-size: 10px; line-height: 1.5; }
+.map-surface-summary__state { display: inline-block; margin-top: 6px; color: var(--orange); font-size: 9px; }
+.drill-route-view { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(300px, .92fr); gap: 16px; align-items: start; margin-top: 18px; }
+.drill-route-view__map, .drill-route-view__reason { min-width: 0; }
+.drill-route-view__reason .route-result { border: 1px solid var(--line); padding: 0 16px 16px; }
+.drill-route-view__reason .route-result__actions { flex-wrap: wrap; }
+.simple-map-actions { display: none; }
+.app-shell--simple .workspace { padding-top: 24px; padding-bottom: 50px; }
+.app-shell--simple .intro-row { margin-bottom: 20px; }
+.app-shell--simple .intro-copy h1 { margin-top: 8px; margin-bottom: 8px; line-height: 1.04; }
+.app-shell--simple .intro-copy p { line-height: 1.55; }
+.app-shell--simple .map-surface-summary { border-color: #b9d4c5; border-left-color: var(--orange); border-radius: 10px; color: var(--paper-soft); background: rgba(255,255,255,.95); box-shadow: 0 8px 20px rgba(37,67,57,.14); }
+.app-shell--simple .map-surface-summary strong { color: var(--paper); font-family: inherit; font-weight: 750; }
+.app-shell--simple .map-surface-summary p { color: var(--text-dim); font-size: 11px; }
+.app-shell--simple .map-surface-summary__state { color: var(--orange); font-size: 10px; }
+.app-shell--simple .map-frame.map-frame--compact,
+.app-shell--simple .map-frame.map-frame--compact .town-map,
+.app-shell--simple .map-frame.map-frame--maplibre.map-frame--compact > .maplibre-canvas,
+.app-shell--simple .map-frame.map-frame--compact .navara-canvas,
+.app-shell--simple .navara-map-frame.map-frame--compact { min-height: 360px; height: 360px; }
+
+@media (max-width: 950px) {
+  .drill-route-view { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 780px) {
+  .app-shell--simple .workspace { padding-top: 18px; }
+  .app-shell--simple .intro-row { margin-bottom: 14px; }
+  .app-shell--simple .intro-copy h1 { margin-top: 7px; font-size: clamp(29px, 8.6vw, 40px); line-height: 1.08; }
+  .app-shell--simple .intro-copy p { line-height: 1.5; }
+  .app-shell--simple .simple-map-actions { display: flex; justify-content: flex-end; margin: 10px 0 0; }
+  .app-shell--simple .simple-map-actions .secondary-button { min-height: 40px; font-size: 12px; }
+  .map-frame.map-frame--compact,
+  .map-frame.map-frame--compact .town-map,
+  .map-frame.map-frame--maplibre.map-frame--compact > .maplibre-canvas,
+  .map-frame.map-frame--compact .navara-canvas,
+  .app-shell--simple .navara-map-frame.map-frame--compact { min-height: 300px; height: 300px; }
+  .map-surface-summary { right: 10px; bottom: 52px; left: 10px; width: auto; padding: 9px 10px; }
+  .map-surface-summary p { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+  .drill-route-view { gap: 12px; margin-top: 14px; }
+  .drill-route-view__reason .route-result { padding-right: 12px; padding-left: 12px; }
+}

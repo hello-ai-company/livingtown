@@ -85,6 +85,7 @@ function createOverlayData(
   selectedKnowledgeId: string | undefined,
   focusHouseholdId: string | undefined,
   filters: { status: KnowledgeStatusFilter; category: KnowledgeCategoryFilter | 'bottleneck' },
+  surface: Map2DProps['surface'],
   t: ReturnType<typeof createTranslator>,
 ) {
   return {
@@ -92,7 +93,7 @@ function createOverlayData(
     route: createRouteFeatureCollection(selectedRoute),
     avoided: createAvoidedEdgeFeatureCollection(selectedRoute),
     households: createHouseholdFeatureCollection(snapshot.households, focusHouseholdId, (household) => household.label ?? t('common.anonymousHousehold')),
-    bottlenecks: (filters.category === 'all' || filters.category === 'bottleneck') && filters.status === 'all'
+    bottlenecks: surface !== 'map' || ((filters.category === 'all' || filters.category === 'bottleneck') && filters.status === 'all')
       ? createBottleneckFeatureCollection(snapshot.bottlenecks, getBottleneckLabel)
       : createBottleneckFeatureCollection([], getBottleneckLabel),
   }
@@ -133,6 +134,7 @@ export function MapLibreMap({
   compact = false,
   locale,
   mode,
+  surface = 'map',
   camera,
   onCameraChange,
   onFallback,
@@ -156,15 +158,19 @@ export function MapLibreMap({
   const selectedHousehold = snapshot.households.find((household) => household.id === focusHouseholdId)
   const views = useMemo(() => deriveKnowledgeVisuals(snapshot.knowledge, selectedRoute), [selectedRoute, snapshot.knowledge])
   const visibleViews = useMemo(
-    () => filters.category === 'bottleneck' ? [] : filterKnowledgeVisuals(views, { ...filters, category: filters.category as KnowledgeCategoryFilter }),
-    [filters, views],
+    () => {
+      if (surface === 'drill') return views.filter((view) => view.verified || view.affectsCurrentRoute)
+      if (surface === 'replay') return views.filter((view) => view.affectsCurrentRoute || view.item.id === selectedKnowledgeId)
+      return filters.category === 'bottleneck' ? [] : filterKnowledgeVisuals(views, { ...filters, category: filters.category as KnowledgeCategoryFilter })
+    },
+    [filters, selectedKnowledgeId, surface, views],
   )
   const selectedView = selectedKnowledgeId && isKnowledgeSelectionVisible(selectedKnowledgeId, visibleViews)
     ? views.find((view) => view.item.id === selectedKnowledgeId)
     : undefined
   const overlayData = useMemo(
-    () => createOverlayData(snapshot, visibleViews, selectedRoute, selectedKnowledgeId, focusHouseholdId, filters, t),
-    [filters, focusHouseholdId, selectedKnowledgeId, selectedRoute, snapshot, t, visibleViews],
+    () => createOverlayData(snapshot, visibleViews, selectedRoute, selectedKnowledgeId, focusHouseholdId, filters, surface, t),
+    [filters, focusHouseholdId, selectedKnowledgeId, selectedRoute, snapshot, surface, t, visibleViews],
   )
 
   useEffect(() => {
@@ -331,6 +337,21 @@ export function MapLibreMap({
   }, [mapReady, selectedKnowledgeId, snapshot.knowledge])
 
   useEffect(() => {
+    const map = mapInstance.current
+    if (!mapReady || !map) return
+    const next = cameraFromGeo(camera, routeCenter(snapshot, selectedKnowledgeId))
+    const current = cameraRef.current
+    const same = Math.abs(current.center[0] - next.center[0]) < 1e-7
+      && Math.abs(current.center[1] - next.center[1]) < 1e-7
+      && Math.abs(current.zoom - next.zoom) < 1e-5
+      && Math.abs(current.bearing - next.bearing) < 1e-5
+      && Math.abs(current.pitch - next.pitch) < 1e-5
+    if (same) return
+    cameraRef.current = next
+    map.easeTo({ center: next.center, zoom: next.zoom, bearing: next.bearing, pitch: next.pitch, duration: 350 })
+  }, [camera, mapReady, selectedKnowledgeId, snapshot])
+
+  useEffect(() => {
     if (selectedKnowledgeId && !selectedView) onClearKnowledge?.()
   }, [onClearKnowledge, selectedKnowledgeId, selectedView])
 
@@ -382,12 +403,12 @@ export function MapLibreMap({
   }
 
   return (
-    <div className={`map-frame map-frame--maplibre${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-basemap-provider={provider} data-basemap-mode={basemapMode}>
+    <div className={`map-frame map-frame--maplibre map-frame--${surface}${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-basemap-provider={provider} data-basemap-mode={basemapMode} data-surface={surface}>
       <div className="map-frame__topline">
-        <div><span className="eyebrow">{mode === 'simple' ? t('map.simpleMode') : t('map.eyebrow')}</span><span className="map-frame__title">{t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span></div>
+        <div><span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'simple' ? t('map.simpleMode') : t('map.eyebrow')}</span><span className="map-frame__title">{surface === 'drill' ? t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title') : surface === 'replay' ? t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title') : t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span></div>
         <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? t(provider === 'gsi' ? 'map.gsiMode' : 'map.globalMode') : t('map.simpleMode')}</span>
       </div>
-      <div className="map-filter-bar" aria-label={t('map.filterGroup')}>
+      {surface === 'map' && <div className="map-filter-bar" aria-label={t('map.filterGroup')}>
         <div className="map-filter-bar__status" role="group" aria-label={t('map.filterGroup')}>
           <span className="map-filter-bar__label">{t('map.filterLabel')}</span>
           {([
@@ -421,9 +442,9 @@ export function MapLibreMap({
             <option value="global">{t('map.basemapGlobal')}</option>
           </select>
         </label>}
-      </div>
+      </div>}
       <div ref={mapContainer} className="maplibre-canvas" role="region" aria-label={t('map.knowledgeMapAlt')} aria-busy={!mapReady} />
-      <div className="map-posting-controls">
+      {surface === 'map' && <div className="map-posting-controls">
         <button type="button" className={`map-post-button${postingMode ? ' is-active' : ''}`} aria-pressed={postingMode} onClick={togglePostingMode}>
           <span aria-hidden="true">{postingMode ? '×' : '+'}</span>{postingMode ? t('map.cancelPost') : t('map.post')}
         </button>
@@ -431,7 +452,7 @@ export function MapLibreMap({
           <span aria-hidden="true">⌖</span>{t('map.reportCurrentLocation')}
         </button>
         {isPickingLocation && <span className="map-post-hint" role="status">{locationPickerActive ? t('map.changeLocationHint') : t('map.postHint')}</span>}
-      </div>
+      </div>}
       {mapNotice && <div className="map-inline-notice" role="status">{mapNotice}</div>}
       <div className="map-frame__legend knowledge-legend" aria-label={t('map.knowledgeMapAlt')}>
         <div className="knowledge-legend__row">
@@ -445,7 +466,7 @@ export function MapLibreMap({
           {KNOWLEDGE_CATEGORY_ORDER.map((category) => <span key={category}><i className={`legend-category legend-category--${category}`} />{categoryLabel(category, t)}</span>)}
         </div>}
       </div>
-      {selectedRoute && <div className={`map-route-callout${selectedView ? ' map-route-callout--hidden' : ''}`}>
+      {surface === 'map' && selectedRoute && <div className={`map-route-callout${selectedView ? ' map-route-callout--hidden' : ''}`}>
         <div><span className="eyebrow">{t(mode === 'simple' ? 'map.simpleRouteNow' : 'map.routeNow')}</span><strong>{selectedHousehold?.label ?? t('common.selectedHousehold')} · {selectedRoute.eta_minutes} min</strong></div>
         <span>{selectedRoute.avoided.length > 0 ? t('map.routeApplied', { count: selectedRoute.avoided.length, edges: selectedRoute.avoided.flatMap((item) => item.edge_ids).length }) : t('map.routeReady')}</span>
       </div>}

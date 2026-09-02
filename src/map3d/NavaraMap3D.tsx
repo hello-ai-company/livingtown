@@ -9,6 +9,7 @@ import { createNavaraScene, PLATEAU_CHIYODA_TILESET_URL, PLATEAU_DATASET_URL, ty
 import { resolveWeatherVisualState, weatherModeLabelKey } from './navaraWeather'
 import { getNavaraCapabilities } from './navaraCapabilities'
 import type { GeoCamera, NavaraSceneDiagnostics, QualityPreset, WeatherVisualMode } from './types'
+import type { MapSurface } from '../map/Map2D'
 
 export interface NavaraMap3DProps {
   snapshot: TownSnapshot
@@ -17,6 +18,7 @@ export interface NavaraMap3DProps {
   camera: GeoCamera
   locale: Locale
   mode: ExperienceMode
+  surface?: MapSurface
   weatherMode?: WeatherVisualMode
   onWeatherModeChange?: (mode: WeatherVisualMode | undefined) => void
   onCameraChange?: (camera: GeoCamera) => void
@@ -37,7 +39,7 @@ function statusLabel(status: NavaraSceneDiagnostics['terrain'], locale: Locale) 
   return locale === 'ja' ? '確認中' : 'Checking'
 }
 
-export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, camera, locale, mode, weatherMode, onWeatherModeChange, onCameraChange, onSelectKnowledge, onClearKnowledge, onBackTo2D, onFallback, onEditKnowledge, onDeleteKnowledge }: NavaraMap3DProps) {
+export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, camera, locale, mode, surface = 'map', weatherMode, onWeatherModeChange, onCameraChange, onSelectKnowledge, onClearKnowledge, onBackTo2D, onFallback, onEditKnowledge, onDeleteKnowledge }: NavaraMap3DProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<NavaraSceneController | undefined>(undefined)
@@ -170,7 +172,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
   const tourStepLabel = selectedTourIndex >= 0 ? t(`map.guide${tour.steps[selectedTourIndex]?.id === 'safe_route' ? 'SafeRoute' : tour.steps[selectedTourIndex]?.id ? tour.steps[selectedTourIndex].id[0].toUpperCase() + tour.steps[selectedTourIndex].id.slice(1) : 'Overview'}`) : undefined
 
   return (
-    <div className="map-frame navara-map-frame" data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-plateau={diagnostics.plateau}>
+    <div className={`map-frame navara-map-frame navara-map-frame--${surface}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-plateau={diagnostics.plateau} data-surface={surface} data-replay-camera={snapshot.replay.camera}>
       <div className="map-frame__topline">
         <div><span className="eyebrow">{t('map.eyebrow3d')}</span><span className="map-frame__title">{t('map.title')}</span></div>
         <span className="map-frame__mode"><span className={`status-dot${diagnostics.readiness === 'ready' ? ' status-dot--live' : ''}`} /> {diagnostics.renderer}</span>

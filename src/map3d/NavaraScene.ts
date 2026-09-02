@@ -158,10 +158,11 @@ function addRouteMeshes(runtime: NavaraRuntimeModules, view: NavaraView, dataset
     }))
   }
   for (const bottleneck of dataset.bottlenecks) {
+    const highlighted = dataset.snapshot.replay.highlighted_bottleneck_id === bottleneck.id
     handles.push(view.addMesh({
       id: `navara-bottleneck-${bottleneck.id}`,
       geodetic: { lng: bottleneck.lng, lat: bottleneck.lat, height: 24, heightReference },
-      cylinder: { radiusTop: 18, radiusBottom: 25, height: 42, color: makeColor(runtime, 0xef7772), emissiveColor: makeColor(runtime, 0xf6a064), emissiveIntensity: 0.4 },
+      cylinder: { radiusTop: highlighted ? 28 : 18, radiusBottom: highlighted ? 36 : 25, height: highlighted ? 58 : 42, color: makeColor(runtime, highlighted ? 0xb85e35 : 0xef7772), emissiveColor: makeColor(runtime, 0xf6a064), emissiveIntensity: highlighted ? 0.8 : 0.4 },
       pickable: false,
     }))
   }

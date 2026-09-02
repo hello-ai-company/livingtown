@@ -21,6 +21,8 @@ import {
   type KnowledgeVisualView,
 } from './knowledgeVisuals'
 
+export type MapSurface = 'map' | 'drill' | 'replay'
+
 export interface Map2DProps {
   snapshot: TownSnapshot
   focusHouseholdId?: string
@@ -37,6 +39,7 @@ export interface Map2DProps {
   onDeleteKnowledge?: (knowledge: import('../sim/types').Knowledge) => void
   locale?: Locale
   mode?: ExperienceMode
+  surface?: MapSurface
   compact?: boolean
   camera?: GeoCamera
   onCameraChange?: (camera: GeoCamera) => void
@@ -98,7 +101,7 @@ function overlapOffset(view: KnowledgeVisualView, views: KnowledgeVisualView[]) 
   return { x: Math.cos(angle) * 18, y: Math.sin(angle) * 18 }
 }
 
-function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onVerifyKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, onEditKnowledge, onDeleteKnowledge, locale = 'ja', mode = 'simple', compact = false }: Map2DProps) {
+function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onVerifyKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, onEditKnowledge, onDeleteKnowledge, locale = 'ja', mode = 'simple', surface = 'map', compact = false }: Map2DProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
   const [filters, setFilters] = useState<{ status: KnowledgeStatusFilter; category: KnowledgeCategoryFilter | 'bottleneck'; group: KnowledgeGroupFilter; time: KnowledgeTimeFilter }>({ status: 'all', category: 'all', group: 'all', time: 'now' })
   const [postingMode, setPostingMode] = useState(false)
@@ -126,12 +129,16 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
     [selectedRoute, snapshot.knowledge],
   )
   const visibleKnowledge = useMemo(
-    () => filters.category === 'bottleneck' ? [] : filterKnowledgeVisuals(visualViews, { ...filters, category: filters.category as KnowledgeCategoryFilter }),
-    [filters, visualViews],
+    () => {
+      if (surface === 'drill') return visualViews.filter((view) => view.verified || view.affectsCurrentRoute)
+      if (surface === 'replay') return visualViews.filter((view) => view.affectsCurrentRoute || view.item.id === selectedKnowledgeId)
+      return filters.category === 'bottleneck' ? [] : filterKnowledgeVisuals(visualViews, { ...filters, category: filters.category as KnowledgeCategoryFilter })
+    },
+    [filters, selectedKnowledgeId, surface, visualViews],
   )
   const visibleBottlenecks = useMemo(
-    () => (filters.category === 'all' || filters.category === 'bottleneck') && filters.status === 'all' ? snapshot.bottlenecks : [],
-    [filters.category, filters.status, snapshot.bottlenecks],
+    () => surface === 'map' && !((filters.category === 'all' || filters.category === 'bottleneck') && filters.status === 'all') ? [] : snapshot.bottlenecks,
+    [filters.category, filters.status, snapshot.bottlenecks, surface],
   )
   const selectedId = selectedKnowledgeId ?? internalSelectedKnowledgeId
   const selectedKnowledgeVisible = isKnowledgeSelectionVisible(selectedId, visibleKnowledge)
@@ -217,16 +224,16 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
   }
 
   return (
-    <div className={`map-frame${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`}>
+    <div className={`map-frame map-frame--${surface}${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-surface={surface}>
       <div className="map-frame__topline">
         <div>
-          <span className="eyebrow">{mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : t('map.simpleMode')}</span>
-          <span className="map-frame__title">{t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span>
+          <span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : t('map.simpleMode')}</span>
+          <span className="map-frame__title">{surface === 'drill' ? t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title') : surface === 'replay' ? t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title') : t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span>
         </div>
         <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? 'offline graph · MapLibre fallback' : t('map.fallbackMode')}</span>
       </div>
 
-      <div className="map-filter-bar" aria-label={t('map.filterGroup')}>
+      {surface === 'map' && <div className="map-filter-bar" aria-label={t('map.filterGroup')}>
         <div className="map-filter-bar__status" role="group" aria-label={t('map.filterGroup')}>
           <span className="map-filter-bar__label">{t('map.filterLabel')}</span>
           {([
@@ -253,7 +260,7 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
             <option value="now">{t('map.now')}</option><option value="today">{t('map.today')}</option><option value="this_week">{t('map.thisWeek')}</option><option value="all">{t('map.allTime')}</option>
           </select>
         </label>
-      </div>
+      </div>}
 
         <svg className="town-map" viewBox="0 0 900 540" role="region" aria-label={t('map.knowledgeMapAlt')} onClickCapture={handleMapClick}>
         <defs>
@@ -349,12 +356,12 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
         })}
       </svg>
 
-      <div className="map-posting-controls">
+      {surface === 'map' && <div className="map-posting-controls">
         <button type="button" className={`map-post-button${postingMode ? ' is-active' : ''}`} aria-pressed={postingMode} onClick={togglePostingMode}>
           <span aria-hidden="true">{postingMode ? '×' : '+'}</span>{postingMode ? t('map.cancelPost') : t('map.post')}
         </button>
         {(postingMode || locationPickerActive) && <span className="map-post-hint" role="status">{locationPickerActive ? t('map.changeLocationHint') : t('map.postHint')}</span>}
-      </div>
+      </div>}
 
       <div className="map-frame__legend knowledge-legend" aria-label={t('map.knowledgeMapAlt')}>
         <div className="knowledge-legend__row">
@@ -368,7 +375,7 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
         </div>}
       </div>
 
-      {selectedRoute && (
+      {surface === 'map' && selectedRoute && (
         <div className={`map-route-callout${selectedView ? ' map-route-callout--hidden' : ''}`}>
           <div><span className="eyebrow">{t(mode === 'simple' ? 'map.simpleRouteNow' : 'map.routeNow')}</span><strong>{selectedHousehold?.label ?? t('common.selectedHousehold')} · {selectedRoute.eta_minutes} min</strong></div>
           <span>{selectedRoute.avoided.length > 0 ? t('map.routeApplied', { count: selectedRoute.avoided.length, edges: avoidedEdgeIds.size }) : t('map.routeReady')}</span>

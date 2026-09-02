@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MapExperience } from '../map/MapExperience'
+import { MapExperience, type MapExperienceProps } from '../map/MapExperience'
 import { KnowledgeContributionForm } from '../map/KnowledgeContributionForm'
 import { ObservationComposer } from '../map/ObservationComposer'
 import { AroundYouNow } from '../map/AroundYouNow'
@@ -19,6 +19,7 @@ import { createEvidenceBundle, createEvidenceSnapshot, diagnosticsModeMessage, t
 import type { RegistryStatus } from '../webmcp/register'
 import { getToolDefinitions } from '../webmcp/tools'
 import { resolveVerificationTargetId } from './verificationTarget'
+import { routeInputsForMode, type RouteInputs } from './routeInputs'
 import { useTranslator, useUiPreferences, type ExperienceMode, type Locale, type Translator } from '../i18n'
 import { DEFAULT_TOKYO_CAMERA } from '../map3d/navaraCamera'
 import { getNavaraCapabilities, resolveInitialMapDimension, persistMapDimension } from '../map3d/navaraCapabilities'
@@ -68,7 +69,7 @@ function AppShell() {
   const [selectedHouseholdId, setSelectedHouseholdId] = useState('h-wheelchair')
   const [selectedKnowledgeId, setSelectedKnowledgeId] = useState<string>()
   const [lastKnowledgeId, setLastKnowledgeId] = useState<string | undefined>()
-  const [routeInputs, setRouteInputs] = useState<{ scenario: 'earthquake' | 'flood'; weather: 'clear' | 'rain'; time_of_day: 'day' | 'night' }>({ scenario: 'flood', weather: 'rain', time_of_day: 'day' })
+  const [routeInputs, setRouteInputs] = useState<RouteInputs>({ scenario: 'flood', weather: 'rain', time_of_day: 'day' })
   const [notice, setNotice] = useState<string | undefined>()
   const [evidenceByPhase, setEvidenceByPhase] = useState<Partial<Record<Phase, WebMcpEvidenceSnapshot>>>({})
   const [contributionLocation, setContributionLocation] = useState<{ lat: number; lng: number }>()
@@ -100,6 +101,14 @@ function AppShell() {
   useEffect(() => {
     if (mode === 'simple' && panel === 'admin') setPanel('map')
   }, [mode, panel])
+
+  useEffect(() => {
+    if (mode !== 'simple') return
+    setRouteInputs((current) => {
+      const next = routeInputsForMode(mode, current)
+      return next.scenario === current.scenario && next.weather === current.weather && next.time_of_day === current.time_of_day ? current : next
+    })
+  }, [mode])
 
   const evidenceJson = useMemo(
     () => JSON.stringify(createEvidenceBundle(currentEvidence, evidenceByPhase), null, 2),
@@ -264,8 +273,12 @@ function AppShell() {
   }
 
   const calculateRoute = async () => {
-    await runTool('get_evacuation_route', { household_id: selectedHouseholdId, ...routeInputs })
+    await runTool('get_evacuation_route', { household_id: selectedHouseholdId, ...routeInputsForMode(mode, routeInputs) })
   }
+
+  const handleRouteInputsChange = useCallback((next: RouteInputs) => {
+    setRouteInputs(mode === 'simple' ? routeInputsForMode(mode, next) : next)
+  }, [mode])
 
   const registerDemoHousehold = async () => {
     const result = await runTool('register_household', {
@@ -372,6 +385,43 @@ function AppShell() {
   const verifiedCount = snapshot.knowledge.filter(isKnowledgeVerified).length
   const routeCount = Object.keys(snapshot.routes).length
 
+  const mapExperienceProps: Omit<MapExperienceProps, 'surface'> = {
+    snapshot,
+    focusHouseholdId: selectedHouseholdId,
+    selectedKnowledgeId,
+    highlightKnowledgeId: lastKnowledgeId,
+    locale,
+    mode,
+    dimension: mapDimension,
+    camera: mapCamera,
+    onDimensionChange: setMapDimension,
+    onCameraChange: setMapCamera,
+    onNotice: setNotice,
+    weatherMode: weatherVisualMode,
+    onWeatherModeChange: setWeatherVisualMode,
+    locationPickerActive,
+    onSelectHousehold: selectPhaseAndFocusHousehold,
+    onSelectKnowledge: setSelectedKnowledgeId,
+    onClearKnowledge: () => setSelectedKnowledgeId(undefined),
+    onVerifyKnowledge: (knowledgeId, verdict) => { void verifyKnowledge(knowledgeId, verdict) },
+    onRequestContribution: (location, source = 'map') => {
+      if (source === 'current') setObservationCurrentLocation(location)
+      if (source === 'map') setObservationMapLocation(location)
+      setObservationLocationSource(source)
+      setObservationComposerOpen(true)
+    },
+    onLocationPicked: (location) => {
+      setLocationPickerActive(false)
+      if (editingKnowledge) setEditingLocation(location)
+      else setObservationMapLocation(location)
+      setObservationLocationSource('map')
+      setObservationComposerOpen(true)
+      setNotice(t('notice.locationSelected'))
+    },
+    onEditKnowledge: editKnowledge,
+    onDeleteKnowledge: (knowledge) => { void deleteKnowledge(knowledge) },
+  }
+
   return (
     <div className={`app-shell app-shell--${mode}`}>
       <header className="topbar">
@@ -434,12 +484,13 @@ function AppShell() {
         <div className={`main-grid${mode === 'simple' ? ' main-grid--simple' : ''}`}>
           <section className="map-column">
             {panel === 'reports' ? <MyReportsPanel knowledge={snapshot.knowledge} locale={locale} onEdit={editKnowledge} onDelete={(knowledge) => void deleteKnowledge(knowledge)} onPost={() => { transitionTo('map'); setObservationComposerOpen(true) }} /> : <>
-              {panel === 'map' && <MapExperience snapshot={snapshot} focusHouseholdId={selectedHouseholdId} selectedKnowledgeId={selectedKnowledgeId} highlightKnowledgeId={lastKnowledgeId} locale={locale} mode={mode} dimension={mapDimension} camera={mapCamera} onDimensionChange={setMapDimension} onCameraChange={setMapCamera} onNotice={setNotice} weatherMode={weatherVisualMode} onWeatherModeChange={setWeatherVisualMode} locationPickerActive={locationPickerActive} onSelectHousehold={selectPhaseAndFocusHousehold} onSelectKnowledge={setSelectedKnowledgeId} onClearKnowledge={() => setSelectedKnowledgeId(undefined)} onVerifyKnowledge={(knowledgeId, verdict) => { void verifyKnowledge(knowledgeId, verdict) }} onRequestContribution={(location, source = 'map') => { if (source === 'current') setObservationCurrentLocation(location); if (source === 'map') setObservationMapLocation(location); setObservationLocationSource(source); setObservationComposerOpen(true) }} onLocationPicked={(location) => { setLocationPickerActive(false); if (editingKnowledge) setEditingLocation(location); else setObservationMapLocation(location); setObservationLocationSource('map'); setObservationComposerOpen(true); setNotice(t('notice.locationSelected')) }} onEditKnowledge={editKnowledge} onDeleteKnowledge={(knowledge) => void deleteKnowledge(knowledge)} />}
+              {panel === 'map' && <MapExperience {...mapExperienceProps} surface="map" />}
+              {panel === 'map' && mode === 'simple' && <div className="simple-map-actions"><button type="button" className="secondary-button" onClick={() => transitionTo('reports')}>{t('nav.myReports')}</button></div>}
               {panel === 'map' && mode === 'simple' && <AroundYouNow repository={townRepository} camera={mapCamera} locale={locale} mode={mode} refreshKey={snapshot.knowledge.map((item) => `${item.id}:${item.updated_at ?? item.created_at}:${item.agree_count}:${item.disagree_count}`).join('|')} onSelectKnowledge={(knowledgeId) => { setSelectedKnowledgeId(knowledgeId); transitionTo('map') }} />}
               {panel === 'map' && observationComposerOpen && <ObservationComposer locale={locale} mode={mode} location={observationMapLocation ?? observationCurrentLocation ?? { lat: mapCamera.lat, lng: mapCamera.lng }} locationSource={observationMapLocation ? 'map' : observationCurrentLocation ? 'current' : observationLocationSource} onRequestLocationChange={() => { setObservationMapLocation(undefined); setObservationLocationSource(observationCurrentLocation ? 'current' : 'center'); setLocationPickerActive(true) }} onSubmit={submitKnowledge} lastPostedKnowledgeId={lastKnowledgeId} onUndo={() => void undoLastObservation()} />}
               {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
-              {panel === 'drill' && <DrillStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={setRouteInputs} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
-              {panel === 'replay' && <ReplayStage snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} onView3D={open3D} />}
+              {panel === 'drill' && <DrillStage mapProps={mapExperienceProps} snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={handleRouteInputsChange} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
+              {panel === 'replay' && <ReplayStage mapProps={mapExperienceProps} snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} onView3D={open3D} />}
               {panel === 'admin' && <AdminStage registry={registry} phase={phase} phaseMeta={phaseMeta} locale={locale} mode={mode} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} repositoryStatus={repositoryStatus} onRetry={() => { void townRepository.retry().catch((error) => setNotice(error instanceof Error ? error.message : (locale === 'ja' ? 'Supabaseの再接続に失敗しました。' : 'Supabase reconnect failed.'))) }} onFallbackToLocal={switchToLocalDemo} />}
             </>}
           </section>
@@ -513,13 +564,14 @@ function MemoryRow({ item, locale, mode }: { item: Knowledge; locale: Locale; mo
 }
 
 interface DrillStageProps {
+  mapProps: Omit<MapExperienceProps, 'surface'>
   snapshot: TownSnapshot
   selectedHouseholdId: string
   selectedHousehold?: Household
   selectedRoute?: RouteResult
-  routeInputs: { scenario: 'earthquake' | 'flood'; weather: 'clear' | 'rain'; time_of_day: 'day' | 'night' }
+  routeInputs: RouteInputs
   onSelectHousehold: (id: string) => void
-  onChangeRouteInputs: (value: { scenario: 'earthquake' | 'flood'; weather: 'clear' | 'rain'; time_of_day: 'day' | 'night' }) => void
+  onChangeRouteInputs: (value: RouteInputs) => void
   onCalculate: () => void
   onReplay: () => void
   onView3D: () => void
@@ -529,7 +581,7 @@ interface DrillStageProps {
   mode: ExperienceMode
 }
 
-function DrillStage({ snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onView3D, onRunTool, onRegisterHousehold, locale, mode }: DrillStageProps) {
+function DrillStage({ mapProps, snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onView3D, onRunTool, onRegisterHousehold, locale, mode }: DrillStageProps) {
   const t = useTranslator(locale)
   return (
     <section className={`stage-panel stage-panel--${mode}`}>
@@ -559,7 +611,12 @@ function DrillStage({ snapshot, selectedHouseholdId, selectedHousehold, selected
         <button type="button" className="primary-button" onClick={onCalculate}>{t(mode === 'simple' ? 'drill.simpleCalculate' : 'drill.calculate')} <span>↗</span></button>
       </div>
 
-      {selectedRoute ? <RouteResultPanel route={selectedRoute} locale={locale} mode={mode} onReplay={onReplay} onView3D={onView3D} onRunTool={onRunTool} selectedHouseholdId={selectedHouseholdId} /> : <div className="empty-route"><div className="empty-route__icon">⌁</div><div><strong>{t('drill.emptyTitle')}</strong><p>{t('drill.emptyBody')}</p></div></div>}
+      <div className={`drill-route-view${selectedRoute ? ' drill-route-view--ready' : ''}`}>
+        <div className="drill-route-view__map">
+          <MapExperience {...mapProps} focusHouseholdId={selectedHouseholdId} surface="drill" compact />
+        </div>
+        {selectedRoute ? <div className="drill-route-view__reason"><RouteResultPanel route={selectedRoute} locale={locale} mode={mode} onReplay={onReplay} onView3D={onView3D} onRunTool={onRunTool} selectedHouseholdId={selectedHouseholdId} /></div> : <div className="empty-route"><div className="empty-route__icon">⌁</div><div><strong>{t('drill.emptyTitle')}</strong><p>{t('drill.emptyBody')}</p></div></div>}
+      </div>
     </section>
   )
 }
@@ -575,7 +632,7 @@ function RouteResultPanel({ route, locale, mode, onReplay, onView3D, onRunTool, 
   )
 }
 
-function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, locale, mode, onRunTool, onSelectHousehold, onSelectKnowledge, onView3D }: { snapshot: TownSnapshot; selectedHouseholdId: string; selectedRoute?: RouteResult; locale: Locale; mode: ExperienceMode; onRunTool: (name: string, input: unknown) => Promise<unknown>; onSelectHousehold: (id: string) => void; onSelectKnowledge: (knowledgeId: string) => void; onView3D: () => void }) {
+function ReplayStage({ mapProps, snapshot, selectedHouseholdId, selectedRoute, locale, mode, onRunTool, onSelectHousehold, onSelectKnowledge, onView3D }: { mapProps: Omit<MapExperienceProps, 'surface'>; snapshot: TownSnapshot; selectedHouseholdId: string; selectedRoute?: RouteResult; locale: Locale; mode: ExperienceMode; onRunTool: (name: string, input: unknown) => Promise<unknown>; onSelectHousehold: (id: string) => void; onSelectKnowledge: (knowledgeId: string) => void; onView3D: () => void }) {
   const t = useTranslator(locale)
   const [summaryRequested, setSummaryRequested] = useState(false)
   const selectedHousehold = snapshot.households.find((item) => item.id === selectedHouseholdId)
@@ -591,6 +648,7 @@ function ReplayStage({ snapshot, selectedHouseholdId, selectedRoute, locale, mod
       <p className="stage-lead">{t(mode === 'simple' ? 'replay.simpleLead' : 'replay.lead')}</p>
       <div className="replay-toolbar"><span className="replay-toolbar__status"><span className={`status-dot${snapshot.replay.is_playing ? ' status-dot--live' : ''}`} />{snapshot.replay.is_playing ? t('replay.playing') : t('replay.paused')}{mode === 'advanced' && ` · ${snapshot.replay.camera}`}</span><div><button type="button" className="icon-button" onClick={() => runReplay({ action: 'overview' })} aria-label={t('replay.overview')}>◎</button><button type="button" className="icon-button" onClick={() => runReplay({ action: 'pause' })} aria-label={t('replay.pause')}>Ⅱ</button><button type="button" className="icon-button" onClick={() => runReplay({ action: 'resume' })} aria-label={t('replay.resume')}>▶</button></div></div>
       <div className="replay-focus-row"><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleFocus' : 'replay.focus')}</span>{snapshot.households.map((household) => <button key={household.id} type="button" className={`focus-button${household.id === selectedHouseholdId ? ' focus-button--active' : ''}`} aria-pressed={household.id === selectedHouseholdId} onClick={() => { onSelectHousehold(household.id); runReplay({ action: 'replay_route', target_id: household.id }) }}>{household.label ?? t('common.anonymousHousehold')} <small>{household.constraints.length ? household.constraints.map((item) => mode === 'simple' ? `${SIMPLE_CONSTRAINT_ICONS[item] ?? ''} ${t(`constraint.${item}`)}`.trim() : t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></button>)}</div>
+      <MapExperience {...mapProps} focusHouseholdId={snapshot.replay.selected_household_id ?? selectedHouseholdId} surface="replay" compact />
       <Replay3D snapshot={snapshot} locale={locale} mode={mode} onView3D={onView3D} />
       <ReplayKnowledgePanel snapshot={snapshot} selectedRoute={selectedRoute} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onSelectKnowledge={onSelectKnowledge} />
       <div className="replay-summary-row"><div><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleDebrief' : 'replay.debrief')}</span><strong>{t('replay.trainingLog', { label: selectedHousehold?.label ?? t('common.selectedHousehold') })}</strong><p>{selectedRoute ? t(mode === 'simple' ? 'replay.simpleSummaryWithRoute' : 'replay.summaryWithRoute', { minutes: selectedRoute.eta_minutes, count: selectedRoute.avoided.length }) : t('replay.summaryEmpty')}</p></div><button type="button" className="secondary-button" onClick={() => { setSummaryRequested(true); void onRunTool('get_debrief_summary', {}) }}>{t(mode === 'simple' ? 'replay.simpleRefreshSummary' : 'replay.refreshSummary')} <span>↗</span></button></div>
