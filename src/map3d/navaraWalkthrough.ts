@@ -4,6 +4,7 @@ import type { GeoCamera } from './types'
 
 export type WalkthroughEvent = 'start' | 'turn' | 'hazard' | 'avoided' | 'destination'
 export type WalkthroughTurnDirection = 'left' | 'right'
+export type WalkthroughMode = 'auto' | 'step'
 
 export interface WalkthroughFrame {
   camera: GeoCamera
@@ -22,8 +23,18 @@ interface RouteSample {
 const EARTH_RADIUS_M = 6_371_000
 const DEFAULT_SAMPLE_SPACING_M = 16
 const TURN_THRESHOLD_DEGREES = 30
-const WALKTHROUGH_DISTANCE_M = 180
-const WALKTHROUGH_PITCH = -65
+// Navara's photorealistic renderer remains visually usable at this low
+// route-following offset; the UI deliberately does not describe it as eye-level.
+export const WALKTHROUGH_CAMERA_HEIGHT_OFFSET_M = 20
+export const WALKTHROUGH_PITCH = -25
+
+export function walkthroughCameraHeight(terrainHeight?: number) {
+  return Math.max(0, terrainHeight ?? 0) + WALKTHROUGH_CAMERA_HEIGHT_OFFSET_M
+}
+
+export function resolveWalkthroughMode(nextMode: WalkthroughMode, prefersReducedMotion: boolean): WalkthroughMode {
+  return prefersReducedMotion && nextMode === 'auto' ? 'step' : nextMode
+}
 
 function distanceM(from: [number, number], to: [number, number]) {
   const fromLat = (from[1] * Math.PI) / 180
@@ -134,7 +145,7 @@ export function buildRouteWalkthrough(input: { route?: RouteResult; knowledge?: 
         lng: sample.coordinate[0],
         lat: sample.coordinate[1],
         zoom: 19,
-        height: WALKTHROUGH_DISTANCE_M,
+        height: WALKTHROUGH_CAMERA_HEIGHT_OFFSET_M,
         heading: headings[index] ?? 0,
         pitch: WALKTHROUGH_PITCH,
       },

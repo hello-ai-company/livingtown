@@ -9,7 +9,7 @@ import { createNavaraScene, GSI_SEAMLESSPHOTO_URL, type NavaraSceneController } 
 import { resolveWeatherVisualState, weatherModeLabelKey } from './navaraWeather'
 import { getNavaraCapabilities } from './navaraCapabilities'
 import { buildSimple3DStoryCopy, type NavaraStoryStep } from './navaraStory'
-import { buildRouteWalkthrough, type WalkthroughFrame } from './navaraWalkthrough'
+import { buildRouteWalkthrough, resolveWalkthroughMode, type WalkthroughFrame, type WalkthroughMode } from './navaraWalkthrough'
 import type { GeoCamera, NavaraSceneDiagnostics, QualityPreset, WeatherVisualMode } from './types'
 import type { MapSurface } from '../map/Map2D'
 
@@ -34,7 +34,6 @@ export interface NavaraMap3DProps {
 
 const VERSION_SUMMARY = 'Navara 0.1.1 · Default plugin 0.1.1 · Three 0.185.1 · postprocessing 6.39.4'
 
-type WalkthroughMode = 'auto' | 'step'
 type WalkthroughSpeed = 'slow' | 'standard' | 'fast'
 
 interface WalkthroughState {
@@ -224,7 +223,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
     if (!controller) return false
     walkthroughMotionRef.current = true
     try {
-      return await controller.flyTo(frame.camera, durationMs)
+      return await controller.flyTo(frame.camera, durationMs, true)
     } finally {
       window.setTimeout(() => { walkthroughMotionRef.current = false }, 0)
     }
@@ -279,8 +278,8 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
   }, [])
 
   const setWalkthroughMode = useCallback((nextMode: WalkthroughMode) => {
-    setWalkthrough((current) => current.active ? { ...current, mode: nextMode, paused: false } : current)
-  }, [])
+    setWalkthrough((current) => current.active ? { ...current, mode: resolveWalkthroughMode(nextMode, prefersReducedMotion), paused: false } : current)
+  }, [prefersReducedMotion])
 
   const setWalkthroughSpeed = useCallback((speed: WalkthroughSpeed) => {
     setWalkthrough((current) => current.active ? { ...current, speed } : current)
@@ -452,7 +451,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         </div>
         <div className="navara-walkthrough-controls__tools">
           <div className="navara-walkthrough-controls__modes" role="group" aria-label={t('map.walkthroughAria')}>
-            <button type="button" className={walkthrough.mode === 'auto' ? 'is-active' : ''} aria-pressed={walkthrough.mode === 'auto'} onClick={() => setWalkthroughMode('auto')}>{t('map.walkthroughAuto')}</button>
+            {!prefersReducedMotion && <button type="button" className={walkthrough.mode === 'auto' ? 'is-active' : ''} aria-pressed={walkthrough.mode === 'auto'} onClick={() => setWalkthroughMode('auto')}>{t('map.walkthroughAuto')}</button>}
             <button type="button" className={walkthrough.mode === 'step' ? 'is-active' : ''} aria-pressed={walkthrough.mode === 'step'} onClick={() => setWalkthroughMode('step')}>{t('map.walkthroughStep')}</button>
           </div>
           <div className="navara-walkthrough-controls__transport">

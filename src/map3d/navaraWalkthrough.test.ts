@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { interpolateHeading } from './navaraCamera'
-import { buildRouteWalkthrough } from './navaraWalkthrough'
+import { buildRouteWalkthrough, resolveWalkthroughMode, walkthroughCameraHeight } from './navaraWalkthrough'
 import type { Knowledge, RouteResult } from '../sim/types'
 
 const knowledge: Knowledge = {
@@ -38,6 +38,8 @@ describe('route walkthrough frames', () => {
     expect(frames.length).toBeGreaterThan(2)
     expect(frames.every((frame, index) => index === 0 || frame.progress >= frames[index - 1].progress)).toBe(true)
     expect(frames.every((frame) => Math.abs((frame.camera.heading ?? 0) - 90) <= 1)).toBe(true)
+    expect(frames[0].camera.height).toBeCloseTo(20)
+    expect(frames[0].camera.pitch).toBe(-25)
   })
 
   it('marks a 90-degree turn and its direction', () => {
@@ -76,5 +78,19 @@ describe('route walkthrough frames', () => {
   it('supports a short two-point route and an empty route', () => {
     expect(buildRouteWalkthrough({ route: route([[139.76, 35.681], [139.7601, 35.6811]]) }).length).toBeGreaterThanOrEqual(2)
     expect(buildRouteWalkthrough({}).length).toBe(0)
+  })
+
+  it('uses a low route-following camera profile above resident terrain', () => {
+    expect(walkthroughCameraHeight(34)).toBeCloseTo(54)
+    expect(walkthroughCameraHeight()).toBeCloseTo(20)
+  })
+
+  it('keeps reduced-motion walkthroughs in STEP mode', () => {
+    expect(resolveWalkthroughMode('auto', true)).toBe('step')
+    expect(resolveWalkthroughMode('step', true)).toBe('step')
+  })
+
+  it('allows AUTO only when reduced motion is not requested', () => {
+    expect(resolveWalkthroughMode('auto', false)).toBe('auto')
   })
 })
