@@ -56,8 +56,8 @@ Observed on the public URL:
 
 ## Native WebMCP
 
-The Chrome Native WebMCP surface was checked on the public URL. Every
-execution returned `status=Completed`.
+The Chrome Native WebMCP surface was checked on the public URL. The final
+required tool executions returned `status=Completed`.
 
 | Phase | Surface result | Executed tools |
 | --- | --- | --- |
@@ -73,6 +73,11 @@ PASS`.
 The DRILL route result was `flood / rain / day`, 10 minutes and 440 metres,
 with an explainable avoided flood edge. REPLAY controls `overview`,
 `replay_route`, `highlight_bottleneck`, `pause`, and `resume` all completed.
+
+A preliminary DRILL attempt used a start point that snapped to an already
+blocked crossing and returned the expected no-route domain error. It was not
+counted as the gate result; the required 3/3 rerun used the supported demo-home
+origin and completed successfully.
 
 ## Supabase production check
 
