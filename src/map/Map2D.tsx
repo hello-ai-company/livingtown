@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { DEMO_AREA, DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES } from '../sim/graph'
 import type { Household, RouteResult, TownSnapshot } from '../sim/types'
-import { KnowledgeDetailCard } from './KnowledgeDetailCard'
 import { KnowledgeVisual } from './KnowledgeVisual'
 import { MapLibreMap } from './MapLibreMap'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
@@ -11,15 +10,12 @@ import {
   filterKnowledgeVisuals,
   getBottleneckLabel,
   isKnowledgeSelectionVisible,
-  MAP_CATEGORY_ORDER,
   KNOWLEDGE_CATEGORY_ORDER,
   type KnowledgeCategoryFilter,
-  type KnowledgeGroupFilter,
-  type KnowledgeStatusFilter,
-  type KnowledgeTimeFilter,
   type KnowledgeVisualState,
   type KnowledgeVisualView,
 } from './knowledgeVisuals'
+import { DEFAULT_MAP_FILTER_STATE, type MapFilterState } from './mapFilters'
 
 export type MapSurface = 'map' | 'drill' | 'replay'
 
@@ -43,13 +39,8 @@ export interface Map2DProps {
   compact?: boolean
   camera?: GeoCamera
   onCameraChange?: (camera: GeoCamera) => void
-}
-
-type MapFilterState = {
-  status: KnowledgeStatusFilter
-  category: KnowledgeCategoryFilter | 'bottleneck'
-  group: KnowledgeGroupFilter
-  time: KnowledgeTimeFilter
+  filterState?: MapFilterState
+  onFilterStateChange?: (filters: MapFilterState) => void
 }
 
 interface MapBounds {
@@ -98,15 +89,6 @@ function nearestNodeForHousehold(household: Household) {
   }, DEMO_GRAPH_NODES[0])
 }
 
-function activeFilterCount(filters: MapFilterState, mode: ExperienceMode) {
-  return [
-    filters.status !== 'all',
-    mode === 'advanced' && filters.category !== 'all',
-    filters.group !== 'all',
-    filters.time !== 'now',
-  ].filter(Boolean).length
-}
-
 const VISUAL_CLUSTER_RADIUS_DEGREES = 0.00012
 
 function overlapOffset(view: KnowledgeVisualView, views: KnowledgeVisualView[]) {
@@ -117,10 +99,10 @@ function overlapOffset(view: KnowledgeVisualView, views: KnowledgeVisualView[]) 
   return { x: Math.cos(angle) * 18, y: Math.sin(angle) * 18 }
 }
 
-function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onVerifyKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, onEditKnowledge, onDeleteKnowledge, locale = 'ja', mode = 'simple', surface = 'map', compact = false }: Map2DProps) {
+function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, locale = 'ja', mode = 'simple', surface = 'map', compact = false, filterState }: Map2DProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
-  const [filters, setFilters] = useState<MapFilterState>({ status: 'all', category: 'all', group: 'all', time: 'now' })
-  const [filtersOpen, setFiltersOpen] = useState(mode === 'advanced')
+  const [internalFilters] = useState(DEFAULT_MAP_FILTER_STATE)
+  const filters = filterState ?? internalFilters
   const [postingMode, setPostingMode] = useState(false)
   const [internalSelectedKnowledgeId, setInternalSelectedKnowledgeId] = useState<string>()
   const previousStates = useRef(new Map<string, KnowledgeVisualState>())
@@ -163,12 +145,6 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
   const selectedRouteEdges = useMemo(() => routeEdgeIds(selectedRoute), [selectedRoute])
   const avoidedEdgeIds = useMemo(() => new Set(selectedRoute?.avoided.flatMap((item) => item.edge_ids) ?? []), [selectedRoute])
   const visibleAffectingViews = visibleKnowledge.filter((view) => view.affectsCurrentRoute)
-  const filterCount = activeFilterCount(filters, mode)
-
-  useEffect(() => {
-    setFiltersOpen(mode === 'advanced')
-    if (mode === 'simple') setFilters((current) => current.category === 'all' ? current : { ...current, category: 'all' })
-  }, [mode])
 
   useEffect(() => {
     const nextStates = new Map(visualViews.map((view) => [view.item.id, view.state]))
@@ -217,11 +193,6 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
     else setInternalSelectedKnowledgeId(knowledgeId)
   }
 
-  const clearKnowledge = () => {
-    if (onClearKnowledge) onClearKnowledge()
-    else setInternalSelectedKnowledgeId(undefined)
-  }
-
   const handleMapClick = (event: MouseEvent<SVGSVGElement>) => {
     if (!postingMode && !locationPickerActive) return
     event.stopPropagation()
@@ -248,40 +219,6 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
 
   return (
     <>
-      {surface === 'map' && <div className="map-filter-shell">
-        <button type="button" className="map-filter-toggle" aria-expanded={filtersOpen} aria-controls="svg-filter-panel" onClick={() => setFiltersOpen((current) => !current)}>
-          <span>{t('map.filters')}</span>{filterCount > 0 && <span className="map-filter-toggle__count"> · {filterCount}</span>}
-        </button>
-        {filtersOpen && <div id="svg-filter-panel" className="map-filter-bar" aria-label={t('map.filterPanel')}>
-          <div className="map-filter-bar__status" role="group" aria-label={t('map.filterGroup')}>
-            <span className="map-filter-bar__label">{t('map.filterLabel')}</span>
-            {([
-              ['all', t('map.all')],
-              ['verified', t('map.verifiedOnly')],
-              ['affecting_route', t('map.affecting')],
-            ] as Array<[KnowledgeStatusFilter, string]>).map(([value, label]) => (
-              <button key={value} type="button" className={filters.status === value ? 'is-active' : ''} aria-pressed={filters.status === value} onClick={() => setFilters((current) => ({ ...current, status: value }))}>{label}</button>
-            ))}
-          </div>
-          {mode === 'advanced' && <label htmlFor="map-category" className="map-filter-bar__category">{t('map.category')}
-            <select id="map-category" name="category" aria-label={t('map.category')} value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value as KnowledgeCategoryFilter | 'bottleneck' }))}>
-              <option value="all">{t('map.allSignals')}</option>
-              {MAP_CATEGORY_ORDER.map((category) => <option key={category} value={category}>{category === 'bottleneck' ? t('map.bottleneck') : t(`category.${category}`)}</option>)}
-            </select>
-          </label>}
-          <label htmlFor="map-group" className="map-filter-bar__category">{t('map.group')}
-            <select id="map-group" name="group" aria-label={t('map.group')} value={filters.group} onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value as KnowledgeGroupFilter }))}>
-              <option value="all">{t('map.groupAll')}</option><option value="disaster">{t('map.groupDisaster')}</option><option value="safety">{t('map.groupSafety')}</option><option value="crime_harassment">{t('map.groupCrime')}</option><option value="community">{t('map.groupCommunity')}</option>
-            </select>
-          </label>
-          <label htmlFor="map-time" className="map-filter-bar__category">{t('map.time')}
-            <select id="map-time" name="time" aria-label={t('map.time')} value={filters.time} onChange={(event) => setFilters((current) => ({ ...current, time: event.target.value as KnowledgeTimeFilter }))}>
-            <option value="now">{t('map.now')}</option><option value="today">{t('map.today')}</option><option value="this_week">{t('map.thisWeek')}</option><option value="all">{t('map.allTime')}</option>
-          </select>
-        </label>
-        </div>}
-      </div>}
-
       <div className={`map-frame map-frame--${surface}${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-surface={surface}>
         <div className="map-frame__topline">
           <div>
@@ -411,7 +348,6 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
         </div>
       )}
 
-      {selectedView && <KnowledgeDetailCard view={selectedView} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onClose={clearKnowledge} onVerify={onVerifyKnowledge} onEdit={onEditKnowledge} onDelete={onDeleteKnowledge} />}
       </div>
     </>
   )

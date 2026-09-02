@@ -3,7 +3,6 @@ import maplibregl, { type GeoJSONSource, type Map as MapLibreInstance } from 'ma
 import { DEMO_AREA } from '../sim/graph'
 import type { RouteResult, TownSnapshot } from '../sim/types'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
-import { KnowledgeDetailCard } from './KnowledgeDetailCard'
 import {
   basemapStyle,
   preserveCamera,
@@ -18,14 +17,12 @@ import {
   filterKnowledgeVisuals,
   getBottleneckLabel,
   isKnowledgeSelectionVisible,
-  MAP_CATEGORY_ORDER,
   KNOWLEDGE_CATEGORY_ORDER,
   type KnowledgeCategoryFilter,
-  type KnowledgeGroupFilter,
   type KnowledgeStatusFilter,
-  type KnowledgeTimeFilter,
 } from './knowledgeVisuals'
 import type { Map2DProps } from './Map2D'
+import { DEFAULT_MAP_FILTER_STATE, type MapFilterState } from './mapFilters'
 import {
   createAvoidedEdgeFeatureCollection,
   createBottleneckFeatureCollection,
@@ -39,13 +36,6 @@ type MapLibreMapProps = Map2DProps & {
   locale: Locale
   mode: ExperienceMode
   onFallback: () => void
-}
-
-type MapFilterState = {
-  status: KnowledgeStatusFilter
-  category: KnowledgeCategoryFilter | 'bottleneck'
-  group: KnowledgeGroupFilter
-  time: KnowledgeTimeFilter
 }
 
 const OVERLAY_SOURCE_IDS = ['knowledge-overlay', 'route-overlay', 'avoided-overlay', 'household-overlay', 'bottleneck-overlay'] as const
@@ -83,15 +73,6 @@ function cameraFromGeo(camera: Map2DProps['camera'], fallback: [number, number])
     // view with a downward-looking negative pitch.
     pitch: camera.pitch !== undefined && camera.pitch > 0 ? camera.pitch : 0,
   } : undefined, fallback)
-}
-
-function activeFilterCount(filters: MapFilterState, mode: ExperienceMode) {
-  return [
-    filters.status !== 'all',
-    mode === 'advanced' && filters.category !== 'all',
-    filters.group !== 'all',
-    filters.time !== 'now',
-  ].filter(Boolean).length
 }
 
 function createOverlayData(
@@ -153,6 +134,7 @@ export function MapLibreMap({
   surface = 'map',
   camera,
   onCameraChange,
+  filterState,
   onFallback,
 }: MapLibreMapProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
@@ -161,14 +143,14 @@ export function MapLibreMap({
   const cameraRef = useRef<CameraSnapshot>(cameraFromGeo(camera, routeCenter(snapshot, selectedKnowledgeId)))
   const postingModeRef = useRef(false)
   const locationPickerRef = useRef(false)
-  const basemapModeRef = useRef<BasemapMode>('auto')
+  const basemapModeRef = useRef<BasemapMode>(filterState?.basemap ?? 'auto')
   const callbacksRef = useRef({ onRequestContribution, onLocationPicked, onSelectHousehold, onSelectKnowledge, onCameraChange })
   const [mapReady, setMapReady] = useState(false)
   const [postingMode, setPostingMode] = useState(false)
-  const [basemapMode, setBasemapMode] = useState<BasemapMode>('auto')
-  const [provider, setProvider] = useState<BasemapProvider>(() => resolveBasemapProvider('auto', { lat: DEMO_AREA.center.lat, lng: DEMO_AREA.center.lng }).provider)
-  const [filters, setFilters] = useState<MapFilterState>({ status: 'all', category: 'all', group: 'all', time: 'now' })
-  const [filtersOpen, setFiltersOpen] = useState(mode === 'advanced')
+  const [basemapMode, setBasemapMode] = useState<BasemapMode>(filterState?.basemap ?? 'auto')
+  const [provider, setProvider] = useState<BasemapProvider>(() => resolveBasemapProvider(filterState?.basemap ?? 'auto', { lat: DEMO_AREA.center.lat, lng: DEMO_AREA.center.lng }).provider)
+  const [internalFilters] = useState(DEFAULT_MAP_FILTER_STATE)
+  const filters = filterState ?? internalFilters
   const [mapNotice, setMapNotice] = useState<string>()
   const previousSelectedKnowledgeId = useRef(selectedKnowledgeId)
   const selectedRoute = focusHouseholdId ? snapshot.routes[focusHouseholdId] : Object.values(snapshot.routes)[0]
@@ -189,13 +171,6 @@ export function MapLibreMap({
     () => createOverlayData(snapshot, visibleViews, selectedRoute, selectedKnowledgeId, focusHouseholdId, filters, surface, t),
     [filters, focusHouseholdId, selectedKnowledgeId, selectedRoute, snapshot, surface, t, visibleViews],
   )
-  const filterCount = activeFilterCount(filters, mode)
-
-  useEffect(() => {
-    setFiltersOpen(mode === 'advanced')
-    if (mode === 'simple') setFilters((current) => current.category === 'all' ? current : { ...current, category: 'all' })
-  }, [mode])
-
   useEffect(() => {
     callbacksRef.current = { onRequestContribution, onLocationPicked, onSelectHousehold, onSelectKnowledge, onCameraChange }
   }, [onCameraChange, onLocationPicked, onRequestContribution, onSelectHousehold, onSelectKnowledge])
@@ -211,6 +186,20 @@ export function MapLibreMap({
   useEffect(() => {
     basemapModeRef.current = basemapMode
   }, [basemapMode])
+
+  useEffect(() => {
+    const requestedMode = filterState?.basemap
+    if (!requestedMode || requestedMode === basemapMode) return
+    const map = mapInstance.current
+    const center = map?.getCenter()
+    const location = center ? { lat: center.lat, lng: center.lng } : { lat: DEMO_AREA.center.lat, lng: DEMO_AREA.center.lng }
+    const next = resolveBasemapProvider(requestedMode, location)
+    if (map) cameraRef.current = captureCamera(map, cameraRef.current)
+    basemapModeRef.current = requestedMode
+    setBasemapMode(requestedMode)
+    setProvider(next.provider)
+    if (next.fellBackToGlobal) setMapNotice(t('map.globalFallbackWarning'))
+  }, [basemapMode, filterState?.basemap, t])
 
   useEffect(() => {
     if (!mapContainer.current) return
@@ -242,6 +231,10 @@ export function MapLibreMap({
     }
 
     mapInstance.current = map
+    const resizeObserver = typeof ResizeObserver !== 'undefined' && mapContainer.current
+      ? new ResizeObserver(() => map.resize())
+      : undefined
+    if (resizeObserver && mapContainer.current) resizeObserver.observe(mapContainer.current)
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
     const geolocate = new maplibregl.GeolocateControl({
       positionOptions: { enableHighAccuracy: false },
@@ -327,6 +320,7 @@ export function MapLibreMap({
     return () => {
       cameraRef.current = captureCamera(map, initialCamera)
       setMapReady(false)
+      resizeObserver?.disconnect()
       map.remove()
       mapInstance.current = null
     }
@@ -378,18 +372,6 @@ export function MapLibreMap({
     if (selectedKnowledgeId && !selectedView) onClearKnowledge?.()
   }, [onClearKnowledge, selectedKnowledgeId, selectedView])
 
-  const selectBasemap = (nextMode: BasemapMode) => {
-    const map = mapInstance.current
-    const center = map?.getCenter()
-    const location = center ? { lat: center.lat, lng: center.lng } : { lat: DEMO_AREA.center.lat, lng: DEMO_AREA.center.lng }
-    const next = resolveBasemapProvider(nextMode, location)
-    if (map) cameraRef.current = captureCamera(map, cameraRef.current)
-    basemapModeRef.current = nextMode
-    setBasemapMode(nextMode)
-    setProvider(next.provider)
-    if (next.fellBackToGlobal) setMapNotice(t('map.globalFallbackWarning'))
-  }
-
   const reportCurrentLocation = async () => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setMapNotice(t('map.locationUnavailable'))
@@ -427,46 +409,6 @@ export function MapLibreMap({
 
   return (
     <>
-      {surface === 'map' && <div className="map-filter-shell">
-        <button type="button" className="map-filter-toggle" aria-expanded={filtersOpen} aria-controls="maplibre-filter-panel" onClick={() => setFiltersOpen((current) => !current)}>
-          <span>{t('map.filters')}</span>{filterCount > 0 && <span className="map-filter-toggle__count"> · {filterCount}</span>}
-        </button>
-        {filtersOpen && <div id="maplibre-filter-panel" className="map-filter-bar" aria-label={t('map.filterPanel')}>
-          <div className="map-filter-bar__status" role="group" aria-label={t('map.filterGroup')}>
-            <span className="map-filter-bar__label">{t('map.filterLabel')}</span>
-            {([
-              ['all', t('map.all')],
-              ['verified', t('map.verifiedOnly')],
-              ['affecting_route', t('map.affecting')],
-            ] as Array<[KnowledgeStatusFilter, string]>).map(([value, label]) => (
-              <button key={value} type="button" className={filters.status === value ? 'is-active' : ''} aria-pressed={filters.status === value} onClick={() => setFilters((current) => ({ ...current, status: value }))}>{label}</button>
-            ))}
-          </div>
-          {mode === 'advanced' && <label htmlFor="map-category" className="map-filter-bar__category">{t('map.category')}
-            <select id="map-category" name="category" aria-label={t('map.category')} value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value as KnowledgeCategoryFilter | 'bottleneck' }))}>
-              <option value="all">{t('map.allSignals')}</option>
-              {MAP_CATEGORY_ORDER.map((category) => <option key={category} value={category}>{category === 'bottleneck' ? t('map.bottleneck') : categoryLabel(category, t)}</option>)}
-            </select>
-          </label>}
-          <label htmlFor="map-group" className="map-filter-bar__category">{t('map.group')}
-            <select id="map-group" name="group" aria-label={t('map.group')} value={filters.group} onChange={(event) => setFilters((current) => ({ ...current, group: event.target.value as KnowledgeGroupFilter }))}>
-              <option value="all">{t('map.groupAll')}</option><option value="disaster">{t('map.groupDisaster')}</option><option value="safety">{t('map.groupSafety')}</option><option value="crime_harassment">{t('map.groupCrime')}</option><option value="community">{t('map.groupCommunity')}</option>
-            </select>
-          </label>
-          <label htmlFor="map-time" className="map-filter-bar__category">{t('map.time')}
-            <select id="map-time" name="time" aria-label={t('map.time')} value={filters.time} onChange={(event) => setFilters((current) => ({ ...current, time: event.target.value as KnowledgeTimeFilter }))}>
-              <option value="now">{t('map.now')}</option><option value="today">{t('map.today')}</option><option value="this_week">{t('map.thisWeek')}</option><option value="all">{t('map.allTime')}</option>
-            </select>
-          </label>
-          {mode === 'advanced' && <label htmlFor="map-basemap" className="map-filter-bar__category">{t('map.basemap')}
-            <select id="map-basemap" name="basemap" aria-label={t('map.basemap')} value={basemapMode} onChange={(event) => selectBasemap(event.target.value as BasemapMode)}>
-              <option value="auto">{t('map.basemapAuto')}</option>
-              <option value="gsi">{t('map.basemapGsi')}</option>
-              <option value="global">{t('map.basemapGlobal')}</option>
-            </select>
-          </label>}
-        </div>}
-      </div>}
       <div className={`map-frame map-frame--maplibre map-frame--${surface}${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-basemap-provider={provider} data-basemap-mode={basemapMode} data-surface={surface}>
         <div className="map-frame__topline">
           <div><span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'simple' ? t('map.simpleMode') : t('map.eyebrow')}</span><span className="map-frame__title">{surface === 'drill' ? t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title') : surface === 'replay' ? t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title') : t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span></div>
@@ -500,7 +442,6 @@ export function MapLibreMap({
         <span>{selectedRoute.avoided.length > 0 ? t('map.routeApplied', { count: selectedRoute.avoided.length, edges: selectedRoute.avoided.flatMap((item) => item.edge_ids).length }) : t('map.routeReady')}</span>
       </div>}
       {mode === 'advanced' && <div className="map-routing-boundary" role="note">{t('map.routingBoundary')}</div>}
-        {selectedView && <KnowledgeDetailCard view={selectedView} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onClose={() => onClearKnowledge?.()} onVerify={onVerifyKnowledge} onEdit={onEditKnowledge} onDelete={onDeleteKnowledge} />}
       </div>
     </>
   )

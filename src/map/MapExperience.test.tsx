@@ -12,7 +12,7 @@ function snapshotWithRoute(): TownSnapshot {
   return repository.getSnapshot()
 }
 
-function renderMap(surface: MapSurface, snapshot = snapshotWithRoute(), mode: ExperienceMode = 'simple') {
+function renderMap(surface: MapSurface, snapshot = snapshotWithRoute(), mode: ExperienceMode = 'simple', overrides: Partial<MapExperienceProps> = {}) {
   const props: MapExperienceProps = {
     snapshot,
     focusHouseholdId: 'h-wheelchair',
@@ -23,6 +23,7 @@ function renderMap(surface: MapSurface, snapshot = snapshotWithRoute(), mode: Ex
     onDimensionChange: () => undefined,
     onCameraChange: () => undefined,
     surface,
+    ...overrides,
   }
   return renderToStaticMarkup(<MapExperience {...props} />)
 }
@@ -34,6 +35,8 @@ describe('MapExperience presentation surfaces', () => {
     expect(markup).toContain('data-surface="drill"')
     expect(markup).toContain('maplibre-canvas')
     expect(markup).toContain('地図上の避難ルート')
+    expect(markup).toContain('map-side-panel')
+    expect(markup).toContain('このルートにした理由')
     expect(markup).not.toContain('map-filter-bar')
     expect(markup).not.toContain('map-posting-controls')
   })
@@ -67,5 +70,14 @@ describe('MapExperience presentation surfaces', () => {
     expect(markup.indexOf('map-filter-shell')).toBeLessThan(markup.indexOf('map-frame'))
     expect(markup).toContain('aria-controls="maplibre-filter-panel"')
     expect(markup).toContain('id="maplibre-filter-panel"')
+  })
+
+  it('renders selected knowledge in the side panel instead of over the map', () => {
+    const markup = renderMap('map', snapshotWithRoute(), 'simple', { selectedKnowledgeId: 'k-flood-crosswalk' })
+    const mapIndex = markup.indexOf('map-frame')
+    const panelIndex = markup.indexOf('map-side-panel')
+    expect(markup).toContain('data-map-focus="inactive"')
+    expect(markup).toContain('map-side-panel__clear')
+    expect(panelIndex).toBeGreaterThan(mapIndex)
   })
 })

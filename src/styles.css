@@ -1192,6 +1192,95 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
   .knowledge-detail-card__verify-actions button { width: 100%; }
 }
 
+/* Unified map focus presentation. The renderer remains mounted while the
+   layout changes, so focus mode only resizes the existing map surface. */
+.map-experience__toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 32px; margin-bottom: 8px; }
+.map-experience__toolbar .dimension-switcher { margin: 0; }
+.map-experience__toolbar .map-filter-shell { margin: 0; }
+.map-focus-header { position: relative; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 58px; padding: 10px 18px; border-bottom: 1px solid rgba(223,240,229,.14); background: rgba(9,22,29,.96); }
+.map-focus-header__brand { color: var(--paper-soft); font-family: Georgia, serif; font-size: 18px; font-weight: 400; letter-spacing: -.03em; }
+.map-focus-header__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.map-focus-header .dimension-switcher { margin: 0; }
+.map-focus-header .map-filter-shell { margin: 0; }
+.map-focus-toggle { display: inline-flex; gap: 7px; align-items: center; min-height: 32px; border: 1px solid rgba(193,224,110,.42); padding: 6px 10px; color: var(--lime); background: rgba(13,24,33,.76); font-size: 10px; font-weight: 700; letter-spacing: .03em; white-space: nowrap; }
+.map-focus-toggle:hover, .map-focus-toggle:focus-visible { border-color: var(--lime); color: var(--ink); background: var(--lime); }
+.map-focus-toggle > span:first-child { font-size: 15px; line-height: .8; }
+.map-experience__body { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; align-items: stretch; }
+.map-experience__body--panel-open { grid-template-columns: minmax(0, 1fr) minmax(280px, 27%); }
+.map-experience__map { min-width: 0; min-height: 0; position: relative; }
+.map-side-panel { min-width: 0; height: 100%; overflow: auto; border: 1px solid rgba(193,224,110,.24); border-left: 0; color: var(--text); background: rgba(13,24,33,.97); box-shadow: -12px 0 30px rgba(0,0,0,.12); }
+.map-side-panel__head { position: sticky; z-index: 2; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; padding: 8px 12px 8px 16px; border-bottom: 1px solid var(--line); background: rgba(13,24,33,.98); }
+.map-side-panel__tabs { display: flex; gap: 4px; min-width: 0; }
+.map-side-panel__tabs button { min-height: 31px; border: 1px solid transparent; padding: 6px 9px; color: var(--text-quiet); background: transparent; font-size: 10px; font-weight: 700; }
+.map-side-panel__tabs button:hover, .map-side-panel__tabs button.is-active { border-color: rgba(193,224,110,.45); color: var(--lime); background: rgba(193,224,110,.08); }
+.map-side-panel__tabs button span { color: var(--paper-soft); font-weight: 500; }
+.map-side-panel__close { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid rgba(223,240,229,.18); color: var(--text-quiet); background: transparent; font-size: 20px; line-height: 1; }
+.map-side-panel__close:hover, .map-side-panel__close:focus-visible { border-color: var(--lime); color: var(--lime); }
+.map-side-panel__content { padding: 14px; }
+.map-side-panel .knowledge-detail-card { position: static; width: auto; max-height: none; overflow: visible; margin: 0; border: 0; padding: 0; background: transparent; box-shadow: none; }
+.map-side-panel .knowledge-detail-card__close { display: none; }
+.map-side-panel .knowledge-detail-card__head { padding-bottom: 3px; }
+.map-side-panel .knowledge-detail-card__heading h3 { font-size: 18px; }
+.map-side-panel .knowledge-detail-card__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.map-side-panel__clear { width: 100%; min-height: 34px; margin-top: 12px; border: 1px solid rgba(239,119,114,.45); padding: 7px 10px; color: #f5b1a9; background: rgba(239,119,114,.06); font-size: 10px; }
+.map-side-panel__clear:hover, .map-side-panel__clear:focus-visible { color: var(--paper); background: rgba(239,119,114,.18); }
+.map-side-panel__empty { margin: 4px 0; color: var(--text-dim); font-size: 11px; line-height: 1.6; }
+.map-side-panel__route-context { margin: 0 0 14px; border-left: 2px solid var(--orange); padding: 10px 11px; background: rgba(246,160,100,.07); }
+.map-side-panel__route-context strong { display: block; margin-top: 4px; color: var(--paper-soft); font-size: 12px; font-weight: 600; }
+.map-side-panel__route-context ul { display: grid; gap: 6px; margin: 8px 0 0; padding-left: 17px; color: var(--text-dim); font-size: 10px; line-height: 1.5; }
+.map-side-panel__route-context p { margin: 7px 0 0; color: var(--text-dim); font-size: 10px; line-height: 1.5; }
+.map-side-panel .map-filter-bar { display: grid; gap: 13px; min-width: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.map-side-panel .map-filter-bar__status { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.map-side-panel .map-filter-bar__label { grid-column: 1 / -1; margin: 0; }
+.map-side-panel .map-filter-bar__status button { min-height: 34px; padding: 6px 7px; text-align: left; }
+.map-side-panel .map-filter-bar__category { display: grid; gap: 6px; align-items: stretch; color: var(--text-dim); font-size: 10px; }
+.map-side-panel .map-filter-bar__category select { width: 100%; min-height: 34px; min-width: 0; padding: 0 7px; color: var(--paper-soft); background: rgba(255,255,255,.04); font-size: 10px; }
+.map-side-panel__collapsed-trigger { display: none; }
+.map-experience.map-experience--focused { position: fixed; z-index: 80; inset: 0; display: flex; flex-direction: column; overflow: hidden; background: #0d1821; }
+.map-experience.map-experience--focused .map-experience__body { flex: 1; min-height: 0; overflow: hidden; }
+.map-experience.map-experience--focused .map-experience__map { min-height: 0; }
+.map-experience.map-experience--focused .map-experience__map > .map-frame,
+.map-experience.map-experience--focused .map-experience__map > .map-experience__fallback,
+.map-experience.map-experience--focused .map-experience__fallback > .map-frame,
+.map-experience.map-experience--focused .map-frame,
+.map-experience.map-experience--focused .town-map,
+.map-experience.map-experience--focused .maplibre-canvas,
+.map-experience.map-experience--focused .navara-map-frame,
+.map-experience.map-experience--focused .navara-loading,
+.map-experience.map-experience--focused .navara-canvas { min-height: 0; height: 100%; }
+.map-experience.map-experience--focused .map-side-panel { min-height: 0; border-top: 0; }
+.map-experience.map-experience--focused .map-surface-summary { display: none; }
+
+@media (max-width: 899px) {
+  .map-experience__toolbar { justify-content: space-between; flex-wrap: wrap; }
+  .map-experience__toolbar .map-filter-shell { order: 1; }
+  .map-experience__toolbar .map-focus-toggle { order: 2; }
+  .map-experience__toolbar .dimension-switcher { order: 3; width: 100%; }
+  .map-experience__toolbar .dimension-switcher button { flex: 1; }
+  .map-focus-header { align-items: flex-start; min-height: 56px; padding: 9px 12px; }
+  .map-focus-header__brand { padding-top: 7px; font-size: 16px; }
+  .map-focus-header__actions { flex: 1; gap: 6px; }
+  .map-focus-header .dimension-switcher { order: 3; width: 100%; }
+  .map-focus-header .dimension-switcher button { flex: 1; }
+  .map-focus-header .map-filter-shell { order: 1; }
+  .map-focus-header .map-focus-toggle { order: 2; }
+  .map-experience__body--panel-open { display: block; position: relative; overflow: visible; }
+  .map-side-panel { position: absolute; z-index: 12; right: 0; bottom: 0; left: 0; height: auto; max-height: 54vh; overflow: hidden; border: 1px solid rgba(193,224,110,.28); border-radius: 16px 16px 0 0; box-shadow: 0 -14px 32px rgba(0,0,0,.22); }
+  .map-side-panel__head { min-height: 50px; padding: 7px 11px 7px 14px; }
+  .map-side-panel__content { max-height: calc(54vh - 50px); overflow: auto; padding: 12px 14px 18px; }
+  .map-side-panel__collapsed-trigger { position: absolute; z-index: 11; right: 12px; bottom: 12px; left: 12px; display: flex; align-items: center; justify-content: space-between; min-height: 52px; border: 1px solid rgba(193,224,110,.4); border-radius: 12px; padding: 9px 13px; color: var(--paper); background: rgba(13,24,33,.94); box-shadow: 0 8px 20px rgba(0,0,0,.22); font-size: 11px; font-weight: 700; }
+  .map-side-panel__collapsed-trigger:hover, .map-side-panel__collapsed-trigger:focus-visible { border-color: var(--lime); color: var(--lime); }
+  .map-experience.map-experience--focused .map-experience__body { overflow: hidden; }
+  .map-experience.map-experience--focused .map-experience__body--panel-open { display: block; }
+  .map-experience.map-experience--focused .map-side-panel { max-height: 52vh; }
+  .map-experience.map-experience--focused .map-side-panel__content { max-height: calc(52vh - 50px); }
+  .map-experience.map-experience--focused .map-experience__map > .map-frame,
+  .map-experience.map-experience--focused .map-experience__fallback,
+  .map-experience.map-experience--focused .map-experience__fallback > .map-frame { height: 100%; }
+  .map-experience.map-experience--focused .map-side-panel__collapsed-trigger { bottom: 12px; }
+  .map-side-panel .knowledge-detail-card__facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 /* Shared route/replay map surfaces. These are presentation-only containers;
    the route result and replay state still come from the existing repository. */
 .map-frame.map-frame--compact,
@@ -1278,3 +1367,14 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
   .drill-route-view { gap: 12px; margin-top: 14px; }
   .drill-route-view__reason .route-result { padding-right: 12px; padding-left: 12px; }
 }
+
+/* Keep compact DRILL/REPLAY surfaces full-height when they enter Focus Map;
+   the legacy compact-height rules above remain unchanged outside focus. */
+.map-experience.map-experience--focused .map-experience__map > .map-frame,
+.map-experience.map-experience--focused .map-experience__fallback,
+.map-experience.map-experience--focused .map-experience__fallback > .map-frame,
+.map-experience.map-experience--focused .map-frame.map-frame--compact,
+.map-experience.map-experience--focused .map-frame.map-frame--compact .town-map,
+.map-experience.map-experience--focused .map-frame.map-frame--compact > .maplibre-canvas,
+.map-experience.map-experience--focused .map-frame.map-frame--compact .navara-canvas,
+.map-experience.map-experience--focused .navara-map-frame.map-frame--compact { min-height: 0 !important; height: 100% !important; }

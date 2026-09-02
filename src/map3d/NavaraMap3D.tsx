@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { KnowledgeDetailCard } from '../map/KnowledgeDetailCard'
-import { getKnowledgeVisualView } from '../map/knowledgeVisuals'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
 import type { RouteResult, TownSnapshot } from '../sim/types'
 import { buildRouteCameraTour } from './navaraCamera'
@@ -111,9 +109,6 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
     knowledge: dataset.knowledge.map((item) => item.item),
   }), [dataset.knowledge, dataset.route])
   const canWalkthrough = surface !== 'map' && walkthroughFrames.length > 1
-  const selectedKnowledge = selectedKnowledgeId ? snapshot.knowledge.find((item) => item.id === selectedKnowledgeId) : undefined
-  const selectedView = selectedKnowledge ? getKnowledgeVisualView(selectedKnowledge, dataset.route) : undefined
-
   useEffect(() => {
     callbacksRef.current = { onCameraChange, onSelectKnowledge, onFallback }
   }, [onCameraChange, onFallback, onSelectKnowledge])
@@ -513,7 +508,6 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         <button type="button" className="text-button" onClick={exitTour}>{t('map.guideExit')}</button>
       </div>}
       <div className="navara-attribution">Navara Map · {t('map.gsiAttribution')}{diagnostics.plateau === 'ready' && ` · ${t('map.plateauAttribution')}${diagnostics.plateauMunicipality ? ` · ${diagnostics.plateauMunicipality}` : ''}`}</div>
-      {selectedView && <KnowledgeDetailCard view={selectedView} selectedHousehold={dataset.household} locale={locale} mode={mode} onClose={() => onClearKnowledge?.()} onEdit={onEditKnowledge} onDelete={onDeleteKnowledge} />}
     </div>
   )
 }
