@@ -395,11 +395,12 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         : t('map.title3dMap')
 
   return (
-    <div className={`map-frame navara-map-frame navara-map-frame--${surface}${walkthrough.active ? ' navara-map-frame--walkthrough' : ''}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-imagery={diagnostics.imagery} data-navara-plateau={diagnostics.plateau} data-navara-plateau-dataset={diagnostics.plateauDatasetId ?? ''} data-navara-plateau-municipality={diagnostics.plateauMunicipality ?? ''} data-navara-plateau-switch={diagnostics.plateauSwitchState} data-surface={surface} data-replay-camera={snapshot.replay.camera} data-walkthrough={walkthrough.active ? 'active' : 'inactive'} data-walkthrough-index={walkthrough.active ? walkthrough.index : ''} data-walkthrough-event={walkthrough.active ? walkthroughFrame?.event ?? '' : ''}>
+    <div className={`map-surface map-surface--3d map-surface--${surface}`}>
       <div className="map-frame__topline">
         <div><span className="eyebrow">{t('map.eyebrow3d')}</span><span className="map-frame__title">{surfaceTitle}</span></div>
         <span className="map-frame__mode"><span className={`status-dot${diagnostics.readiness === 'ready' ? ' status-dot--live' : ''}`} /> {diagnostics.renderer}</span>
       </div>
+      <div className={`map-frame navara-map-frame navara-map-frame--${surface}${walkthrough.active ? ' navara-map-frame--walkthrough' : ''}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-imagery={diagnostics.imagery} data-navara-plateau={diagnostics.plateau} data-navara-plateau-dataset={diagnostics.plateauDatasetId ?? ''} data-navara-plateau-municipality={diagnostics.plateauMunicipality ?? ''} data-navara-plateau-switch={diagnostics.plateauSwitchState} data-surface={surface} data-replay-camera={snapshot.replay.camera} data-walkthrough={walkthrough.active ? 'active' : 'inactive'} data-walkthrough-index={walkthrough.active ? walkthrough.index : ''} data-walkthrough-event={walkthrough.active ? walkthroughFrame?.event ?? '' : ''}>
       <div ref={containerRef} className="navara-canvas" role="region" aria-label={t('map.knowledgeMap3dAlt')} aria-busy={diagnostics.readiness === 'loading'} />
       <div className="navara-map-key" role="list" aria-label={t('map.markerLegend')}>
         <span className="navara-map-key__item" role="listitem"><i className="navara-map-key__swatch navara-map-key__swatch--start" />{t('map.markerStart')}</span>
@@ -508,6 +509,7 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
         <button type="button" className="text-button" onClick={exitTour}>{t('map.guideExit')}</button>
       </div>}
       <div className="navara-attribution">Navara Map · {t('map.gsiAttribution')}{diagnostics.plateau === 'ready' && ` · ${t('map.plateauAttribution')}${diagnostics.plateauMunicipality ? ` · ${diagnostics.plateauMunicipality}` : ''}`}</div>
+      </div>
     </div>
   )
 }

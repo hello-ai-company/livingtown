@@ -135,18 +135,18 @@ button:focus-visible, select:focus-visible, [role="button"]:focus-visible {
 .navara-map-frame { isolation: isolate; min-height: 548px; background: #0d1b25; }
 .navara-canvas { width: 100%; height: 548px; background: linear-gradient(150deg, #122b36, #07131c 70%); }
 .navara-canvas canvas { display: block; width: 100%; height: 100%; outline: none; }
-.navara-map-overlay { position: absolute; z-index: 3; top: 111px; right: 20px; left: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; pointer-events: none; }
+.navara-map-overlay { position: absolute; z-index: 3; top: 20px; right: 20px; left: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; pointer-events: none; }
 .navara-map-overlay__actions, .navara-map-overlay__status { display: flex; gap: 7px; align-items: center; pointer-events: auto; }
 .navara-map-overlay__status { display: grid; justify-items: end; gap: 3px; color: var(--text-quiet); font-size: 9px; text-align: right; }
 .navara-map-overlay__status strong { color: var(--paper-soft); font-family: Georgia, serif; font-size: 13px; font-weight: 400; }
 .navara-tour-status { color: var(--orange); }
-.navara-map-key { position: absolute; z-index: 4; top: 158px; left: 20px; display: flex; flex-wrap: wrap; gap: 5px; max-width: calc(100% - 40px); padding: 5px 7px; border: 1px solid rgba(229,241,230,.24); background: rgba(9,22,29,.72); color: var(--text-dim); font-size: 8px; pointer-events: none; }
+.navara-map-key { position: absolute; z-index: 4; top: 67px; left: 20px; display: flex; flex-wrap: wrap; gap: 5px; max-width: calc(100% - 40px); padding: 5px 7px; border: 1px solid rgba(229,241,230,.24); background: rgba(9,22,29,.72); color: var(--text-dim); font-size: 8px; pointer-events: none; }
 .navara-map-key__item { display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
 .navara-map-key__swatch { display: inline-block; width: 8px; height: 8px; border: 1px solid currentColor; border-radius: 50%; }
 .navara-map-key__swatch--start { color: #f6a064; background: #f6a064; }
 .navara-map-key__swatch--hazard { color: #ef7772; background: #ef7772; box-shadow: 0 0 0 3px rgba(239,119,114,.16); }
 .navara-map-key__swatch--destination { color: #c1e06e; background: #c1e06e; }
-.navara-story { position: absolute; z-index: 4; top: 194px; left: 20px; width: min(355px, calc(100% - 40px)); padding: 12px 14px; border: 1px solid rgba(246,160,100,.42); border-left: 3px solid var(--orange); background: rgba(9,22,29,.88); box-shadow: 0 10px 25px rgba(0,0,0,.2); pointer-events: none; }
+.navara-story { position: absolute; z-index: 4; top: 105px; left: 20px; width: min(355px, calc(100% - 40px)); padding: 12px 14px; border: 1px solid rgba(246,160,100,.42); border-left: 3px solid var(--orange); background: rgba(9,22,29,.88); box-shadow: 0 10px 25px rgba(0,0,0,.2); pointer-events: none; }
 .navara-story__head { display: flex; gap: 9px; align-items: flex-start; }
 .navara-story__number { flex: 0 0 auto; color: var(--orange); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 700; line-height: 1.05; }
 .navara-story .eyebrow { color: var(--orange); font-size: 8px; letter-spacing: .1em; }
@@ -161,7 +161,7 @@ button:focus-visible, select:focus-visible, [role="button"]:focus-visible {
 .navara-story__flow span:nth-of-type(4) { color: var(--lime); }
 .navara-story__flow span:nth-of-type(5) { color: #c1e06e; }
 .navara-story__flow b { color: var(--text-quiet); font-weight: 400; }
-.navara-walkthrough-story { position: absolute; z-index: 6; top: 194px; left: 20px; width: min(380px, calc(100% - 40px)); padding: 12px 14px; border: 1px solid rgba(193,224,110,.42); border-left: 3px solid var(--lime); background: rgba(9,22,29,.9); box-shadow: 0 10px 25px rgba(0,0,0,.22); pointer-events: none; }
+.navara-walkthrough-story { position: absolute; z-index: 6; top: 105px; left: 20px; width: min(380px, calc(100% - 40px)); padding: 12px 14px; border: 1px solid rgba(193,224,110,.42); border-left: 3px solid var(--lime); background: rgba(9,22,29,.9); box-shadow: 0 10px 25px rgba(0,0,0,.22); pointer-events: none; }
 .navara-walkthrough-story__head { display: flex; gap: 9px; align-items: flex-start; }
 .navara-walkthrough-story__number { flex: 0 0 auto; color: var(--lime); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 700; line-height: 1.05; }
 .navara-walkthrough-story .eyebrow { color: var(--lime); font-size: 8px; letter-spacing: .1em; }
@@ -202,7 +202,7 @@ button:focus-visible, select:focus-visible, [role="button"]:focus-visible {
 .navara-loading { display: grid; place-items: center; align-content: center; gap: 12px; min-height: 548px; color: var(--text-dim); }
 .navara-loading p { margin: 0; font-size: 10px; }
 .map-experience__fallback > p { margin: 0 0 8px; padding: 8px 11px; border: 1px dashed rgba(239,119,114,.4); color: #f8c0b5; background: rgba(239,119,114,.08); font-size: 10px; }
-.map-frame__topline { position: absolute; z-index: 2; top: 18px; right: 20px; left: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; pointer-events: none; }
+.map-frame__topline { position: relative; z-index: 2; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 14px 20px 12px; border-bottom: 1px solid rgba(223,240,229,.12); background: #14252b; pointer-events: auto; }
 .map-frame__title { display: block; margin-top: 5px; color: var(--paper); font-family: Georgia, serif; font-size: 18px; letter-spacing: -0.04em; }
 .map-frame__mode { margin-top: 3px; padding: 6px 8px; border: 1px solid rgba(221, 240, 228, 0.18); background: rgba(13, 24, 33, 0.68); font-size: 8px; letter-spacing: 0.1em; }
 .town-map { display: block; width: 100%; height: 548px; background: linear-gradient(135deg, rgba(41, 79, 78, 0.32), rgba(11, 27, 37, 0.1)); }
@@ -568,7 +568,7 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
 .map-frame.map-frame--maplibre > .maplibre-canvas { height: 548px; }
 .map-frame--maplibre .maplibregl-map { width: 100%; height: 100%; font: inherit; }
 .map-frame--maplibre .maplibregl-canvas { outline: none; }
-.map-frame--maplibre .maplibregl-ctrl-top-right { top: 60px; right: 18px; z-index: 6; }
+.map-frame--maplibre .maplibregl-ctrl-top-right { top: 12px; right: 18px; z-index: 6; }
 .map-frame--maplibre .maplibregl-ctrl-bottom-right { right: 14px; bottom: 6px; }
 .map-frame--maplibre .maplibregl-ctrl-group { overflow: hidden; border: 1px solid rgba(13,24,33,.32); border-radius: 0; box-shadow: 0 8px 20px rgba(0,0,0,.18); }
 .map-frame--maplibre .maplibregl-ctrl-group button { width: 30px; height: 30px; background: rgba(237,240,231,.9); }
@@ -675,12 +675,12 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
   .observation-composer__line .primary-button { width: 100%; }
   .maplibre-canvas { height: 470px; }
   .map-frame.map-frame--maplibre > .maplibre-canvas { height: 470px; }
-  .map-frame--maplibre .maplibregl-ctrl-top-right { top: 60px; right: 10px; z-index: 6; }
+  .map-frame--maplibre .maplibregl-ctrl-top-right { top: 10px; right: 10px; z-index: 6; }
   .map-posting-controls { right: 12px; bottom: 116px; left: 12px; justify-content: flex-end; }
   .map-post-hint { max-width: 170px; }
   .map-routing-boundary { right: 12px; bottom: 76px; left: 12px; max-width: none; }
   .map-frame__mode { display: none; }
-  .map-frame__topline { right: 14px; left: 14px; }
+  .map-frame__topline { gap: 12px; padding: 11px 14px 10px; }
   .map-filter-bar { gap: 7px; padding: 6px; }
   .map-filter-bar__status { width: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 1px; }
   .map-filter-bar__category { align-self: stretch; justify-content: space-between; }
@@ -735,9 +735,9 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
 @media (max-width: 780px) {
   .navara-map-frame, .navara-loading { min-height: 470px; height: 470px; }
   .navara-canvas { height: 470px; }
-  .navara-map-overlay { top: 101px; right: 14px; left: 14px; }
-  .navara-map-key { top: 145px; right: 14px; left: 14px; max-width: none; font-size: 10px; }
-  .navara-story { top: 179px; right: 14px; left: 14px; width: auto; padding: 10px 11px; }
+  .navara-map-overlay { top: 14px; right: 14px; left: 14px; }
+  .navara-map-key { top: 60px; right: 14px; left: 14px; max-width: none; font-size: 10px; }
+  .navara-story { top: 96px; right: 14px; left: 14px; width: auto; padding: 10px 11px; }
   .navara-story .eyebrow { font-size: 10px; }
   .navara-story h3 { font-size: 14px; }
   .navara-story p { margin-top: 5px; font-size: 11px; }
@@ -745,7 +745,7 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
   .navara-story__note { margin-top: 5px; font-size: 10px; }
   .navara-story__flow { display: none; }
   .navara-map-frame--walkthrough .navara-map-key { display: none; }
-  .navara-walkthrough-story { top: 178px; right: 14px; left: 14px; width: auto; padding: 10px 11px; }
+  .navara-walkthrough-story { top: 96px; right: 14px; left: 14px; width: auto; padding: 10px 11px; }
   .navara-walkthrough-story .eyebrow { font-size: 10px; }
   .navara-walkthrough-story h3 { font-size: 15px; }
   .navara-walkthrough-story p { margin-top: 5px; font-size: 11px; line-height: 1.45; }
@@ -923,10 +923,10 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
 .app-shell--simple .town-map,
 .app-shell--simple .navara-map-frame,
 .app-shell--simple .navara-canvas { height: 520px; min-height: 520px; }
-.app-shell--simple .map-frame__topline { top: 16px; right: 17px; left: 17px; }
-.app-shell--simple .map-frame__topline .eyebrow { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.45); font-size: 11px; letter-spacing: .08em; }
-.app-shell--simple .map-frame__title { color: #fff; font-family: inherit; font-size: 20px; font-weight: 750; text-shadow: 0 1px 4px rgba(0,0,0,.55); }
-.app-shell--simple .map-frame__mode { display: none; }
+.app-shell--simple .map-frame__topline { padding: 12px 17px 11px; background: #fff; }
+.app-shell--simple .map-frame__topline .eyebrow { color: var(--lime-dark); text-shadow: none; font-size: 11px; letter-spacing: .08em; }
+.app-shell--simple .map-frame__title { color: var(--paper); font-family: inherit; font-size: 20px; font-weight: 750; text-shadow: none; }
+.app-shell--simple .map-frame__mode { display: inline-flex; border-color: #c8dcd1; color: var(--text-dim); background: #f5fbf7; }
 .app-shell--simple .map-filter-toggle { min-height: 40px; border-color: #bed7c7; border-radius: 9px; padding: 8px 12px; color: var(--paper); background: #fff; font-size: 12px; }
 .app-shell--simple .map-filter-toggle:hover,
 .app-shell--simple .map-filter-toggle[aria-expanded="true"] { border-color: var(--lime); color: var(--lime-dark); background: #f0f7f2; }
@@ -1135,7 +1135,7 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
   .app-shell--simple .town-map,
   .app-shell--simple .navara-map-frame,
   .app-shell--simple .navara-canvas { height: 430px; min-height: 430px; }
-  .app-shell--simple .map-frame__topline { top: 13px; right: 12px; left: 12px; }
+  .app-shell--simple .map-frame__topline { padding: 10px 12px 9px; }
   .app-shell--simple .map-frame__title { font-size: 17px; }
   .app-shell--simple .map-filter-bar { padding: 6px; }
   .app-shell--simple .map-filter-bar__status { gap: 5px; overflow-x: auto; flex-wrap: nowrap; width: 100%; }
@@ -1239,15 +1239,16 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
 .map-side-panel__collapsed-trigger:hover, .map-side-panel__collapsed-trigger:focus-visible { border-color: var(--lime); color: var(--lime); }
 .map-experience.map-experience--focused { position: fixed; z-index: 80; inset: 0; display: flex; flex-direction: column; overflow: hidden; background: #0d1821; }
 .map-experience.map-experience--focused .map-experience__body { flex: 1; min-height: 0; overflow: hidden; }
-.map-experience.map-experience--focused .map-experience__map { min-height: 0; }
+.map-experience.map-experience--focused .map-experience__map { display: flex; min-height: 0; flex-direction: column; }
+.map-experience.map-experience--focused .map-experience__map > .map-surface,
 .map-experience.map-experience--focused .map-experience__map > .map-frame,
-.map-experience.map-experience--focused .map-experience__map > .map-experience__fallback,
-.map-experience.map-experience--focused .map-experience__fallback > .map-frame,
-.map-experience.map-experience--focused .map-frame,
+.map-experience.map-experience--focused .map-experience__fallback { display: flex; flex: 1 1 auto; min-height: 0; height: auto; }
+.map-experience.map-experience--focused .map-experience__fallback { flex-direction: column; }
+.map-experience.map-experience--focused .map-experience__fallback > .map-surface,
+.map-experience.map-experience--focused .map-experience__fallback > .map-frame { flex: 1 1 auto; min-height: 0; height: auto; }
+.map-experience.map-experience--focused .map-surface > .map-frame { flex: 1 1 auto; min-height: 0; height: auto; }
 .map-experience.map-experience--focused .town-map,
 .map-experience.map-experience--focused .maplibre-canvas,
-.map-experience.map-experience--focused .navara-map-frame,
-.map-experience.map-experience--focused .navara-loading,
 .map-experience.map-experience--focused .navara-canvas { min-height: 0; height: 100%; }
 .map-experience.map-experience--focused .map-side-panel { min-height: 0; border-top: 0; }
 .map-experience.map-experience--focused .map-surface-summary { display: none; }
@@ -1266,17 +1267,19 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
   .map-focus-header .map-filter-shell { order: 1; }
   .map-focus-header .map-focus-toggle { order: 2; }
   .map-experience__body--panel-open { display: block; position: relative; overflow: visible; }
-  .map-side-panel { position: absolute; z-index: 12; right: 0; bottom: 0; left: 0; height: auto; max-height: 54vh; overflow: hidden; border: 1px solid rgba(193,224,110,.28); border-radius: 16px 16px 0 0; box-shadow: 0 -14px 32px rgba(0,0,0,.22); }
+  .map-side-panel { position: absolute; z-index: 12; right: 0; bottom: 0; left: 0; height: auto; max-height: 36vh; max-height: 36dvh; overflow: hidden; border: 1px solid rgba(193,224,110,.28); border-radius: 16px 16px 0 0; box-shadow: 0 -14px 32px rgba(0,0,0,.22); padding-bottom: env(safe-area-inset-bottom); }
   .map-side-panel__head { min-height: 50px; padding: 7px 11px 7px 14px; }
-  .map-side-panel__content { max-height: calc(54vh - 50px); overflow: auto; padding: 12px 14px 18px; }
+  .map-side-panel__content { max-height: calc(36vh - 50px); max-height: calc(36dvh - 50px); overflow: auto; padding: 12px 14px calc(18px + env(safe-area-inset-bottom)); }
   .map-side-panel__collapsed-trigger { position: absolute; z-index: 11; right: 12px; bottom: 12px; left: 12px; display: flex; align-items: center; justify-content: space-between; min-height: 52px; border: 1px solid rgba(193,224,110,.4); border-radius: 12px; padding: 9px 13px; color: var(--paper); background: rgba(13,24,33,.94); box-shadow: 0 8px 20px rgba(0,0,0,.22); font-size: 11px; font-weight: 700; }
   .map-experience.map-experience--focused .map-experience__body { overflow: hidden; }
   .map-experience.map-experience--focused .map-experience__body--panel-open { display: block; }
-  .map-experience.map-experience--focused .map-side-panel { max-height: 52vh; }
-  .map-experience.map-experience--focused .map-side-panel__content { max-height: calc(52vh - 50px); }
+  .map-experience.map-experience--focused .map-side-panel { max-height: 36vh; max-height: 36dvh; }
+  .map-experience.map-experience--focused .map-side-panel__content { max-height: calc(36vh - 50px); max-height: calc(36dvh - 50px); }
+  .map-experience.map-experience--focused .map-experience__map > .map-surface,
   .map-experience.map-experience--focused .map-experience__map > .map-frame,
   .map-experience.map-experience--focused .map-experience__fallback,
-  .map-experience.map-experience--focused .map-experience__fallback > .map-frame { height: 100%; }
+  .map-experience.map-experience--focused .map-experience__fallback > .map-surface,
+  .map-experience.map-experience--focused .map-experience__fallback > .map-frame { height: auto; }
   .map-experience.map-experience--focused .map-side-panel__collapsed-trigger { bottom: 12px; }
   .map-side-panel .knowledge-detail-card__facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
@@ -1352,7 +1355,7 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
   .app-shell--simple .intro-copy p { line-height: 1.5; }
   .app-shell--simple .simple-map-actions { display: flex; justify-content: flex-end; margin: 10px 0 0; }
   .app-shell--simple .simple-map-actions .secondary-button { min-height: 40px; font-size: 12px; }
-  .app-shell--simple .navara-story { top: 176px; padding: 9px 10px; }
+  .app-shell--simple .navara-story { top: 96px; padding: 9px 10px; }
   .app-shell--simple .navara-story h3 { font-size: 14px; }
   .app-shell--simple .navara-story p { font-size: 11px; }
   .app-shell--simple .navara-story__detail { font-size: 11px; }
@@ -1370,11 +1373,79 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
 
 /* Keep compact DRILL/REPLAY surfaces full-height when they enter Focus Map;
    the legacy compact-height rules above remain unchanged outside focus. */
+.map-experience.map-experience--focused .map-experience__map > .map-surface,
 .map-experience.map-experience--focused .map-experience__map > .map-frame,
 .map-experience.map-experience--focused .map-experience__fallback,
+.map-experience.map-experience--focused .map-experience__fallback > .map-surface,
 .map-experience.map-experience--focused .map-experience__fallback > .map-frame,
-.map-experience.map-experience--focused .map-frame.map-frame--compact,
-.map-experience.map-experience--focused .map-frame.map-frame--compact .town-map,
-.map-experience.map-experience--focused .map-frame.map-frame--compact > .maplibre-canvas,
-.map-experience.map-experience--focused .map-frame.map-frame--compact .navara-canvas,
-.map-experience.map-experience--focused .navara-map-frame.map-frame--compact { min-height: 0 !important; height: 100% !important; }
+.map-experience.map-experience--focused .map-surface > .map-frame { min-height: 0 !important; height: auto !important; }
+.map-experience.map-experience--focused .map-surface > .map-frame > .town-map,
+.map-experience.map-experience--focused .map-surface > .map-frame > .maplibre-canvas,
+.map-experience.map-experience--focused .map-surface > .map-frame > .navara-canvas,
+.map-experience.map-experience--focused .map-frame.navara-loading { min-height: 0 !important; height: 100% !important; }
+
+/* Universal map visibility correction: the renderer header is part of the
+   surface flow, while the frame below it contains only the actual map. */
+.map-surface { position: relative; display: flex; flex: 0 0 auto; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; border: 1px solid rgba(223,240,229,.12); background: #14252b; box-shadow: var(--shadow); }
+.map-surface > .map-frame__topline { flex: 0 0 auto; }
+.map-surface > .map-frame { flex: 0 0 auto; border: 0; border-radius: 0; box-shadow: none; }
+.app-shell--simple .map-surface { border-color: #c6d8cd; border-radius: 18px; background: #dbe7df; box-shadow: var(--shadow); }
+.app-shell--simple .map-surface > .map-frame { border: 0; border-radius: 0; background: #dbe7df; box-shadow: none; }
+.app-shell--simple .map-surface > .map-frame__topline { border-bottom-color: #c6d8cd; border-radius: 17px 17px 0 0; }
+.app-shell--simple .map-only-toggle { min-height: 40px; border-color: #bed7c7; border-radius: 9px; color: var(--paper); background: #fff; font-size: 12px; }
+.app-shell--simple .map-only-toggle:hover, .app-shell--simple .map-only-toggle:focus-visible { border-color: var(--lime); color: var(--lime-dark); background: #f0f7f2; }
+.map-surface > .map-frame__topline .map-frame__mode { pointer-events: auto; }
+
+/* The header consumes its intrinsic height; the renderer fills the remaining
+   focus viewport instead of forcing a 100% canvas below the header. */
+.map-experience.map-experience--focused .map-experience__map > .map-surface,
+.map-experience.map-experience--focused .map-experience__fallback > .map-surface { flex: 1 1 auto; min-height: 0; }
+.map-experience.map-experience--focused .map-surface > .map-frame { flex: 1 1 auto; min-height: 0 !important; height: auto !important; }
+.map-only-toggle { display: inline-flex; gap: 6px; align-items: center; min-height: 32px; border: 1px solid rgba(193,224,110,.36); padding: 6px 10px; color: var(--lime); background: rgba(13,24,33,.72); font-size: 10px; font-weight: 700; letter-spacing: .03em; white-space: nowrap; }
+.map-only-toggle:hover, .map-only-toggle:focus-visible { border-color: var(--lime); color: var(--ink); background: var(--lime); }
+.map-only-toggle > span { font-size: 14px; line-height: .8; }
+
+/* Map only is presentation state. The map renderer and its attribution stay
+   mounted; explanatory chrome is removed from layout and accessibility tree. */
+.map-experience.map-experience--map-only .map-experience__toolbar,
+.map-experience.map-experience--map-only .map-focus-header,
+.map-experience.map-experience--map-only .map-frame__topline,
+.map-experience.map-experience--map-only .map-side-panel,
+.map-experience.map-experience--map-only .map-side-panel__collapsed-trigger,
+.map-experience.map-experience--map-only .map-frame__legend,
+.map-experience.map-experience--map-only .map-posting-controls,
+.map-experience.map-experience--map-only .map-inline-notice,
+.map-experience.map-experience--map-only .map-route-callout,
+.map-experience.map-experience--map-only .map-routing-boundary,
+.map-experience.map-experience--map-only .navara-map-key,
+.map-experience.map-experience--map-only .navara-story,
+.map-experience.map-experience--map-only .navara-walkthrough-story,
+.map-experience.map-experience--map-only .navara-map-overlay,
+.map-experience.map-experience--map-only .navara-advanced-panel,
+.map-experience.map-experience--map-only .navara-tour-controls { display: none; }
+.map-only-recovery { position: absolute; z-index: 30; top: 8px; right: 8px; display: flex; gap: 7px; align-items: center; pointer-events: none; }
+.map-only-recovery__button { display: inline-flex; gap: 6px; align-items: center; min-height: 31px; border: 1px solid rgba(193,224,110,.52); border-radius: 8px; padding: 6px 9px; color: var(--lime); background: rgba(13,24,33,.9); box-shadow: 0 6px 16px rgba(0,0,0,.2); font-size: 9px; font-weight: 700; white-space: nowrap; pointer-events: auto; }
+.map-only-recovery__button:hover, .map-only-recovery__button:focus-visible { border-color: var(--lime); color: var(--ink); background: var(--lime); }
+.map-only-recovery__button > span { font-size: 14px; line-height: .8; }
+.map-experience.map-experience--focused .map-only-recovery { top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); }
+.map-experience.map-experience--focused .map-focus-header { padding-top: max(10px, env(safe-area-inset-top)); padding-right: max(18px, env(safe-area-inset-right)); padding-left: max(18px, env(safe-area-inset-left)); }
+
+/* The actual map starts below the flow header, so renderer controls no
+   longer need the old title reservation. */
+.map-frame--maplibre .maplibregl-ctrl-top-right { top: 12px; }
+.navara-map-overlay { top: 20px; }
+.navara-map-key { top: 67px; }
+.navara-story, .navara-walkthrough-story { top: 105px; }
+
+@media (max-width: 780px) {
+  .map-surface > .map-frame__topline { gap: 12px; padding: 11px 14px 10px; }
+  .app-shell--simple .map-surface > .map-frame__topline { padding: 10px 12px 9px; }
+  .map-frame--maplibre .maplibregl-ctrl-top-right { top: 10px; }
+  .navara-map-overlay { top: 14px; }
+  .navara-map-key { top: 60px; }
+  .navara-story, .navara-walkthrough-story { top: 96px; }
+  .app-shell--simple .navara-story { top: 96px; }
+  .map-only-recovery { top: 8px; right: 8px; }
+  .map-experience.map-experience--focused .map-only-recovery { top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); left: auto; }
+  .map-experience.map-experience--focused .map-focus-header { padding-top: max(9px, env(safe-area-inset-top)); padding-right: max(12px, env(safe-area-inset-right)); padding-left: max(12px, env(safe-area-inset-left)); }
+}

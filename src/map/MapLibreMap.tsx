@@ -408,12 +408,12 @@ export function MapLibreMap({
   }
 
   return (
-    <>
+    <div className={`map-surface map-surface--${surface}`}>
+      <div className="map-frame__topline">
+        <div><span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'simple' ? t('map.simpleMode') : t('map.eyebrow')}</span><span className="map-frame__title">{surface === 'drill' ? t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title') : surface === 'replay' ? t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title') : t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span></div>
+        <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? t(provider === 'gsi' ? 'map.gsiMode' : 'map.globalMode') : t('map.simpleMode')}</span>
+      </div>
       <div className={`map-frame map-frame--maplibre map-frame--${surface}${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-basemap-provider={provider} data-basemap-mode={basemapMode} data-surface={surface}>
-        <div className="map-frame__topline">
-          <div><span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'simple' ? t('map.simpleMode') : t('map.eyebrow')}</span><span className="map-frame__title">{surface === 'drill' ? t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title') : surface === 'replay' ? t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title') : t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span></div>
-          <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? t(provider === 'gsi' ? 'map.gsiMode' : 'map.globalMode') : t('map.simpleMode')}</span>
-        </div>
         <div ref={mapContainer} className="maplibre-canvas" role="region" aria-label={t('map.knowledgeMapAlt')} aria-busy={!mapReady} />
       {surface === 'map' && <div className="map-posting-controls">
         <button type="button" className={`map-post-button${postingMode ? ' is-active' : ''}`} aria-pressed={postingMode} onClick={togglePostingMode}>
@@ -443,6 +443,6 @@ export function MapLibreMap({
       </div>}
       {mode === 'advanced' && <div className="map-routing-boundary" role="note">{t('map.routingBoundary')}</div>}
       </div>
-    </>
+    </div>
   )
 }

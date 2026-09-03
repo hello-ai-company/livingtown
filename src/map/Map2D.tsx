@@ -218,16 +218,15 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
   }
 
   return (
-    <>
-      <div className={`map-frame map-frame--${surface}${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-surface={surface}>
-        <div className="map-frame__topline">
-          <div>
-            <span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : t('map.simpleMode')}</span>
-            <span className="map-frame__title">{surface === 'drill' ? t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title') : surface === 'replay' ? t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title') : t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span>
-          </div>
-          <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? 'offline graph · MapLibre fallback' : t('map.fallbackMode')}</span>
+    <div className={`map-surface map-surface--${surface}`}>
+      <div className="map-frame__topline">
+        <div>
+          <span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : t('map.simpleMode')}</span>
+          <span className="map-frame__title">{surface === 'drill' ? t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title') : surface === 'replay' ? t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title') : t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span>
         </div>
-
+        <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? 'offline graph · MapLibre fallback' : t('map.fallbackMode')}</span>
+      </div>
+      <div className={`map-frame map-frame--${surface}${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-surface={surface}>
         <svg className="town-map" viewBox="0 0 900 540" role="region" aria-label={t('map.knowledgeMapAlt')} onClickCapture={handleMapClick}>
         <defs>
           <pattern id="map-grid" width="42" height="42" patternUnits="userSpaceOnUse">
@@ -349,7 +348,7 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
       )}
 
       </div>
-    </>
+    </div>
   )
 }
 

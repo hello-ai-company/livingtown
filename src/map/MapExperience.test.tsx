@@ -5,6 +5,7 @@ import type { ExperienceMode } from '../i18n'
 import type { TownSnapshot } from '../sim/types'
 import { MapExperience, type MapExperienceProps } from './MapExperience'
 import type { MapSurface } from './Map2D'
+import { NavaraMap3D } from '../map3d/NavaraMap3D'
 
 function snapshotWithRoute(): TownSnapshot {
   const repository = new LocalTownRepository({ persist: false })
@@ -70,6 +71,27 @@ describe('MapExperience presentation surfaces', () => {
     expect(markup.indexOf('map-filter-shell')).toBeLessThan(markup.indexOf('map-frame'))
     expect(markup).toContain('aria-controls="maplibre-filter-panel"')
     expect(markup).toContain('id="maplibre-filter-panel"')
+  })
+
+  it('renders the 2D title in normal flow above the map frame', () => {
+    const markup = renderMap('map', snapshotWithRoute(), 'advanced')
+
+    expect(markup.indexOf('map-frame__topline')).toBeLessThan(markup.indexOf('class="map-frame map-frame--maplibre'))
+  })
+
+  it('renders the 3D title in normal flow above the map frame', () => {
+    const markup = renderToStaticMarkup(<NavaraMap3D
+      snapshot={snapshotWithRoute()}
+      focusHouseholdId="h-wheelchair"
+      selectedKnowledgeId="k-flood-crosswalk"
+      camera={{ lng: 139.7611, lat: 35.6813, zoom: 14.5 }}
+      locale="en"
+      mode="advanced"
+      onBackTo2D={() => undefined}
+      onFallback={() => undefined}
+    />)
+
+    expect(markup.indexOf('map-frame__topline')).toBeLessThan(markup.indexOf('class="map-frame navara-map-frame'))
   })
 
   it('does not expose map filters in 3D', () => {
