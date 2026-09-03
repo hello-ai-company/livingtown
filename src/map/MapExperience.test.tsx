@@ -72,6 +72,13 @@ describe('MapExperience presentation surfaces', () => {
     expect(markup).toContain('id="maplibre-filter-panel"')
   })
 
+  it('does not expose map filters in 3D', () => {
+    const markup = renderMap('map', snapshotWithRoute(), 'advanced', { dimension: '3d' })
+
+    expect(markup).not.toContain('map-filter-shell')
+    expect(markup).not.toContain('id="maplibre-filter-panel"')
+  })
+
   it('renders selected knowledge in the side panel instead of over the map', () => {
     const markup = renderMap('map', snapshotWithRoute(), 'simple', { selectedKnowledgeId: 'k-flood-crosswalk' })
     const mapIndex = markup.indexOf('map-frame')

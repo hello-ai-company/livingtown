@@ -115,6 +115,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
   const [filterState, setFilterState] = useState<MapFilterState>(DEFAULT_MAP_FILTER_STATE)
   const previousDimension = useRef(dimension)
   const previousSelectedKnowledgeId = useRef(mapProps.selectedKnowledgeId)
+  const previousFocusOpen = useRef(focusOpen)
   const experienceRef = useRef<HTMLDivElement>(null)
   const expandFocusRef = useRef<HTMLButtonElement>(null)
   const closeFocusRef = useRef<HTMLButtonElement>(null)
@@ -187,6 +188,8 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
   }, [focusOpen])
 
   useEffect(() => {
+    if (previousFocusOpen.current === focusOpen) return
+    previousFocusOpen.current = focusOpen
     if (typeof window === 'undefined') return
     const frame = window.requestAnimationFrame(() => {
       if (focusOpen) closeFocusRef.current?.focus()
@@ -269,7 +272,8 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
   }
   const renderFallback = useCallback((reason?: string) => <BoundaryFallback reason={reason} locale={locale} onFallback={handleFallback} mapProps={rendererMapProps} camera={effectiveCamera} surface={surface} />, [clearKnowledge, effectiveCamera, handleFallback, locale, rendererMapProps, selectKnowledge, surface])
   const showDimensionSwitcher = mode === 'advanced' || dimension === '3d' || focusOpen
-  const panelContext = Boolean(selectedView) || hasRouteContext || (surface === 'map' && filterCount > 0)
+  const showMapFilters = surface === 'map' && dimension === '2d'
+  const panelContext = Boolean(selectedView) || hasRouteContext || (showMapFilters && filterCount > 0)
   const panelContextTab: MapFocusPanelTab = selectedView || hasRouteContext ? 'details' : 'filters'
 
   const dimensionSwitcher = showDimensionSwitcher && <div className="dimension-switcher" role="group" aria-label={t.dimension}>
@@ -279,7 +283,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
     </> : <button type="button" onClick={() => changeDimension('2d')}>{locale === 'en' ? 'Back to map' : '地図に戻る'}</button>}
   </div>
 
-  const filterToggle = surface === 'map' && <div className="map-filter-shell">
+  const filterToggle = showMapFilters && <div className="map-filter-shell">
     <button type="button" className="map-filter-toggle" aria-expanded={panelOpen && panelTab === 'filters'} aria-controls="maplibre-filter-panel" onClick={() => { setPanelTab('filters'); setPanelOpen(true) }}>
       <span>{t.filters}</span>{filterCount > 0 && <span className="map-filter-toggle__count"> · {filterCount}</span>}
     </button>
@@ -303,7 +307,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
             </Suspense>
           </ThreeDErrorBoundary> : <Map2D {...rendererMapProps} surface={surface} camera={effectiveCamera} onCameraChange={onCameraChange} />}
         </div>
-        {panelOpen && <MapFocusPanel tab={panelTab} selectedView={selectedView} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} surface={surface} locale={locale} mode={mode} filters={filterState} showFilters={surface === 'map'} onTabChange={(tab) => { setPanelTab(tab); setPanelOpen(true) }} onClose={() => setPanelOpen(false)} onClearSelection={clearKnowledge} onFilterStateChange={setFilterState} onVerifyKnowledge={mapProps.onVerifyKnowledge} onEditKnowledge={mapProps.onEditKnowledge} onDeleteKnowledge={mapProps.onDeleteKnowledge} />}
+        {panelOpen && <MapFocusPanel tab={panelTab} selectedView={selectedView} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} surface={surface} locale={locale} mode={mode} filters={filterState} showFilters={showMapFilters} onTabChange={(tab) => { setPanelTab(tab); setPanelOpen(true) }} onClose={() => setPanelOpen(false)} onClearSelection={clearKnowledge} onFilterStateChange={setFilterState} onVerifyKnowledge={mapProps.onVerifyKnowledge} onEditKnowledge={mapProps.onEditKnowledge} onDeleteKnowledge={mapProps.onDeleteKnowledge} />}
         {!panelOpen && panelContext && <button type="button" className="map-side-panel__collapsed-trigger" onClick={() => { setPanelTab(panelContextTab); setPanelOpen(true) }}>{panelContextTab === 'details' ? t.details : t.filters}{filterCount > 0 && panelContextTab === 'filters' && <span> · {filterCount}</span>}</button>}
       </div>
       {dimension !== '3d' && <MapSurfaceSummary surface={surface} mapProps={{ ...mapProps, focusHouseholdId: surface === 'replay' && mapProps.snapshot.replay.camera !== 'household' ? undefined : mapProps.focusHouseholdId }} />}
