@@ -113,6 +113,8 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
   const [panelOpen, setPanelOpen] = useState(() => Boolean(mapProps.selectedKnowledgeId) || (mapProps.mode === 'advanced' && surface === 'map') || (surface !== 'map' && Boolean(initialRoute)))
   const [panelTab, setPanelTab] = useState<MapFocusPanelTab>(() => mapProps.selectedKnowledgeId ? 'details' : mapProps.mode === 'advanced' && surface === 'map' ? 'filters' : 'details')
   const [filterState, setFilterState] = useState<MapFilterState>(DEFAULT_MAP_FILTER_STATE)
+  const previousDimension = useRef(dimension)
+  const previousSelectedKnowledgeId = useRef(mapProps.selectedKnowledgeId)
   const experienceRef = useRef<HTMLDivElement>(null)
   const expandFocusRef = useRef<HTMLButtonElement>(null)
   const closeFocusRef = useRef<HTMLButtonElement>(null)
@@ -157,13 +159,23 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
   }, [hasRouteContext, mapProps.selectedKnowledgeId, mode, surface])
 
   useEffect(() => {
+    const selectionChanged = previousSelectedKnowledgeId.current !== mapProps.selectedKnowledgeId
+    previousSelectedKnowledgeId.current = mapProps.selectedKnowledgeId
+    if (!selectionChanged) return
     if (mapProps.selectedKnowledgeId) {
       setPanelTab('details')
       setPanelOpen(true)
-    } else if (panelTab === 'details' && !hasRouteContext) {
+    } else if (!hasRouteContext) {
       setPanelOpen(false)
     }
-  }, [hasRouteContext, mapProps.selectedKnowledgeId, panelTab])
+  }, [hasRouteContext, mapProps.selectedKnowledgeId])
+
+  useEffect(() => {
+    if (previousDimension.current === dimension) return
+    previousDimension.current = dimension
+    setPanelTab('details')
+    setPanelOpen(false)
+  }, [dimension])
 
   useEffect(() => {
     if (typeof document === 'undefined' || !focusOpen) return
@@ -222,14 +234,13 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
       onDimensionChange('2d')
       return
     }
-    if (next === '3d' && dimension !== '3d') {
-      mapProps.onClearKnowledge?.()
+    if (next !== dimension) {
       setPanelTab('details')
       setPanelOpen(false)
     }
     persistMapDimension(next)
     onDimensionChange(next)
-  }, [capabilities.reason, dimension, mapProps.onClearKnowledge, onDimensionChange, onNotice, provider, t.unavailable])
+  }, [capabilities.reason, dimension, onDimensionChange, onNotice, provider, t.unavailable])
   const handleFallback = useCallback((reason?: string) => {
     persistMapDimension('2d')
     onDimensionChange('2d')
