@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { DEMO_AREA, DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES } from '../sim/graph'
+import { DEMO_AREA, DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES, getVisibleDemoGraph } from '../sim/graph'
 import type { Household, RouteResult, TownSnapshot } from '../sim/types'
 import { KnowledgeVisual } from './KnowledgeVisual'
 import { MapLibreMap } from './MapLibreMap'
@@ -100,7 +100,10 @@ function overlapOffset(view: KnowledgeVisualView, views: KnowledgeVisualView[]) 
   return { x: Math.cos(angle) * 18, y: Math.sin(angle) * 18 }
 }
 
-function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, locale = 'ja', mode = 'simple', surface = 'map', compact = false, filterState }: Map2DProps) {
+/**
+ * Exported for focused SVG framing tests. Map2D remains the public renderer.
+ */
+export function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, locale = 'ja', mode = 'simple', surface = 'map', compact = false, filterState }: Map2DProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
   const [internalFilters] = useState(DEFAULT_MAP_FILTER_STATE)
   const filters = filterState ?? internalFilters
@@ -110,19 +113,22 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
   const [transitioningKnowledgeIds, setTransitioningKnowledgeIds] = useState<Set<string>>(new Set())
   const [newKnowledgeIds, setNewKnowledgeIds] = useState<Set<string>>(new Set())
 
+  const selectedRoute = focusHouseholdId ? snapshot.routes[focusHouseholdId] : Object.values(snapshot.routes)[0]
+  const selectedHousehold = snapshot.households.find((household) => household.id === focusHouseholdId)
+  // Canonical framing: the long-distance extension only enlarges the canvas
+  // when the selected household/route actually belongs to it.
+  const visibleGraph = useMemo(() => getVisibleDemoGraph({ household: selectedHousehold, route: selectedRoute }), [selectedHousehold, selectedRoute])
+  const visibleNodeIds = useMemo(() => new Set(visibleGraph.nodes.map((node) => node.id)), [visibleGraph])
   const bounds = useMemo(() => {
-    const latitudes = [...DEMO_GRAPH_NODES.map((node) => node.lat), ...snapshot.knowledge.map((item) => item.lat), ...snapshot.bottlenecks.map((item) => item.lat)]
-    const longitudes = [...DEMO_GRAPH_NODES.map((node) => node.lng), ...snapshot.knowledge.map((item) => item.lng), ...snapshot.bottlenecks.map((item) => item.lng)]
+    const latitudes = [...visibleGraph.nodes.map((node) => node.lat), ...snapshot.knowledge.map((item) => item.lat), ...snapshot.bottlenecks.map((item) => item.lat)]
+    const longitudes = [...visibleGraph.nodes.map((node) => node.lng), ...snapshot.knowledge.map((item) => item.lng), ...snapshot.bottlenecks.map((item) => item.lng)]
     return {
       minLat: Math.min(...latitudes) - 0.00025,
       maxLat: Math.max(...latitudes) + 0.00025,
       minLng: Math.min(...longitudes) - 0.00025,
       maxLng: Math.max(...longitudes) + 0.00025,
     }
-  }, [snapshot.bottlenecks, snapshot.knowledge])
-
-  const selectedRoute = focusHouseholdId ? snapshot.routes[focusHouseholdId] : Object.values(snapshot.routes)[0]
-  const selectedHousehold = snapshot.households.find((household) => household.id === focusHouseholdId)
+  }, [snapshot.bottlenecks, snapshot.knowledge, visibleGraph])
   const nodeById = useMemo(() => new Map(DEMO_GRAPH_NODES.map((node) => [node.id, node])), [])
   const visualViews = useMemo(
     () => deriveKnowledgeVisuals(snapshot.knowledge, selectedRoute),
@@ -242,7 +248,7 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
         <path d="M-30 120 C150 95 230 180 390 135 S690 80 930 128" fill="none" stroke="rgba(132, 164, 163, 0.12)" strokeWidth="26" />
         <path d="M-30 120 C150 95 230 180 390 135 S690 80 930 128" fill="none" stroke="rgba(166, 205, 193, 0.22)" strokeWidth="2" strokeDasharray="8 8" />
 
-        {DEMO_GRAPH_EDGES.map((edge) => {
+        {visibleGraph.edges.map((edge) => {
           const from = nodeById.get(edge.from)
           const to = nodeById.get(edge.to)
           if (!from || !to) return null
@@ -261,7 +267,7 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
           return <line key={`${view.item.id}-${edgeId}`} className="map-knowledge-connector" x1={fromPoint.x} y1={fromPoint.y} x2={toPoint.x} y2={toPoint.y} />
         }))}
 
-        {DEMO_GRAPH_NODES.map((node) => {
+        {visibleGraph.nodes.map((node) => {
           const point = MapPoint({ lat: node.lat, lng: node.lng, bounds })
           const isShelter = node.id === 'shelter'
           const isCrossing = node.id === 'crossing'
@@ -297,6 +303,9 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
 
         {snapshot.households.map((household) => {
           const node = nearestNodeForHousehold(household)
+          // Households on the hidden long-distance extension stay hidden with
+          // it in the canonical framing.
+          if (!visibleNodeIds.has(node.id)) return null
           const point = MapPoint({ lat: node.lat, lng: node.lng, bounds })
           const selected = household.id === focusHouseholdId
           return (

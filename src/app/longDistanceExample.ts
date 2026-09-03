@@ -33,6 +33,19 @@ export function isLongDistanceDemoHousehold(household: Household): boolean {
 }
 
 /**
+ * Identity of the long-distance example household. The example action is
+ * idempotent: it reuses an existing matching household instead of registering
+ * another temporary one on every click.
+ */
+export function findLongDistanceDemoHousehold(households: Household[]): Household | undefined {
+  return households.find((household) =>
+    household.location_scope === 'temporary_drill' &&
+    household.constraints.includes('wheelchair') &&
+    isLongDistanceDemoHousehold(household),
+  )
+}
+
+/**
  * Resolves the displayed household name. Unlabeled temporary households on the
  * long-distance origin show the privacy-safe demo label; every other
  * household keeps its existing label or fallback unchanged.

@@ -118,6 +118,25 @@ export const DEMO_GRAPH_NODES: GraphNode[] = [...CANONICAL_GRAPH_NODES, ...LONG_
 
 export const DEMO_GRAPH_EDGES: GraphEdge[] = [...CANONICAL_GRAPH_EDGES, ...LONG_DISTANCE_GRAPH_EDGES]
 
+export interface VisibleDemoGraphInput {
+  household?: { start_lat: number; start_lng: number }
+  route?: { route: { coordinates: [number, number][] } }
+}
+
+/**
+ * Presentation-only helper for map renderers. The canonical demo keeps its
+ * original framing, so the long-distance extension becomes visible only when
+ * the selected household or route actually belongs to it. Routing always uses
+ * DEMO_GRAPH_NODES / DEMO_GRAPH_EDGES and is unaffected by this helper.
+ */
+export function getVisibleDemoGraph(input: VisibleDemoGraphInput): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const origin = LONG_DISTANCE_GRAPH_NODES[0]
+  const householdOnOrigin = Boolean(input.household && input.household.start_lat === origin.lat && input.household.start_lng === origin.lng)
+  const routeThroughOrigin = Boolean(input.route?.route.coordinates.some(([lng, lat]) => lng === origin.lng && lat === origin.lat))
+  if (householdOnOrigin || routeThroughOrigin) return { nodes: DEMO_GRAPH_NODES, edges: DEMO_GRAPH_EDGES }
+  return { nodes: CANONICAL_GRAPH_NODES, edges: CANONICAL_GRAPH_EDGES }
+}
+
 export const DEMO_AREA = {
   name: 'LivingTown デモエリア',
   center: { lat: 35.6813, lng: 139.7611 },

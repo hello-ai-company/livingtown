@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEMO_HOUSEHOLDS, DEMO_KNOWLEDGE } from '../data/demoData'
 import { LocalTownRepository } from '../data/supabase'
-import { DEMO_AREA, DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES, LONG_DISTANCE_ORIGIN_NODE_ID } from './graph'
+import { DEMO_AREA, DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES, getVisibleDemoGraph, LONG_DISTANCE_ORIGIN_NODE_ID } from './graph'
 import { calculateEvacuationRoute } from './route'
 import type { Knowledge } from './types'
 
@@ -153,6 +153,41 @@ describe('long-distance drill example route', () => {
     expect(result.route.coordinates.at(-1)).toEqual(SHELTER_COORDINATE)
     // Reuses the canonical flood detour (home → south → east → shelter).
     expect(result.route.coordinates).toEqual(expect.arrayContaining([[139.7600, 35.6810], [139.7605, 35.6804], [139.7621, 35.6809], SHELTER_COORDINATE]))
+  })
+})
+
+describe('visible demo graph (map framing only)', () => {
+  it('keeps the canonical framing for canonical households and routes', () => {
+    const canonicalRoute = calculateEvacuationRoute({
+      household: wheelchairHousehold(),
+      knowledge: canonicalRunbookKnowledge(),
+      scenario: 'flood',
+      weather: 'rain',
+      time_of_day: 'day',
+    })
+
+    const byHousehold = getVisibleDemoGraph({ household: wheelchairHousehold() })
+    expect(byHousehold.nodes.map((node) => node.id)).toEqual(CANONICAL_NODE_IDS)
+    expect(byHousehold.edges).toHaveLength(Object.keys(CANONICAL_EDGE_LENGTHS).length)
+
+    const byRoute = getVisibleDemoGraph({ route: canonicalRoute })
+    expect(byRoute.nodes.map((node) => node.id)).toEqual(CANONICAL_NODE_IDS)
+    expect(byRoute.edges).toHaveLength(Object.keys(CANONICAL_EDGE_LENGTHS).length)
+  })
+
+  it('reveals the long-distance extension only for long-distance households or routes', () => {
+    const origin = DEMO_GRAPH_NODES.find((node) => node.id === LONG_DISTANCE_ORIGIN_NODE_ID)!
+    const { repository, household } = registerLongDistanceHousehold()
+    runCanonicalDemo(repository)
+    const longRoute = repository.getEvacuationRoute({ household_id: household.id, scenario: 'flood', weather: 'rain', time_of_day: 'day' })
+
+    const byHousehold = getVisibleDemoGraph({ household: { start_lat: origin.lat, start_lng: origin.lng } })
+    expect(byHousehold.nodes).toHaveLength(DEMO_GRAPH_NODES.length)
+    expect(byHousehold.edges).toHaveLength(DEMO_GRAPH_EDGES.length)
+
+    const byRoute = getVisibleDemoGraph({ route: longRoute })
+    expect(byRoute.nodes).toHaveLength(DEMO_GRAPH_NODES.length)
+    expect(byRoute.edges).toHaveLength(DEMO_GRAPH_EDGES.length)
   })
 })
 

@@ -21,7 +21,7 @@ import { getToolDefinitions } from '../webmcp/tools'
 import { resolveVerificationTargetId } from './verificationTarget'
 import { routeInputsForMode, type RouteInputs } from './routeInputs'
 import { LongDistanceExampleAction } from './LongDistanceExampleAction'
-import { householdDisplayLabel, LONG_DISTANCE_EXAMPLE_ROUTE_INPUTS, longDistanceExampleHouseholdInput } from './longDistanceExample'
+import { findLongDistanceDemoHousehold, householdDisplayLabel, LONG_DISTANCE_EXAMPLE_ROUTE_INPUTS, longDistanceExampleHouseholdInput } from './longDistanceExample'
 import { useTranslator, useUiPreferences, type ExperienceMode, type Locale, type Translator } from '../i18n'
 import { DEFAULT_TOKYO_CAMERA } from '../map3d/navaraCamera'
 import { getNavaraCapabilities, resolveInitialMapDimension, persistMapDimension } from '../map3d/navaraCapabilities'
@@ -298,7 +298,12 @@ function AppShell() {
   }
 
   const applyLongDistanceExample = async () => {
-    const result = await runTool('register_household', longDistanceExampleHouseholdInput()) as { household_id?: string } | undefined
+    // Idempotent: reuse the existing long-distance example household instead
+    // of registering another temporary one on every click.
+    const existing = findLongDistanceDemoHousehold(snapshot.households)
+    const result = existing
+      ? { household_id: existing.id }
+      : await runTool('register_household', longDistanceExampleHouseholdInput()) as { household_id?: string } | undefined
     if (!result?.household_id) return
     setSelectedHouseholdId(result.household_id)
     handleRouteInputsChange(LONG_DISTANCE_EXAMPLE_ROUTE_INPUTS)
