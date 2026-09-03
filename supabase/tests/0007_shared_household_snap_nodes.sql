@@ -30,7 +30,10 @@ select throws_ok(
 reset role;
 
 -- Transaction-local Auth fixture, mirroring the 0005/0006 pattern. These are
--- not user data and are rolled back with the transaction.
+-- not user data and are rolled back with the transaction. The RPC is
+-- exercised as the migration role with transaction-local JWT claims —
+-- register_household is SECURITY DEFINER and resolves the caller through
+-- auth.uid(), so a role switch is not required.
 create temporary table phase1000_fixture_users (label text primary key, id uuid not null);
 insert into phase1000_fixture_users (label, id)
 values ('snap-owner', gen_random_uuid());
@@ -39,7 +42,6 @@ insert into auth.users (id, instance_id, aud, role, email, encrypted_password, e
 select id, '00000000-0000-0000-0000-000000000000'::uuid, 'authenticated', 'authenticated', label || '@example.invalid', '', now(), '{}'::jsonb, '{}'::jsonb, now(), now()
 from phase1000_fixture_users;
 
-set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', (select id::text from phase1000_fixture_users where label = 'snap-owner'), 'role', 'authenticated')::text, true);
 
 -- Register one household per snap case: the four long-distance nodes on
