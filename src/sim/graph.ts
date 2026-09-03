@@ -4,7 +4,7 @@ import type { GraphEdge, GraphNode } from './types'
  * A small deterministic walking graph for the challenge demo area.
  * Runtime routing never calls an external map service.
  */
-export const DEMO_GRAPH_NODES: GraphNode[] = [
+const CANONICAL_GRAPH_NODES: GraphNode[] = [
   { id: 'home', lat: 35.6810, lng: 139.7600, label: '出発地点' },
   { id: 'south', lat: 35.6804, lng: 139.7605, label: '南側の路地' },
   { id: 'crossing', lat: 35.6811, lng: 139.7610, label: '駅前の横断歩道' },
@@ -13,7 +13,7 @@ export const DEMO_GRAPH_NODES: GraphNode[] = [
   { id: 'shelter', lat: 35.6825, lng: 139.7620, label: '高台の避難所' },
 ]
 
-export const DEMO_GRAPH_EDGES: GraphEdge[] = [
+const CANONICAL_GRAPH_EDGES: GraphEdge[] = [
   {
     id: 'home-crossing',
     from: 'home',
@@ -65,6 +65,58 @@ export const DEMO_GRAPH_EDGES: GraphEdge[] = [
     label: '大通り沿い',
   },
 ]
+
+/**
+ * Optional long-distance drill example. These nodes extend the graph only on
+ * the west side, from a new distant origin toward the existing 'home' node.
+ * Labels are generic on purpose: no real road names are invented. Every node
+ * stays inside DEMO_AREA and every new edge keeps more than the 35 m
+ * knowledge-matching radius of route.ts away from all existing knowledge, so
+ * canonical routes that start at 'home' can never change.
+ */
+export const LONG_DISTANCE_ORIGIN_NODE_ID = 'long_home'
+
+const LONG_DISTANCE_GRAPH_NODES: GraphNode[] = [
+  { id: 'long_home', lat: 35.6816, lng: 139.7524, label: '遠距離デモ出発地点' },
+  { id: 'long_residential', lat: 35.6812, lng: 139.7536, label: '西側住宅エリア' },
+  { id: 'long_junction', lat: 35.6790, lng: 139.7550, label: '大通り手前' },
+  { id: 'long_approach', lat: 35.6802, lng: 139.7580, label: '避難ルート合流点' },
+]
+
+const LONG_DISTANCE_GRAPH_EDGES: GraphEdge[] = [
+  {
+    id: 'longhome-residential',
+    from: 'long_home',
+    to: 'long_residential',
+    length_m: 115,
+    label: '西側の住宅街',
+  },
+  {
+    id: 'residential-junction',
+    from: 'long_residential',
+    to: 'long_junction',
+    length_m: 275,
+    label: '大通り手前へ',
+  },
+  {
+    id: 'junction-approach',
+    from: 'long_junction',
+    to: 'long_approach',
+    length_m: 300,
+    label: '大通り沿いの歩道',
+  },
+  {
+    id: 'approach-home',
+    from: 'long_approach',
+    to: 'home',
+    length_m: 200,
+    label: '出発地点への合流',
+  },
+]
+
+export const DEMO_GRAPH_NODES: GraphNode[] = [...CANONICAL_GRAPH_NODES, ...LONG_DISTANCE_GRAPH_NODES]
+
+export const DEMO_GRAPH_EDGES: GraphEdge[] = [...CANONICAL_GRAPH_EDGES, ...LONG_DISTANCE_GRAPH_EDGES]
 
 export const DEMO_AREA = {
   name: 'LivingTown デモエリア',

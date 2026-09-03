@@ -2,6 +2,7 @@ import { DEMO_GRAPH_EDGES } from '../sim/graph'
 import { deriveKnowledgeVisuals } from './knowledgeVisuals'
 import type { Household, RouteResult, TownSnapshot } from '../sim/types'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
+import { householdDisplayLabel } from '../app/longDistanceExample'
 
 interface ReplayKnowledgePanelProps {
   snapshot: TownSnapshot
@@ -22,7 +23,7 @@ export function ReplayKnowledgePanel({ snapshot, selectedRoute, selectedHousehol
     <section className="replay-knowledge-panel" aria-labelledby="replay-knowledge-title">
       <div className="replay-knowledge-panel__head">
         <div><span className="eyebrow">{t('replay.knowledgeEyebrow')}</span><h3 id="replay-knowledge-title">{t(mode === 'simple' ? 'replay.simpleKnowledgeTitle' : 'replay.knowledgeTitle')}</h3></div>
-        <div className="replay-knowledge-panel__head-meta"><span>{selectedHousehold?.label ?? t('common.selectedHousehold')}</span><strong>{influential.length}<small> {t('replay.influential')}</small></strong></div>
+        <div className="replay-knowledge-panel__head-meta"><span>{householdDisplayLabel(selectedHousehold, t, t('common.selectedHousehold'))}</span><strong>{influential.length}<small> {t('replay.influential')}</small></strong></div>
       </div>
       {influential.length > 0 ? (
         <div className="replay-knowledge-panel__list">

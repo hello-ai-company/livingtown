@@ -2,6 +2,7 @@ import type { Household, Knowledge } from '../sim/types'
 import { DEMO_GRAPH_EDGES } from '../sim/graph'
 import { getKnowledgeSafeDescription, type KnowledgeVisualView } from './knowledgeVisuals'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
+import { householdDisplayLabel } from '../app/longDistanceExample'
 import { isSensitiveObservation } from '../observations/observationPolicy'
 
 interface KnowledgeDetailCardProps {
@@ -20,7 +21,7 @@ export function KnowledgeDetailCard({ view, selectedHousehold, onClose, locale =
   const { item, config } = view
   const routeImpact = view.affectsCurrentRoute
   const affectedEdges = view.affectedEdgeIds.map((edgeId) => DEMO_GRAPH_EDGES.find((edge) => edge.id === edgeId)).filter((edge): edge is (typeof DEMO_GRAPH_EDGES)[number] => Boolean(edge))
-  const householdLabel = selectedHousehold?.label ?? (selectedHousehold ? t('common.anonymousHousehold') : t('common.none'))
+  const householdLabel = householdDisplayLabel(selectedHousehold, t, selectedHousehold ? t('common.anonymousHousehold') : t('common.none'))
   const householdConstraints = selectedHousehold?.constraints.map((constraint) => t(`constraint.${constraint}`)).join(' · ') || t('common.none')
   const statusLabel = item.source_kind === 'official'
     ? t('trust.official')

@@ -23,6 +23,7 @@ import {
 } from './knowledgeVisuals'
 import type { Map2DProps } from './Map2D'
 import { DEFAULT_MAP_FILTER_STATE, type MapFilterState } from './mapFilters'
+import { householdDisplayLabel } from '../app/longDistanceExample'
 import {
   createAvoidedEdgeFeatureCollection,
   createBottleneckFeatureCollection,
@@ -89,7 +90,7 @@ function createOverlayData(
     knowledge: createKnowledgeFeatureCollection(visibleViews, selectedKnowledgeId, (category) => categoryLabel(category, t)),
     route: createRouteFeatureCollection(selectedRoute),
     avoided: createAvoidedEdgeFeatureCollection(selectedRoute),
-    households: createHouseholdFeatureCollection(snapshot.households, focusHouseholdId, (household) => household.label ?? t('common.anonymousHousehold')),
+    households: createHouseholdFeatureCollection(snapshot.households, focusHouseholdId, (household) => householdDisplayLabel(household, t)),
     bottlenecks: surface !== 'map' || ((filters.category === 'all' || filters.category === 'bottleneck') && filters.status === 'all')
       ? createBottleneckFeatureCollection(snapshot.bottlenecks, getBottleneckLabel)
       : createBottleneckFeatureCollection([], getBottleneckLabel),
@@ -438,7 +439,7 @@ export function MapLibreMap({
         </div>}
       </div>
       {surface === 'map' && selectedRoute && <div className={`map-route-callout${selectedView ? ' map-route-callout--hidden' : ''}`}>
-        <div><span className="eyebrow">{t(mode === 'simple' ? 'map.simpleRouteNow' : 'map.routeNow')}</span><strong>{selectedHousehold?.label ?? t('common.selectedHousehold')} · {selectedRoute.eta_minutes} min</strong></div>
+        <div><span className="eyebrow">{t(mode === 'simple' ? 'map.simpleRouteNow' : 'map.routeNow')}</span><strong>{householdDisplayLabel(selectedHousehold, t, t('common.selectedHousehold'))} · {selectedRoute.eta_minutes} min</strong></div>
         <span>{selectedRoute.avoided.length > 0 ? t('map.routeApplied', { count: selectedRoute.avoided.length, edges: selectedRoute.avoided.flatMap((item) => item.edge_ids).length }) : t('map.routeReady')}</span>
       </div>}
       {mode === 'advanced' && <div className="map-routing-boundary" role="note">{t('map.routingBoundary')}</div>}

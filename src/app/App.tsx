@@ -20,6 +20,8 @@ import type { RegistryStatus } from '../webmcp/register'
 import { getToolDefinitions } from '../webmcp/tools'
 import { resolveVerificationTargetId } from './verificationTarget'
 import { routeInputsForMode, type RouteInputs } from './routeInputs'
+import { LongDistanceExampleAction } from './LongDistanceExampleAction'
+import { householdDisplayLabel, LONG_DISTANCE_EXAMPLE_ROUTE_INPUTS, longDistanceExampleHouseholdInput } from './longDistanceExample'
 import { useTranslator, useUiPreferences, type ExperienceMode, type Locale, type Translator } from '../i18n'
 import { DEFAULT_TOKYO_CAMERA } from '../map3d/navaraCamera'
 import { getNavaraCapabilities, resolveInitialMapDimension, persistMapDimension } from '../map3d/navaraCapabilities'
@@ -295,6 +297,14 @@ function AppShell() {
     }
   }
 
+  const applyLongDistanceExample = async () => {
+    const result = await runTool('register_household', longDistanceExampleHouseholdInput()) as { household_id?: string } | undefined
+    if (!result?.household_id) return
+    setSelectedHouseholdId(result.household_id)
+    handleRouteInputsChange(LONG_DISTANCE_EXAMPLE_ROUTE_INPUTS)
+    setNotice(t('notice.longDemoRegistered'))
+  }
+
   const selectPhaseAndFocusHousehold = (householdId: string) => {
     setSelectedHouseholdId(householdId)
   }
@@ -496,7 +506,7 @@ function AppShell() {
               {panel === 'map' && mode === 'simple' && <AroundYouNow repository={townRepository} camera={mapCamera} locale={locale} mode={mode} refreshKey={snapshot.knowledge.map((item) => `${item.id}:${item.updated_at ?? item.created_at}:${item.agree_count}:${item.disagree_count}`).join('|')} onSelectKnowledge={(knowledgeId) => { setSelectedKnowledgeId(knowledgeId); transitionTo('map') }} />}
               {panel === 'map' && observationComposerOpen && <ObservationComposer locale={locale} mode={mode} location={observationMapLocation ?? observationCurrentLocation ?? { lat: mapCamera.lat, lng: mapCamera.lng }} locationSource={observationMapLocation ? 'map' : observationCurrentLocation ? 'current' : observationLocationSource} onRequestLocationChange={() => { setObservationMapLocation(undefined); setObservationLocationSource(observationCurrentLocation ? 'current' : 'center'); setLocationPickerActive(true) }} onSubmit={submitKnowledge} lastPostedKnowledgeId={lastKnowledgeId} onUndo={() => void undoLastObservation()} />}
               {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
-              {panel === 'drill' && <DrillStage mapProps={mapExperienceProps} snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={handleRouteInputsChange} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} />}
+              {panel === 'drill' && <DrillStage mapProps={mapExperienceProps} snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={handleRouteInputsChange} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} onLongDistanceExample={() => void applyLongDistanceExample()} />}
               {panel === 'replay' && <ReplayStage mapProps={mapExperienceProps} snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} onView3D={open3D} />}
               {panel === 'admin' && <AdminStage registry={registry} phase={phase} phaseMeta={phaseMeta} locale={locale} mode={mode} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} repositoryStatus={repositoryStatus} onRetry={() => { void townRepository.retry().catch((error) => setNotice(error instanceof Error ? error.message : (locale === 'ja' ? 'Supabaseの再接続に失敗しました。' : 'Supabase reconnect failed.'))) }} onFallbackToLocal={switchToLocalDemo} />}
             </>}
@@ -584,11 +594,12 @@ interface DrillStageProps {
   onView3D: () => void
   onRunTool: (name: string, input: unknown) => Promise<unknown>
   onRegisterHousehold: () => void
+  onLongDistanceExample: () => void
   locale: Locale
   mode: ExperienceMode
 }
 
-function DrillStage({ mapProps, snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onView3D, onRunTool, onRegisterHousehold, locale, mode }: DrillStageProps) {
+function DrillStage({ mapProps, snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onView3D, onRunTool, onRegisterHousehold, onLongDistanceExample, locale, mode }: DrillStageProps) {
   const t = useTranslator(locale)
   return (
     <section className={`stage-panel stage-panel--${mode}`}>
@@ -601,15 +612,17 @@ function DrillStage({ mapProps, snapshot, selectedHouseholdId, selectedHousehold
         <li><span>03</span><strong>{t('drill.simpleStepRoute')}</strong></li>
       </ol>}
 
+      {mode === 'simple' && <LongDistanceExampleAction locale={locale} mode={mode} onApply={onLongDistanceExample} />}
+
       {snapshot.households.length > 0 ? <div className="household-strip">
         {snapshot.households.map((household) => {
           const selected = household.id === selectedHouseholdId
-          return <button key={household.id} type="button" className={`household-chip${selected ? ' household-chip--selected' : ''}`} aria-pressed={selected} onClick={() => onSelectHousehold(household.id)}><span className="household-chip__avatar" aria-hidden="true">{mode === 'simple' ? (SIMPLE_CONSTRAINT_ICONS[household.constraints[0]] ?? '•') : household.constraints.includes('wheelchair') ? 'A' : household.constraints.includes('infant') ? 'B' : 'C'}</span><span><strong>{household.label ?? t('common.anonymousHousehold')}</strong><small>{household.constraints.length ? household.constraints.map((item) => mode === 'simple' ? `${SIMPLE_CONSTRAINT_ICONS[item] ?? ''} ${t(`constraint.${item}`)}`.trim() : t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></span></button>
+          return <button key={household.id} type="button" className={`household-chip${selected ? ' household-chip--selected' : ''}`} aria-pressed={selected} onClick={() => onSelectHousehold(household.id)}><span className="household-chip__avatar" aria-hidden="true">{mode === 'simple' ? (SIMPLE_CONSTRAINT_ICONS[household.constraints[0]] ?? '•') : household.constraints.includes('wheelchair') ? 'A' : household.constraints.includes('infant') ? 'B' : 'C'}</span><span><strong>{householdDisplayLabel(household, t)}</strong><small>{household.constraints.length ? household.constraints.map((item) => mode === 'simple' ? `${SIMPLE_CONSTRAINT_ICONS[item] ?? ''} ${t(`constraint.${item}`)}`.trim() : t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></span></button>
         })}
       </div> : <div className="empty-households"><div><strong>{t('drill.registerTitle')}</strong><p>{t('drill.registerBody')}</p></div><button type="button" className="secondary-button" onClick={onRegisterHousehold}>{t('drill.registerButton')} <span>+</span></button></div>}
 
       <div className={`route-controls${mode === 'simple' ? ' route-controls--simple' : ''}`}>
-        <div className="route-controls__title"><span className="eyebrow">{mode === 'advanced' ? 'SCENARIO INPUT' : t('drill.simpleStepLabel')}</span><strong>{selectedHousehold?.label ?? t('common.selectedHousehold')} · {locale === 'ja' ? '避難条件' : 'evacuation conditions'}</strong></div>
+        <div className="route-controls__title"><span className="eyebrow">{mode === 'advanced' ? 'SCENARIO INPUT' : t('drill.simpleStepLabel')}</span><strong>{householdDisplayLabel(selectedHousehold, t, t('common.selectedHousehold'))} · {locale === 'ja' ? '避難条件' : 'evacuation conditions'}</strong></div>
         <label htmlFor="drill-scenario">{t('drill.scenario')}<select id="drill-scenario" name="scenario" value={routeInputs.scenario} onChange={(event) => onChangeRouteInputs({ ...routeInputs, scenario: event.target.value as 'earthquake' | 'flood' })}><option value="flood">{mode === 'simple' ? t('drill.heavyRainFlood') : t('drill.flood')}</option><option value="earthquake">{t('drill.earthquake')}</option></select></label>
         {mode === 'advanced' && <>
           <label htmlFor="drill-weather">{t('drill.weather')}<select id="drill-weather" name="weather" value={routeInputs.weather} onChange={(event) => onChangeRouteInputs({ ...routeInputs, weather: event.target.value as 'clear' | 'rain' })}><option value="rain">{t('drill.rain')}</option><option value="clear">{t('drill.clear')}</option></select></label>
@@ -654,11 +667,11 @@ function ReplayStage({ mapProps, snapshot, selectedHouseholdId, selectedRoute, l
       <div className="stage-panel__head"><div><span className="eyebrow">{mode === 'simple' ? t('phase.replay.label') : t('replay.eyebrow')}</span><h2>{t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title')}</h2></div><span className="stage-panel__count">{snapshot.bottlenecks.length}<small> {t('replay.bottlenecks')}</small></span></div>
       <p className="stage-lead">{t(mode === 'simple' ? 'replay.simpleLead' : 'replay.lead')}</p>
       <div className="replay-toolbar"><span className="replay-toolbar__status"><span className={`status-dot${snapshot.replay.is_playing ? ' status-dot--live' : ''}`} />{snapshot.replay.is_playing ? t('replay.playing') : t('replay.paused')}{mode === 'advanced' && ` · ${snapshot.replay.camera}`}</span><div><button type="button" className="icon-button" onClick={() => runReplay({ action: 'overview' })} aria-label={t('replay.overview')}>◎</button><button type="button" className="icon-button" onClick={() => runReplay({ action: 'pause' })} aria-label={t('replay.pause')}>Ⅱ</button><button type="button" className="icon-button" onClick={() => runReplay({ action: 'resume' })} aria-label={t('replay.resume')}>▶</button></div></div>
-      <div className="replay-focus-row"><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleFocus' : 'replay.focus')}</span>{snapshot.households.map((household) => <button key={household.id} type="button" className={`focus-button${household.id === selectedHouseholdId ? ' focus-button--active' : ''}`} aria-pressed={household.id === selectedHouseholdId} onClick={() => { onSelectHousehold(household.id); runReplay({ action: 'replay_route', target_id: household.id }) }}>{household.label ?? t('common.anonymousHousehold')} <small>{household.constraints.length ? household.constraints.map((item) => mode === 'simple' ? `${SIMPLE_CONSTRAINT_ICONS[item] ?? ''} ${t(`constraint.${item}`)}`.trim() : t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></button>)}</div>
+      <div className="replay-focus-row"><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleFocus' : 'replay.focus')}</span>{snapshot.households.map((household) => <button key={household.id} type="button" className={`focus-button${household.id === selectedHouseholdId ? ' focus-button--active' : ''}`} aria-pressed={household.id === selectedHouseholdId} onClick={() => { onSelectHousehold(household.id); runReplay({ action: 'replay_route', target_id: household.id }) }}>{householdDisplayLabel(household, t)} <small>{household.constraints.length ? household.constraints.map((item) => mode === 'simple' ? `${SIMPLE_CONSTRAINT_ICONS[item] ?? ''} ${t(`constraint.${item}`)}`.trim() : t(`constraint.${item}`)).join(' · ') : t('common.none')}</small></button>)}</div>
       <MapExperience {...mapProps} focusHouseholdId={snapshot.replay.selected_household_id ?? selectedHouseholdId} surface="replay" compact />
       <Replay3D snapshot={snapshot} locale={locale} mode={mode} onView3D={onView3D} />
       <ReplayKnowledgePanel snapshot={snapshot} selectedRoute={selectedRoute} selectedHousehold={selectedHousehold} locale={locale} mode={mode} onSelectKnowledge={onSelectKnowledge} />
-      <div className="replay-summary-row"><div><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleDebrief' : 'replay.debrief')}</span><strong>{t('replay.trainingLog', { label: selectedHousehold?.label ?? t('common.selectedHousehold') })}</strong><p>{selectedRoute ? t(mode === 'simple' ? 'replay.simpleSummaryWithRoute' : 'replay.summaryWithRoute', { minutes: selectedRoute.eta_minutes, count: selectedRoute.avoided.length }) : t('replay.summaryEmpty')}</p></div><button type="button" className="secondary-button" onClick={() => { setSummaryRequested(true); void onRunTool('get_debrief_summary', {}) }}>{t(mode === 'simple' ? 'replay.simpleRefreshSummary' : 'replay.refreshSummary')} <span>↗</span></button></div>
+      <div className="replay-summary-row"><div><span className="eyebrow">{t(mode === 'simple' ? 'replay.simpleDebrief' : 'replay.debrief')}</span><strong>{t('replay.trainingLog', { label: householdDisplayLabel(selectedHousehold, t, t('common.selectedHousehold')) })}</strong><p>{selectedRoute ? t(mode === 'simple' ? 'replay.simpleSummaryWithRoute' : 'replay.summaryWithRoute', { minutes: selectedRoute.eta_minutes, count: selectedRoute.avoided.length }) : t('replay.summaryEmpty')}</p></div><button type="button" className="secondary-button" onClick={() => { setSummaryRequested(true); void onRunTool('get_debrief_summary', {}) }}>{t(mode === 'simple' ? 'replay.simpleRefreshSummary' : 'replay.refreshSummary')} <span>↗</span></button></div>
       {summaryRequested && <div className="mini-summary"><div><strong>{snapshot.households.length}</strong><span>{t('replay.households')}</span></div><div><strong>{Object.keys(snapshot.routes).length}</strong><span>{t('replay.routes')}</span></div><div><strong>{snapshot.bottlenecks.length}</strong><span>{t('replay.bottleneckCount')}</span></div><div><strong>{snapshot.knowledge.filter(isKnowledgeVerified).length}</strong><span>{t('replay.verifiedKnowledge')}</span></div>{targetBottleneck && <button className="text-button" onClick={() => runReplay({ action: 'highlight_bottleneck', target_id: targetBottleneck.id })}>{t('replay.viewBottleneck')} →</button>}</div>}
     </section>
   )

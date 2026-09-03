@@ -4,6 +4,7 @@ import type { Household, RouteResult, TownSnapshot } from '../sim/types'
 import { KnowledgeVisual } from './KnowledgeVisual'
 import { MapLibreMap } from './MapLibreMap'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
+import { householdDisplayLabel } from '../app/longDistanceExample'
 import type { GeoCamera } from '../map3d/types'
 import {
   deriveKnowledgeVisuals,
@@ -305,7 +306,7 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
               transform={`translate(${point.x + (household.id === 'h-infant' ? 15 : household.id === 'h-open' ? -14 : 0)} ${point.y + 18})`}
               role="button"
               tabIndex={0}
-              aria-label={t('map.selectHousehold', { label: household.label ?? t('common.anonymousHousehold') })}
+              aria-label={t('map.selectHousehold', { label: householdDisplayLabel(household, t) })}
               onClick={() => onSelectHousehold?.(household.id)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
@@ -342,7 +343,7 @@ function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKn
 
       {surface === 'map' && selectedRoute && (
         <div className={`map-route-callout${selectedView ? ' map-route-callout--hidden' : ''}`}>
-          <div><span className="eyebrow">{t(mode === 'simple' ? 'map.simpleRouteNow' : 'map.routeNow')}</span><strong>{selectedHousehold?.label ?? t('common.selectedHousehold')} · {selectedRoute.eta_minutes} min</strong></div>
+          <div><span className="eyebrow">{t(mode === 'simple' ? 'map.simpleRouteNow' : 'map.routeNow')}</span><strong>{householdDisplayLabel(selectedHousehold, t, t('common.selectedHousehold'))} · {selectedRoute.eta_minutes} min</strong></div>
           <span>{selectedRoute.avoided.length > 0 ? t('map.routeApplied', { count: selectedRoute.avoided.length, edges: avoidedEdgeIds.size }) : t('map.routeReady')}</span>
         </div>
       )}

@@ -43,6 +43,30 @@
       "lat": 35.6825,
       "lng": 139.762,
       "label": "高台の避難所"
+    },
+    {
+      "id": "long_home",
+      "lat": 35.6816,
+      "lng": 139.7524,
+      "label": "遠距離デモ出発地点"
+    },
+    {
+      "id": "long_residential",
+      "lat": 35.6812,
+      "lng": 139.7536,
+      "label": "西側住宅エリア"
+    },
+    {
+      "id": "long_junction",
+      "lat": 35.679,
+      "lng": 139.755,
+      "label": "大通り手前"
+    },
+    {
+      "id": "long_approach",
+      "lat": 35.6802,
+      "lng": 139.758,
+      "label": "避難ルート合流点"
     }
   ],
   "edges": [
@@ -97,6 +121,34 @@
       "to": "shelter",
       "length_m": 150,
       "label": "大通り沿い"
+    },
+    {
+      "id": "longhome-residential",
+      "from": "long_home",
+      "to": "long_residential",
+      "length_m": 115,
+      "label": "西側の住宅街"
+    },
+    {
+      "id": "residential-junction",
+      "from": "long_residential",
+      "to": "long_junction",
+      "length_m": 275,
+      "label": "大通り手前へ"
+    },
+    {
+      "id": "junction-approach",
+      "from": "long_junction",
+      "to": "long_approach",
+      "length_m": 300,
+      "label": "大通り沿いの歩道"
+    },
+    {
+      "id": "approach-home",
+      "from": "long_approach",
+      "to": "home",
+      "length_m": 200,
+      "label": "出発地点への合流"
     }
   ]
 }

@@ -6,7 +6,8 @@ import { getKnowledgeVisualView } from './knowledgeVisuals'
 import { getNavaraCapabilities, persistMapDimension } from '../map3d/navaraCapabilities'
 import { selectThreeDProvider } from '../map3d/provider'
 import type { GeoCamera, MapDimension, WeatherVisualMode } from '../map3d/types'
-import type { Locale } from '../i18n'
+import { createTranslator, type Locale } from '../i18n'
+import { householdDisplayLabel } from '../app/longDistanceExample'
 
 const NavaraMap3D = lazy(() => import('../map3d/NavaraMap3D').then((module) => ({ default: module.NavaraMap3D })))
 
@@ -74,13 +75,14 @@ function MapSurfaceSummary({ surface, mapProps }: { surface: MapSurface; mapProp
     bottleneck: '詰まり',
   }
   if (surface === 'map') return null
+  const translator = createTranslator(locale)
   const household = mapProps.snapshot.households.find((item) => item.id === mapProps.focusHouseholdId)
   const route = mapProps.focusHouseholdId ? mapProps.snapshot.routes[mapProps.focusHouseholdId] : Object.values(mapProps.snapshot.routes)[0]
   const reason = route?.avoided.length ? route.avoided.map((item) => item.reason).join(' · ') : locale === 'en' ? 'No confirmed hazard is on this route.' : '確認済みの危険な場所がないため、標準経路を選んでいます。'
   const replayState = mapProps.snapshot.replay.camera === 'bottleneck'
     ? t.bottleneck
     : mapProps.snapshot.replay.selected_household_id
-      ? mapProps.snapshot.households.find((item) => item.id === mapProps.snapshot.replay.selected_household_id)?.label ?? (locale === 'en' ? 'Selected household' : '選択世帯')
+      ? householdDisplayLabel(mapProps.snapshot.households.find((item) => item.id === mapProps.snapshot.replay.selected_household_id), translator, locale === 'en' ? 'Selected household' : '選択世帯')
       : t.overview
   const playing = mapProps.snapshot.replay.is_playing ? (locale === 'en' ? 'Playing' : '再生中') : (locale === 'en' ? 'Paused' : '一時停止')
 
@@ -88,7 +90,7 @@ function MapSurfaceSummary({ surface, mapProps }: { surface: MapSurface; mapProp
     <div className={`map-surface-summary map-surface-summary--${surface}`} role="note">
       <span className="eyebrow">{surface === 'drill' ? t.drillEyebrow : t.replayEyebrow}</span>
       <strong>{surface === 'drill' ? t.routeTitle : t.replayTitle}</strong>
-      {route ? <p>{household?.label ?? (locale === 'en' ? 'Selected household' : '選択世帯')} · {route.eta_minutes}{locale === 'en' ? ' min' : '分'} · {reason}</p> : <p>{t.noRoute}</p>}
+      {route ? <p>{householdDisplayLabel(household, translator, locale === 'en' ? 'Selected household' : '選択世帯')} · {route.eta_minutes}{locale === 'en' ? ' min' : '分'} · {reason}</p> : <p>{t.noRoute}</p>}
       {surface === 'replay' && <span className="map-surface-summary__state">{replayState} · {playing}</span>}
       {mode === 'advanced' && surface === 'replay' && <span className="map-surface-summary__state">{mapProps.snapshot.replay.camera}</span>}
     </div>
