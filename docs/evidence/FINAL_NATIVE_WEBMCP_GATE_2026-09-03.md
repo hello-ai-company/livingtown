@@ -6,16 +6,30 @@ Production: https://livingtown-webmcp.netlify.app/
 
 ## Release identity
 
-- Application SHA: `95b068a418ae7b2179959c212098471a183c2def`
-- Main before evidence: `f91a3be72b92c76ddceadd8690827917fc1123b9`
+- Application SHA: `790d0308f7902687f81d9f5fe9c9859c43fe03b5`
+- Main before evidence: `790d0308f7902687f81d9f5fe9c9859c43fe03b5`
 - Evidence commit: evidence-only; the application SHA is unchanged.
 - Production application code changed: no.
+
+## Focused production UI QA
+
+- Production returned HTTP 200 after the fast-forward main deploy.
+- Desktop `1440×900` and mobile `390×844` were checked across MAP, DRILL, and
+  REPLAY in 2D and 3D.
+- Headers rendered outside the map frame; Details panels closed and reopened;
+  the mobile sheet measured `303.84px` (`36dvh`) or less.
+- Map only hid nonessential overlays while keeping the map mounted, attribution
+  visible, selection/route context intact, and Show controls available.
+- Filters appeared only for 2D MAP. Focus Map restored body scrolling and focus;
+  Walkthrough retained recovery and exit controls.
+- Canvas count stayed at `1`; no WebGL context loss or fatal console error was
+  observed.
 
 ## Environment
 
 - Browser: Google Chrome, isolated QA page/context.
 - Version: `Chrome/152.0.0.0` from the production page user agent.
-- QA browser/page count: one QA page; closed after capture.
+- QA browser/page count: one QA tab at a time; all QA tabs closed after capture.
 - User Chrome: untouched.
 - Production URL only: PASS.
 
@@ -36,6 +50,10 @@ Chrome's current WebMCP Imperative API uses `document.modelContext`; the
 The native runtime was therefore evaluated using the current API, not the
 legacy alias. `list_webmcp_tools` and all required native executions below
 completed against the production page; this was not simulated evidence.
+
+The final clean recheck then executed one successful representative operation
+for each required phase: `query_area`, `get_evacuation_route`, and
+`get_debrief_summary`.
 
 - WebMCP flag: native runtime active in the QA Chrome context; the browser
   safety policy did not allow a direct `chrome://flags` readback.
@@ -85,13 +103,10 @@ auth identity, or verifier identity.
 
 ### DRILL — `get_evacuation_route`
 
-PASS. The previously attempted household identifier was not present in the
-current anonymous context and correctly returned a not-found error. To avoid
-guessing or exposing identity data, one temporary drill household was then
-registered through Native `register_household` using only the `wheelchair`
-constraint enum and `temporary_drill` scope.
-
-The required Native route call then returned:
+An anonymous temporary drill household was prepared earlier in the gate after
+a not-found context check, using only the `wheelchair` constraint enum and
+`temporary_drill` scope. The final clean pass reused that context and ran
+`get_evacuation_route` once. It returned:
 
 - ETA: 10 minutes
 - Distance: 440 metres
@@ -124,8 +139,8 @@ PASS.
 ```yaml
 FINAL NATIVE WEBMCP GATE REPORT
 
-Application SHA: 95b068a418ae7b2179959c212098471a183c2def
-Main before evidence: f91a3be72b92c76ddceadd8690827917fc1123b9
+Application SHA: 790d0308f7902687f81d9f5fe9c9859c43fe03b5
+Main before evidence: 790d0308f7902687f81d9f5fe9c9859c43fe03b5
 Evidence SHA: assigned by the evidence-only commit containing this file
 Production: https://livingtown-webmcp.netlify.app/ — HTTP 200
 
