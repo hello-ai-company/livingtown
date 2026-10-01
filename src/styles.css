@@ -1456,3 +1456,13 @@ select { width: 100%; min-height: 34px; border: 1px solid rgba(221, 240, 228, 0.
   .map-experience.map-experience--focused .map-only-recovery { top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); left: auto; }
   .map-experience.map-experience--focused .map-focus-header { padding-top: max(9px, env(safe-area-inset-top)); padding-right: max(12px, env(safe-area-inset-right)); padding-left: max(12px, env(safe-area-inset-left)); }
 }
+
+.training-connection, .training-assistant { padding: 18px; margin: 16px; border: 1px solid #a2b5a7; border-radius: 12px; background: #f6faf5; color: #18352c; }
+.training-assistant { margin: 20px 0; }
+.training-assistant p, .training-connection p { line-height: 1.6; }
+.training-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 16px 0; }
+.training-fields label { display: grid; gap: 8px; }
+.training-fields select { width: 100%; padding: 10px; color: inherit; background: white; border: 1px solid #a2b5a7; border-radius: 6px; }
+.training-assistant button { margin-top: 12px; }
+.training-assistant table { width: 100%; border-collapse: collapse; }
+.training-assistant th, .training-assistant td { text-align: left; padding: 10px; border-bottom: 1px solid #c8d8ca; }

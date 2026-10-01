@@ -13,7 +13,9 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed": "tsx seed/seed.ts"
+    "seed": "tsx seed/seed.ts",
+    "assistant": "node server/index.mjs",
+    "test:assistant": "node --test server/*.node-test.mjs"
   },
   "dependencies": {
     "@navaramap/three": "0.1.1",

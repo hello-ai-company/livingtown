@@ -146,3 +146,7 @@ MAPのWebMCP surfaceは3本（contribute_knowledge、verify_knowledge、query_ar
 Phase 10のSupabase migrationはExpandとして実Supabaseへ適用済みで、pgTAPはGitHub Actionsの一時Supabaseで0006を含む169 testsをPASSしています。最終のRPC-only contractは未適用です。`main@0789688c7e7806a8a9563ef605e2e3014e5c1024` はNetlifyへ反映済みで、公開URLのNative WebMCP／shared-state再検証は [公開証跡](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md) に記録しています。Phase 10.3のreal shared gateは [最新証跡](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) を参照してください。
 
 写真アップロードはPhase 10.2では扱いません。顔・ナンバープレート・EXIF位置情報の保護、moderation／redaction、retention、Storage権限、コスト、bot／abuse対策を先に設計する必要があるためです。
+
+## ローカル家族訓練アシスタント（fake検証）
+
+共有DBが停止中でもローカルの質問・条件確認・経路比較を試せます。`ASSISTANT_PROVIDER=fake npm run assistant` と `VITE_LIVINGTOWN_DATA_MODE=local npm run dev` を別ターミナルで起動してください。Gemini実接続・Cloud Run公開は未実施です。[再現手順・制限・承認事項](docs/LOCAL_TRAINING_REVIEW.md) を参照してください。

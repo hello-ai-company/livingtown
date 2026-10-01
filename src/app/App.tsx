@@ -1,3 +1,4 @@
+import { TrainingAssistant } from '../training/TrainingAssistant'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapExperience, type MapExperienceProps } from '../map/MapExperience'
 import { KnowledgeContributionForm } from '../map/KnowledgeContributionForm'
@@ -55,7 +56,7 @@ function formatTime(value: string, locale: Locale) {
 
 function repositoryStatusLabel(status: ReturnType<typeof townRepository.getStatus>, locale: Locale, mode: ExperienceMode) {
   if (mode === 'advanced') return `${dataModeLabel(status.mode)} / ${status.connection}`
-  if (status.connection === 'ERROR') return locale === 'ja' ? '情報を確認中' : 'Checking information'
+  if (status.connection === 'ERROR') return locale === 'ja' ? '共有接続に失敗' : 'Shared connection failed'
   return status.mode === 'SUPABASE_SHARED'
     ? (locale === 'ja' ? '地域の共有情報' : 'Community information')
     : (locale === 'ja' ? 'デモ情報' : 'Demo information')
@@ -468,6 +469,14 @@ function AppShell() {
         </div>
       </header>
 
+      <section className="training-connection" aria-label="訓練データの接続状態" role="status">
+        <strong>{repositoryStatus.mode} / {repositoryStatus.connection}</strong>
+        <p>{repositoryStatus.mode === 'LOCAL_DEMO' ? 'ローカル訓練モード：サンプルとこのブラウザ内の入力です。共有DBへの保存・同期は行いません。' : repositoryStatus.connection === 'ERROR' ? '共有DBへ接続できません。表示中の情報が最新とは限りません。DB停止・設定・通信状態を管理者が確認してください。' : '共有DBモードです。接続状態・最終同期時点を確認してご利用ください。'}</p>
+        <p>訓練専用：東京の固定グラフを使うデモです。実際の避難経路の安全を保証しません。</p>
+        {repositoryStatus.mode === 'SUPABASE_SHARED' && <p>最終共有同期: {repositoryStatus.lastSync || '未同期'}</p>}
+        {repositoryStatus.fallbackReason && <p>{repositoryStatus.fallbackReason}</p>}
+        {repositoryStatus.mode === 'SUPABASE_SHARED' && <button className="secondary-button" onClick={switchToLocalDemo}>このタブをローカル訓練モードに切り替える</button>}
+      </section>
       <main className="workspace">
         <section className={`intro-row${mode === 'simple' ? ' intro-row--simple' : ''}`}>
           <div className="intro-copy">
@@ -610,6 +619,7 @@ function DrillStage({ mapProps, snapshot, selectedHouseholdId, selectedHousehold
     <section className={`stage-panel stage-panel--${mode}`}>
       <div className="stage-panel__head"><div><span className="eyebrow">{mode === 'advanced' ? t('drill.eyebrow') : t('phase.drill.label')}</span><h2>{t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title')}</h2></div><span className="stage-panel__count">{snapshot.households.length}<small> {t('drill.households')}</small></span></div>
       <p className="stage-lead">{t(mode === 'simple' ? 'drill.simpleLead' : 'drill.lead')}</p>
+      <TrainingAssistant repository={townRepository} onView3D={onView3D} onSelectHousehold={onSelectHousehold} />
 
       {mode === 'simple' && <ol className="simple-drill-steps">
         <li><span>01</span><strong>{t('drill.simpleStepScenario')}</strong></li>
