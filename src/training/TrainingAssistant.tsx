@@ -1,3 +1,5 @@
+import { usePhase } from '../phases/PhaseContext'
+import { readTrainingDraft, saveTrainingDraft, TRAINING_DRAFT_KEY, type DraftValues } from './draft'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { TownRepository } from '../data/repository'
 import { useTownSnapshot } from '../data/useTownSnapshot'
@@ -16,6 +18,9 @@ const constraints: Record<string, string> = { wheelchair: '車椅子', infant: '
 export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
   repository: TownRepository; onView3D: () => void; onSelectHousehold: (id: string) => void
 }) {
+  const { agentConsent } = usePhase()
+  const [draft, setDraft] = useState<DraftValues | undefined>(() => { try { return readTrainingDraft(window.sessionStorage) } catch { return undefined } })
+  const [draftNotice, setDraftNotice] = useState('')
   const snapshot = useTownSnapshot(repository)
   const auth = useSyncExternalStore(trainingAuth.subscribe, trainingAuth.snapshot)
   const authReady = auth.phase === 'local' || auth.phase === 'signed_in'
@@ -88,7 +93,7 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
     } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : '計算に失敗しました。') }
     finally { if (active.current === controller) { active.current = null; setBusy(false) } }
   }
-  const step = result ? 2 : Object.values(values).every(Boolean) ? 1 : 0
+  const step = result ? 2 : questions && Object.values(values).every(Boolean) ? 1 : 0
   const household = snapshot.households.find(item => item.id === values.household_id)
   return <section className="training-assistant" aria-labelledby="training-title">
     <h3 id="training-title">家族の移動条件を確認</h3>
@@ -98,15 +103,18 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
     </details>
     {repository.dataMode !== 'LOCAL_DEMO' ? <p role="status">この機能はローカル訓練モード専用です。画面上部から明示的に切り替えてください。</p> : <>
       <TrainingLogin />
+      {draft && !questions && <div className="training-draft"><p>このタブに保存した条件があります。前回の確認・計算結果は引き継ぎません。</p><button className="secondary-button" disabled={busy || !authReady} onClick={() => { agentConsent.invalidate(); setValues(snapshot.households.some(h => h.id === draft.household_id) ? draft : { ...draft, household_id: '' }); setConfirmationRevision(undefined); setResult(undefined); setDraftNotice('条件を読み込みました。「条件の質問を開始」から内容を再確認してください。') }}>保存した条件を使う</button><button className="secondary-button" onClick={() => { try { window.sessionStorage.removeItem(TRAINING_DRAFT_KEY); setDraft(undefined); setDraftNotice('保存した条件を削除しました。') } catch { setDraftNotice('保存領域を利用できないため削除できません。') } }}>保存条件を削除</button></div>}
+      {draftNotice && <p role="status">{draftNotice}</p>}
       {offlineQuestions && <p role="status">ブラウザー内の模擬質問です。サーバー・実AIには接続しません。</p>}
       {!questions && <button className="secondary-button" disabled={busy || !authReady} onClick={() => void start()}>{attempted ? '新しい質問を試す（上限に算入）' : '条件の質問を開始'}</button>}
       {questions && <>
         <p role="status">{questions.provider === 'fake' ? 'FAKE / 模擬質問（Gemini未接続・API呼び出しなし）' : 'Vertex AI / Gemini の質問順序'} · 出発地点や回答はAIへ送信しません。</p>
         {snapshot.households.length === 0 && <p role="status" className="training-feedback">訓練用の世帯がありません。サンプルデータの状態を確認してください。</p>}
-        <div className="training-fields">{questions.fields.map(field => <label key={field}>{labels[field]}<select value={values[field]} disabled={busy} onChange={event => { setValues(previous => ({ ...previous, [field]: event.target.value })); setConfirmationRevision(undefined); setResult(undefined) }}>
+        <div className="training-fields">{questions.fields.map(field => <label key={field}>{labels[field]}<select value={values[field]} disabled={busy} onChange={event => { agentConsent.invalidate(); setValues(previous => ({ ...previous, [field]: event.target.value })); setConfirmationRevision(undefined); setResult(undefined) }}>
           <option value="">選択してください</option>
           {(field === 'household_id' ? snapshot.households.map(item => [item.id, `${item.label || item.id} / ${item.constraints.map(c => constraints[c]).join('・') || '条件なし'}`]) : options[field]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select></label>)}</div>
+        <button className="secondary-button" disabled={busy || Object.values(values).some(v => !v)} onClick={() => { try { saveTrainingDraft(window.sessionStorage, values); setDraft({ ...values }); setDraftNotice('条件だけをこのタブに保存しました。共有保存・確認の保存は行いません。') } catch { setDraftNotice('このタブに保存できません。画面を開いている間はそのまま訓練できます。') } }}>条件をこのタブに保存</button>
         {household && <p>出発地点: {household.start_lat}, {household.start_lng} ／ 移動条件: {household.constraints.map(c => constraints[c]).join('・') || 'なし'}。この地点からデモグラフの最寄りノードへ接続して計算します。</p>}
         <label className="training-confirmation"><input type="checkbox" checked={confirmed} disabled={busy || Object.values(values).some(v => !v)} onChange={event => setConfirmationRevision(event.target.checked ? currentRevision : undefined)} /> 上の世帯・出発地点・移動条件・災害・天候・時間帯を確認しました</label>
         <div><button className="primary-button" disabled={!confirmed || busy || Boolean(result)} onClick={() => void calculate()}>確認した条件で経路を比較</button></div>
@@ -116,6 +124,7 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
       {result && <div className="training-result">
         <p className="training-result__status" role="status">比較が完了しました。条件と根拠を確認して、3D訓練へ進めます。</p>
         <h4>同じ条件での経路比較</h4>
+        <p className="training-outcome">{JSON.stringify(result.baseline.route.coordinates) === JSON.stringify(result.informed.route.coordinates) ? '今回は同じ経路です。報告の有無によって必ず経路が変わるわけではありません。' : `報告を参照すると経路が変わります。距離の差 ${result.informed.distance_m - result.baseline.distance_m} m、モデル上の時間差 ${result.informed.eta_minutes - result.baseline.eta_minutes} 分。`}</p>
         <table><caption className="visually-hidden">同じ訓練条件による2つの計算結果。実際の安全性や所要時間を保証するものではありません。</caption><thead><tr><th>計算対象</th><th>距離</th><th>モデル上の所要時間</th></tr></thead><tbody>
           <tr><th>報告・混雑を反映しない基準</th><td>{result.baseline.distance_m} m</td><td>{result.baseline.eta_minutes} 分</td></tr>
           <tr><th>利用可能な報告・混雑を反映</th><td>{result.informed.distance_m} m</td><td>{result.informed.eta_minutes} 分</td></tr>

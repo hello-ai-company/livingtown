@@ -9,6 +9,7 @@ export interface ToolExecutionContext {
    * any asynchronous mutation.
    */
   signal: AbortSignal
+  recordActivity?: boolean
 }
 
 export interface ToolDefinition<TInput = unknown, TResult = unknown> {

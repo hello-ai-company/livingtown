@@ -1,3 +1,4 @@
+import { AgentConsentPanel } from '../webmcp/AgentConsentPanel'
 import { TrainingAssistant } from '../training/TrainingAssistant'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapExperience, type MapExperienceProps } from '../map/MapExperience'
@@ -65,12 +66,13 @@ function repositoryStatusLabel(status: ReturnType<typeof townRepository.getStatu
 function AppShell() {
   const snapshot = useTownSnapshot(townRepository)
   const repositoryStatus = useRepositoryStatus(townRepository)
-  const { phase, selectPhase, registry, phaseSignal } = usePhase()
+  const { phase, selectPhase, registry, phaseSignal, agentConsent } = usePhase()
   const { locale, mode, setLocale, setMode } = useUiPreferences()
   const t = useTranslator(locale)
   const phaseMeta = useMemo(() => getPhaseMeta(t), [t])
   const [panel, setPanel] = useState<Phase | 'reports' | 'admin'>('map')
-  const [selectedHouseholdId, setSelectedHouseholdId] = useState('h-wheelchair')
+  const [selectedHouseholdId, setSelectedHouseholdIdState] = useState('h-wheelchair')
+  const setSelectedHouseholdId = useCallback((id: string) => { agentConsent.invalidate(); setSelectedHouseholdIdState(id) }, [agentConsent])
   const [selectedKnowledgeId, setSelectedKnowledgeId] = useState<string>()
   const [lastKnowledgeId, setLastKnowledgeId] = useState<string | undefined>()
   const [routeInputs, setRouteInputs] = useState<RouteInputs>({ scenario: 'flood', weather: 'rain', time_of_day: 'day' })
@@ -115,6 +117,7 @@ function AppShell() {
 
   useEffect(() => {
     if (mode !== 'simple') return
+    agentConsent.invalidate()
     setRouteInputs((current) => {
       const next = routeInputsForMode(mode, current)
       return next.scenario === current.scenario && next.weather === current.weather && next.time_of_day === current.time_of_day ? current : next
@@ -293,8 +296,9 @@ function AppShell() {
   }
 
   const handleRouteInputsChange = useCallback((next: RouteInputs) => {
+    agentConsent.invalidate()
     setRouteInputs(mode === 'simple' ? routeInputsForMode(mode, next) : next)
-  }, [mode])
+  }, [agentConsent, mode])
 
   const registerDemoHousehold = async () => {
     const result = await runTool('register_household', {
@@ -486,6 +490,7 @@ function AppShell() {
       <section className="training-connection" aria-label="訓練データの接続状態">
         <div className="training-status-line"><strong>{locale === 'ja' ? '訓練デモ · 実AIオフ' : 'Training demo · Live AI off'}</strong><span>{repositoryStatus.mode === 'LOCAL_DEMO' ? (locale === 'ja' ? 'サンプル / 共有保存なし' : 'Sample / no shared writes') : repositoryStatusLabel(repositoryStatus, locale, mode)}</span></div>
         <p>{locale === 'ja' ? '実際の避難経路の安全を保証しません。' : 'This does not guarantee a safe evacuation route.'}</p>
+        {repositoryStatus.localPersistence === 'unavailable' && <p role="alert">端末への保存ができません。現在の画面では操作できますが、再読み込みで失われる場合があります。</p>}
         {repositoryStatus.connection === 'ERROR' && <p role="alert">{locale === 'ja' ? '共有DBへ接続できません。表示中の情報が最新とは限りません。' : 'Shared data is unavailable and may be out of date.'}</p>}
         <details><summary>{locale === 'ja' ? '接続状態・訓練データについて' : 'Connection and training data'}</summary>
           <strong>{repositoryStatus.mode} / {repositoryStatus.connection}</strong>
@@ -497,8 +502,9 @@ function AppShell() {
         {repositoryStatus.mode === 'SUPABASE_SHARED' && <button className="secondary-button" onClick={switchToLocalDemo}>このタブをローカル訓練モードに切り替える</button>}
       </section>
       <main className="workspace">
+        <AgentConsentPanel />
         <section className="map-first-intro">
-          <div><h1>{locale === 'ja' ? '地図から、家族の移動を練習' : 'Practice your family’s journey'}</h1><p>{locale === 'ja' ? '気になる場所を見ながら、移動の条件を確かめましょう。' : 'Explore the map, then check your travel needs.'}</p></div>
+          <div><h1>{locale === 'ja' ? '地図から、家族の移動を練習' : 'Practice your family’s journey'}</h1><p>{locale === 'ja' ? '4つの条件を選んで、約1分の訓練体験。登録は不要です（サンプルモード）。' : 'Explore the map, then check your travel needs.'}</p></div>
           {panel === 'map' ? <button className="primary-button" onClick={() => transitionTo('drill')}>{locale === 'ja' ? '家族の訓練を始める' : 'Start family training'} →</button> : <button className="secondary-button" onClick={() => transitionTo('map')}>← {locale === 'ja' ? '地図へ戻る' : 'Back to map'}</button>}
         </section>
 

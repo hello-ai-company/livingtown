@@ -30,7 +30,7 @@ export function replayTools(store: TownRepository): ToolDefinition[] {
       readOnlyHint: true,
       run: async (_input: unknown, context) => {
         const result = await store.getDebriefSummary({ signal: context.signal })
-        await store.recordActivity('get_debrief_summary', `${result.households.length}世帯の振り返りを集計`)
+        if (context.recordActivity !== false) await store.recordActivity('get_debrief_summary', `${result.households.length}世帯の振り返りを集計`)
         return result
       },
     },

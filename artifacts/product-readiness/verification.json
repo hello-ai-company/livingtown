@@ -1,0 +1,8 @@
+{
+  "native_webmcp": false,
+  "real_ai": false,
+  "checks": [
+    "desktop: simulated WebMCP host, inspect/propose/no side effect, human confirmation/double approve, UI=agent deterministic route, cached duplicate, input change/stale, cancel, human-only voting, saved conditions/reload/reconfirm; no pageerrors/overflow",
+    "iphone: simulated WebMCP host, inspect/propose/no side effect, human confirmation/double approve, UI=agent deterministic route, cached duplicate, input change/stale, cancel, human-only voting, saved conditions/reload/reconfirm; no pageerrors/overflow"
+  ]
+}

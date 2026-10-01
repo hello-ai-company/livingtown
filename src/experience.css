@@ -113,3 +113,11 @@
 }
 .app-shell--simple .map-surface-summary { position: static; width: auto; margin-top: 10px; border-color: #d4e0d7; box-shadow: none; }
 .app-shell--simple .map-surface-summary p { display: block; overflow: visible; font-size: 13px; line-height: 1.6; }
+.agent-consent { padding: 20px; margin: 0 0 24px; border: 2px solid #977526; border-radius: 16px; color: #273c30; background: #fffaf0; }
+.agent-consent h2 { margin: 0 0 12px; font-size: 21px; }
+.agent-consent p { font-size: 14px; line-height: 1.6; }
+.agent-consent pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: #f1efe6; font-size: 13px; max-height: 240px; overflow-y: auto; }
+.agent-consent small { display: block; overflow-wrap: anywhere; margin-bottom: 12px; }
+.agent-consent__actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.training-draft, .training-outcome { padding: 12px; border-radius: 12px; background: #eef5ef; font-size: 14px; }
+.training-draft button { margin-right: 8px; }

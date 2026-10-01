@@ -114,6 +114,7 @@ export interface VerificationResult {
 }
 
 export interface RepositoryStatus {
+  localPersistence?: 'enabled' | 'memory_only' | 'unavailable'
   mode: DataMode
   supabaseConfigured: boolean
   connection: RepositoryConnectionStatus
