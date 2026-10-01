@@ -1530,3 +1530,57 @@ summary:focus-visible, button:focus-visible { outline: 3px solid #c58b30; outlin
   .app-shell--simple .map-post-button, .app-shell--simple .map-location-button { font-size: 12px; min-height: 44px; }
   .app-shell--simple .map-inline-notice { bottom: 134px; }
 }
+
+/* 3D controls live below the renderer: no diagnostics, forms or stories cover it. */
+.map-surface--3d .navara-controls { display: flex; flex-direction: column; gap: 12px; padding: 14px; color: #e5f1e6; background: #10252d; min-width: 0; }
+.navara-controls .navara-map-overlay,
+.navara-controls .navara-map-key,
+.navara-controls .navara-story,
+.navara-controls .navara-walkthrough-story,
+.navara-controls .navara-walkthrough-controls,
+.navara-controls .navara-tour-controls { position: static; width: auto; max-width: none; margin: 0; pointer-events: auto; }
+.navara-controls .navara-map-overlay { order: -2; flex-wrap: wrap; gap: 12px; }
+.navara-controls .navara-map-overlay__actions { flex-wrap: wrap; }
+.navara-controls .navara-map-overlay__status { text-align: left; justify-items: start; font-size: 12px; color: #c5d9d0; }
+.navara-controls .navara-map-overlay__status strong { color: #e5f1e6; font: inherit; }
+.navara-controls .navara-map-key { font-size: 12px; padding: 8px; }
+.navara-controls .navara-map-key__item { white-space: normal; }
+.navara-controls .navara-simulation-note { order: -1; margin: 0; font-size: 12px; line-height: 1.6; color: #c5d9d0; }
+.navara-controls .navara-story, .navara-controls .navara-walkthrough-story { max-width: 100%; }
+.navara-controls button, .navara-controls select { min-height: 44px; font-size: 14px; }
+.navara-controls .navara-walkthrough-controls__transport .text-button,
+.navara-controls .navara-tour-controls .text-button { font-size: 14px; white-space: normal; }
+.navara-settings { border: 1px solid #638c83; border-radius: 8px; overflow-wrap: anywhere; }
+.navara-settings summary { padding: 12px; min-height: 44px; cursor: pointer; font-size: 14px; font-weight: 700; }
+.navara-settings__body { display: grid; gap: 12px; padding: 0 12px 12px; }
+.navara-settings .navara-weather-control { display: grid; grid-template-columns: 90px minmax(0, 1fr); margin: 0; color: #e5f1e6; font-size: 14px; }
+.navara-settings select { width: 100%; min-width: 0; color: #183c32; background: #fff; font-size: 16px; }
+.navara-settings .navara-advanced-panel__note { color: #c5d9d0; font-size: 12px; line-height: 1.6; }
+.navara-settings .navara-advanced-panel__head { flex-wrap: wrap; color: #c5d9d0; font-size: 12px; line-height: 1.6; }
+.navara-settings .navara-diagnostics-grid { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+.navara-settings .navara-diagnostics-grid span, .navara-settings .navara-diagnostics-grid strong { color: #e5f1e6; font-size: 13px; }
+.navara-controls :is(button, select, summary):focus-visible { outline: 3px solid #eeb85f; outline-offset: 3px; }
+.map-surface--3d .navara-attribution { right: 0; bottom: 0; left: 0; padding: 6px 10px; background: #10252d; color: #e5f1e6; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.map-experience.map-experience--focused .map-experience__map > .map-surface--3d { overflow-y: auto; display: block; }
+.map-experience.map-experience--focused .map-surface--3d > .navara-map-frame { height: 48vh !important; min-height: 240px !important; }
+.map-experience.map-experience--focused .map-surface--3d > .navara-map-frame > .navara-canvas { height: 100% !important; }
+.map-experience.map-experience--map-only .navara-controls { display: none; }
+.map-experience.map-experience--focused.map-experience--map-only .map-surface--3d > .navara-map-frame { height: 100% !important; }
+@media (max-width: 760px) {
+  .map-experience__body:has(.map-surface--3d) > .map-side-panel { position: static; max-height: none; border-radius: 0; }
+  .map-experience.map-experience--focused .map-experience__body:has(.map-surface--3d) { overflow-y: auto; }
+  .map-experience.map-experience--focused .map-experience__body--panel-open:has(.map-surface--3d) .map-surface--3d { overflow: visible; }
+  .navara-controls .navara-map-overlay__actions { display: grid; width: 100%; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  .navara-controls .navara-walkthrough-controls__tools { flex-wrap: wrap; }
+}
+.map-surface--3d .navara-attribution { pointer-events: auto; }
+.map-surface--3d .navara-attribution a { color: #e5f1e6; text-decoration: underline; }
+.map-surface--3d .navara-attribution span { display: block; }
+.map-experience:has(.map-surface--3d) .map-only-recovery__button,
+.map-experience:has(.map-surface--3d) .map-focus-toggle { min-height: 44px; }
+.navara-controls .navara-tour-status { color: #ffca8a; }
+.navara-controls .navara-story p, .navara-controls .navara-story__detail,
+.navara-controls .navara-walkthrough-story p, .navara-controls .navara-walkthrough-story__detail { font-size: 14px; line-height: 1.6; }
+.navara-controls .navara-walkthrough-controls__progress,
+.navara-controls .navara-walkthrough-story__note,
+.navara-controls .navara-story__note { font-size: 12px; line-height: 1.5; }

@@ -11,7 +11,7 @@ export function TrainingLogin() {
     const submitted = password; setPassword('')
     void trainingAuth.signIn(email, submitted)
   }
-  return <section aria-label="訓練用ログイン">
+  return <section className="training-login" aria-label="訓練用ログイン">
     <h4>訓練用ログイン</h4>
     {auth.fake && <p>FAKE ログイン練習 / 外部接続なし。demo@example.test / demo を使用。30秒で期限切れになります。実際のパスワードは入力しないでください。</p>}
     <p>共有データの匿名ログインとは別です。このタブのメモリだけに保持し、再読み込み後は再ログインが必要です。</p>

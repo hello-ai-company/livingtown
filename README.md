@@ -156,3 +156,5 @@ Phase 10のSupabase migrationはExpandとして実Supabaseへ適用済みで、p
 認証・永続利用上限・CORS・秘密管理・公開前ブロッカーは [接続準備の設計とローカル検証手順](docs/NETLIFY_CLOUD_RUN_PREPARATION.md) を参照してください。実AIの強制無効化を維持。メール＋パスワード画面、実認証/DB接続コードを準備し、外部設定と実環境検証を残しています。
 
 UIの比較画像・独立レビュー・再現手順: [UIブラッシュアップ検証](docs/UI_POLISH_REVIEW.md)。
+
+最新の見た目・操作・モーション改善: [UI/UX検証と比較画像](docs/EXPERIENCE_POLISH_REVIEW.md)。

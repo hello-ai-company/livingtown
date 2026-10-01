@@ -14,7 +14,7 @@ try {
   assert.equal(await page.locator('.observation-composer').count(),0);
   assert.equal(await page.locator('.progressive-section[open]').count(),0);
   assert.equal(await page.getByRole('button',{name:'家族の訓練を始める →',exact:true}).count(),1);
-  const box=await page.locator('.map-frame').boundingBox(); assert.ok(box.y < 460);
+  const box=await page.locator('.map-frame').boundingBox(); assert.ok(box.y < height * 0.65, 'map starts within the first viewport');
   assert.equal(await page.locator('.training-status-line').isVisible(),true);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   measurements.push({viewport:name,mapTop:Math.round(box.y),pageHeight:await page.evaluate(()=>document.documentElement.scrollHeight)});

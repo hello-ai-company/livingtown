@@ -88,10 +88,11 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
     } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : '計算に失敗しました。') }
     finally { if (active.current === controller) { active.current = null; setBusy(false) } }
   }
+  const step = result ? 2 : Object.values(values).every(Boolean) ? 1 : 0
   const household = snapshot.households.find(item => item.id === values.household_id)
   return <section className="training-assistant" aria-labelledby="training-title">
     <h3 id="training-title">家族の移動条件を確認</h3>
-    <p>条件を選ぶ → 内容を確認 → 経路を比較</p>
+    <ol className="training-progress" aria-label="訓練の進め方">{['条件を選ぶ', '内容を確認', '経路を比較'].map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined} data-complete={step > index}><span aria-hidden="true">{index + 1}</span>{label}</li>)}</ol>
     <details><summary>訓練の前提・AIの役割</summary><p>東京の固定10ノード・11辺による訓練です。実際の避難経路の安全を保証しません。目的地はデモ避難所に固定されています。</p>
     <p>AIは質問項目の順序だけを提案します。経路は既存の決定的な計算で求め、住民確認票をAIが作成・代行することはありません。</p>
     </details>
@@ -101,19 +102,21 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
       {!questions && <button className="secondary-button" disabled={busy || !authReady} onClick={() => void start()}>{attempted ? '新しい質問を試す（上限に算入）' : '条件の質問を開始'}</button>}
       {questions && <>
         <p role="status">{questions.provider === 'fake' ? 'FAKE / 模擬質問（Gemini未接続・API呼び出しなし）' : 'Vertex AI / Gemini の質問順序'} · 出発地点や回答はAIへ送信しません。</p>
+        {snapshot.households.length === 0 && <p role="status" className="training-feedback">訓練用の世帯がありません。サンプルデータの状態を確認してください。</p>}
         <div className="training-fields">{questions.fields.map(field => <label key={field}>{labels[field]}<select value={values[field]} disabled={busy} onChange={event => { setValues(previous => ({ ...previous, [field]: event.target.value })); setConfirmationRevision(undefined); setResult(undefined) }}>
           <option value="">選択してください</option>
           {(field === 'household_id' ? snapshot.households.map(item => [item.id, `${item.label || item.id} / ${item.constraints.map(c => constraints[c]).join('・') || '条件なし'}`]) : options[field]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select></label>)}</div>
         {household && <p>出発地点: {household.start_lat}, {household.start_lng} ／ 移動条件: {household.constraints.map(c => constraints[c]).join('・') || 'なし'}。この地点からデモグラフの最寄りノードへ接続して計算します。</p>}
-        <label><input type="checkbox" checked={confirmed} disabled={busy || Object.values(values).some(v => !v)} onChange={event => setConfirmationRevision(event.target.checked ? currentRevision : undefined)} /> 上の世帯・出発地点・移動条件・災害・天候・時間帯を確認しました</label>
+        <label className="training-confirmation"><input type="checkbox" checked={confirmed} disabled={busy || Object.values(values).some(v => !v)} onChange={event => setConfirmationRevision(event.target.checked ? currentRevision : undefined)} /> 上の世帯・出発地点・移動条件・災害・天候・時間帯を確認しました</label>
         <div><button className="primary-button" disabled={!confirmed || busy || Boolean(result)} onClick={() => void calculate()}>確認した条件で経路を比較</button></div>
       </>}
-      {busy && <button className="secondary-button" onClick={cancel}>中断</button>}
-      {error && <p role="alert">{error}</p>}
-      {result && <>
+      {busy && <div className="training-pending"><p role="status"><span className="request-indicator" aria-hidden="true" />{questions ? '確認した条件で比較しています…' : '訓練の質問を準備しています…'}</p><button className="secondary-button" onClick={cancel}>中断</button></div>}
+      {error && <p className="training-feedback training-feedback--error" role="alert">{error}</p>}
+      {result && <div className="training-result">
+        <p className="training-result__status" role="status">比較が完了しました。条件と根拠を確認して、3D訓練へ進めます。</p>
         <h4>同じ条件での経路比較</h4>
-        <table><thead><tr><th>計算対象</th><th>距離</th><th>モデル上の所要時間</th></tr></thead><tbody>
+        <table><caption className="visually-hidden">同じ訓練条件による2つの計算結果。実際の安全性や所要時間を保証するものではありません。</caption><thead><tr><th>計算対象</th><th>距離</th><th>モデル上の所要時間</th></tr></thead><tbody>
           <tr><th>報告・混雑を反映しない基準</th><td>{result.baseline.distance_m} m</td><td>{result.baseline.eta_minutes} 分</td></tr>
           <tr><th>利用可能な報告・混雑を反映</th><td>{result.informed.distance_m} m</td><td>{result.informed.eta_minutes} 分</td></tr>
         </tbody></table>
@@ -125,7 +128,7 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
         <details><summary>計算時に参照した混雑報告と作成時点（未適用を含む）</summary><ul>{result.bottlenecks.map(item => <li key={item.id}>{item.id}: {item.description || '説明なし'} ／ 程度 {item.severity} ／ 作成 {item.created_at} ／ 観測日時は未取得</li>)}</ul></details>
         </details>
         <button className="secondary-button" onClick={() => { onSelectHousehold(result.household.id); onView3D() }}>この家族の3D訓練へ</button>
-      </>}
+      </div>}
     </>}
   </section>
 }
