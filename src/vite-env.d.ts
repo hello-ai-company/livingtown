@@ -1,6 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  readonly VITE_TRAINING_AUTH_MODE?: 'supabase' | 'fake'
+  readonly VITE_TRAINING_AUTH_ORIGIN?: string
+  readonly VITE_TRAINING_AUTH_PUBLIC_KEY?: string
   readonly VITE_TRAINING_API_ORIGIN?: string
   readonly VITE_LIVINGTOWN_DATA_MODE?: 'local' | 'shared' | 'supabase_shared'
   readonly VITE_SUPABASE_URL?: string

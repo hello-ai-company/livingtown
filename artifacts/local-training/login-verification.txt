@@ -1,0 +1,14 @@
+2026-10-01 PR #13 final login/runtime preparation after 3a469a7
+Frontend: 242 tests in 41 files passed.
+Backend: 26 tests passed.
+Build: passed with typecheck; existing 3D chunk warning.
+Existing Chromium regression: 9 passed, pageErrors=[].
+Login Chromium regression: 7 passed, pageErrors=[].
+Login scenarios: failure/password-clear, cancellation/late result, double submit,
+navigation revisit, logout during questions, expiry/no refresh, reload/no auth storage.
+Independent review: no unresolved major findings; auth 7/backend 26 independently passed.
+Existing SDK login + fixed Auth logout endpoint tested with mocked fetch only.
+Server runtime/Auth/pg readiness/reservation tested with injected transports only.
+No real Auth sessions, DB resume, OAuth grants, IAM/API changes, paid API or manual deployment.
+No PostgreSQL server/CLI available; multi-connection hosted DB contention unverified.
+No Docker fetch retries or workaround. Container and real mobile unverified.

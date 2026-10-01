@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { TownRepository } from '../data/repository'
 import { useTownSnapshot } from '../data/useTownSnapshot'
 import { compareTrainingRoutes, trainingRevision, validateQuestionResponse, type Comparison, type QuestionField } from './flow'
 import { questionEndpoint } from './endpoint'
+import { trainingAuth } from './auth'
+import { TrainingLogin } from './TrainingLogin'
 
 const labels: Record<QuestionField, string> = {
   household_id: '誰と、どこから移動する訓練ですか？（架空の世帯・出発地点）',
@@ -15,6 +17,8 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
   repository: TownRepository; onView3D: () => void; onSelectHousehold: (id: string) => void
 }) {
   const snapshot = useTownSnapshot(repository)
+  const auth = useSyncExternalStore(trainingAuth.subscribe, trainingAuth.snapshot)
+  const authReady = auth.phase === 'local' || auth.phase === 'signed_in'
   const [questions, setQuestions] = useState<ReturnType<typeof validateQuestionResponse>>()
   const [values, setValues] = useState<Record<QuestionField, string>>({ household_id: '', scenario: '', weather: '', time_of_day: '' })
   const [confirmationRevision, setConfirmationRevision] = useState<string>()
@@ -26,6 +30,10 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
   const [result, setResult] = useState<Comparison>()
   const active = useRef<AbortController | null>(null)
   const requestId = useRef<string | null>(null)
+  useEffect(() => {
+    active.current?.abort(); active.current = null; setBusy(false)
+    setQuestions(undefined); setResult(undefined); setConfirmationRevision(undefined); setError('')
+  }, [auth.revision])
   useEffect(() => () => active.current?.abort(), [])
   useEffect(() => {
     if (result && (trainingRevision(repository) !== result.revision || JSON.stringify(snapshot.routes[result.household.id]) !== JSON.stringify(result.informed))) {
@@ -40,29 +48,38 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
   const cancel = () => { active.current?.abort(); active.current = null; setBusy(false); setError('中断しました。条件を確認してから再開できます。') }
   const start = async () => {
     if (active.current) return
+    const authRevision = trainingAuth.snapshot().revision
     const controller = new AbortController(); active.current = controller; setBusy(true); setError('')
     // A new explicit attempt gets a new ID; automatic retransmission is not performed.
     requestId.current = crypto.randomUUID(); setAttempted(true)
     const requestSignal = AbortSignal.any([controller.signal, AbortSignal.timeout(20000)])
     try {
-      const response = await fetch(questionEndpoint(import.meta.env.VITE_TRAINING_API_ORIGIN), { method: 'POST', credentials: 'omit', redirect: 'error', headers: { 'Content-Type': 'application/json' },
+      const authorization = trainingAuth.authorization()
+      const response = await fetch(questionEndpoint(import.meta.env.VITE_TRAINING_API_ORIGIN), { method: 'POST', credentials: 'omit', redirect: 'error', headers: { 'Content-Type': 'application/json', ...(authorization ? { Authorization: authorization } : {}) },
         body: JSON.stringify({ action: 'questions', request_id: requestId.current }), signal: requestSignal })
       if (!response.ok) {
-        const message = response.status === 429 ? '質問回数の上限です。' : response.status === 401 ? '許可された利用者のログインが必要です。この版の公開用ログイン導線は準備中です。' : response.status === 503 ? '質問サービスの認証・利用上限・設定を確認できません。ローカルでは ASSISTANT_PROVIDER=fake npm run assistant で起動してください。' : response.status === 409 ? 'この要求は受付済みです。再実行しません。' : '質問サービスに接続できません。接続先URL・CORS・バックエンド設定を確認してください。'
-        if (!controller.signal.aborted) setError(message)
+        if (response.status === 401 && authRevision === trainingAuth.snapshot().revision && !controller.signal.aborted && auth.phase !== 'local') {
+          trainingAuth.rejectSession(); return
+        }
+        const message = response.status === 429 ? '質問回数の上限です。' : response.status === 401 ? 'ログインの有効性または利用許可を確認できません。再ログインし、管理者に許可設定を確認してください。' : response.status === 503 ? '質問サービスの認証・利用上限・設定を確認できません。ローカルでは ASSISTANT_PROVIDER=fake npm run assistant で起動してください。' : response.status === 409 ? 'この要求は受付済みです。再実行しません。' : '質問サービスに接続できません。接続先URL・CORS・バックエンド設定を確認してください。'
+        if (!controller.signal.aborted && authRevision === trainingAuth.snapshot().revision) setError(message)
         return
       }
       const data = validateQuestionResponse(await response.json())
-      if (!requestSignal.aborted && active.current === controller) setQuestions(data)
+      trainingAuth.authorization() // Recheck expiry even if a background-tab timer was suspended.
+      if (!requestSignal.aborted && active.current === controller && authRevision === trainingAuth.snapshot().revision) setQuestions(data)
     } catch { if (!controller.signal.aborted) setError('質問を取得できません。バックエンド起動・設定・回数上限を確認してください。明示的な再試行は新しい呼び出しとして上限に算入されます。') }
     finally { if (active.current === controller) { active.current = null; setBusy(false) } }
   }
   const calculate = async () => {
     if (active.current || result) return
+    try { trainingAuth.authorization() } catch { return }
+    const authRevision = trainingAuth.snapshot().revision
     const controller = new AbortController(); active.current = controller; setBusy(true); setError('')
     try {
       const comparison = await compareTrainingRoutes(repository, values, confirmed, controller.signal, confirmationRevision)
-      if (!controller.signal.aborted) { setResult(comparison); onSelectHousehold(comparison.household.id) }
+      trainingAuth.authorization()
+      if (!controller.signal.aborted && authRevision === trainingAuth.snapshot().revision) { setResult(comparison); onSelectHousehold(comparison.household.id) }
     } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : '計算に失敗しました。') }
     finally { if (active.current === controller) { active.current = null; setBusy(false) } }
   }
@@ -72,7 +89,8 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
     <p>東京の固定10ノード・11辺による訓練です。実際の避難経路の安全を保証しません。目的地はデモ避難所に固定されています。</p>
     <p>AIは質問項目の順序だけを提案します。経路は既存の決定的な計算で求め、住民確認票をAIが作成・代行することはありません。</p>
     {repository.dataMode !== 'LOCAL_DEMO' ? <p role="status">この機能はローカル訓練モード専用です。画面上部から明示的に切り替えてください。</p> : <>
-      {!questions && <button className="secondary-button" disabled={busy} onClick={() => void start()}>{attempted ? '新しい質問を試す（上限に算入）' : '条件の質問を開始'}</button>}
+      <TrainingLogin />
+      {!questions && <button className="secondary-button" disabled={busy || !authReady} onClick={() => void start()}>{attempted ? '新しい質問を試す（上限に算入）' : '条件の質問を開始'}</button>}
       {questions && <>
         <p role="status">{questions.provider === 'fake' ? 'FAKE / 模擬質問（Gemini未接続・API呼び出しなし）' : 'Vertex AI / Gemini の質問順序'} · 出発地点や回答はAIへ送信しません。</p>
         <div className="training-fields">{questions.fields.map(field => <label key={field}>{labels[field]}<select value={values[field]} disabled={busy} onChange={event => { setValues(previous => ({ ...previous, [field]: event.target.value })); setConfirmationRevision(undefined); setResult(undefined) }}>

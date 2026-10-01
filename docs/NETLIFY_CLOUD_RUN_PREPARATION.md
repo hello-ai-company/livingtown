@@ -1,77 +1,87 @@
-# Netlify + Cloud Run 接続準備（公開不可・ローカル検証版）
+# Netlify + Cloud Run 接続準備（2026-10-01）
 
-2026-10-01。PR #13 の追加準備。Netlify静的フロント＋Cloud Run APIを前提とする。
-この版は環境変数を全部埋めても実AI・実認証・実DBへ接続しない。実接続用transport、ログインUI、専用DB接続は未配線で、課金承認後も別のコードレビューが必要。
+静的フロントは既存Netlify Free、APIはCloud Run、認証と永続上限は既存Supabaseを利用する最小案。Free契約は利用者提供の管理画面で確認済みで、静的フロントの移行は不要。ホストDB再開・IAM/API設定・デプロイ・実AIは今回実施していない。
 
-## 最小構成と信頼境界
+## 実装済みの接続経路
 
-- 既存Netlifyは `npm run build` / `dist`。`VITE_TRAINING_API_ORIGIN` は空ならVite開発proxy、公開時は承認されたCloud RunのHTTPS originだけ。キー・トークン・userIdを静的設定に含めない。現版フロントはログインしてBearerを送る導線を持たず、公開用バックエンドへの認証接続は未完成。
-- Cloud Runは1サービス、リクエスト課金、最小0、初期最大1を候補とする。最大インスタンスは費用のハード上限ではない。ロードバランサー、Cloud SQL、VM、追加CDN、VPC connectorは初期案に含めない。
-- 認証は既存Supabase Authを再利用する候補。既存共有repositoryの匿名ユーザーは拒否する。`createVerifiedIdentity` は固定Auth originの `/auth/v1/user` にBearerを送り、サーバー検証結果のIDと `is_anonymous === false` を確認する。ローカルJWT decode、クライアントのuserId/header、user_metadata、メールアドレスを認可根拠にしない。サーバー管理のUUID許可リスト（最大20名）を使う。削除・資格変更の確認は要求ごとに行い、結果をキャッシュしない。期限切れ/署名不正の判定自体はAuthサーバーの責任であり、実サーバーでの検証は未実施。
-- `createQuotaReservation` は共有Postgres primary上の関数をパラメーター付きqueryで呼ぶ。Supabaseの既存Postgresを再利用する案で、新規有料DBサービスは追加していない。専用DBロールの接続が必要。RESTにprivate schemaを公開しない。service_roleキーを使わない。
-- SQL案 `server/sql/quota-proposal.sql` は自動migration対象外。専用ロール `training_executor` の存在を前提に、非公開schema、RLS、SECURITY INVOKER関数、限定テーブル権限を定義。DBへの接続資格はサーバー側の信頼境界であり、漏洩すると台帳の直接操作が可能なので必ず秘密管理する。ブラウザ/anon/authenticatedにはschemaも関数も許可しない。
-- 全体20回・利用者3回、出力予約256 tokens/回、全体5120・利用者768 output tokens。日次やプロセス再起動で自動リセットしない。上限増額/リセットは別途管理者承認が必要。単一budget行の `FOR UPDATE` 後、重複/利用者/全体上限を確認し、台帳とカウンターを同一トランザクションで確定してから質問処理へ進む。同じ(user, request_id)は409。失敗・切断・タイムアウト・クラッシュも返却しない。応答喪失で結果不明なら再試行せず閉じる。
-- DB障害時にメモリへフォールバックしない。5秒で待機を打ち切り、遅れて予約が確定しても実行しない。将来のDBドライバーには接続/statement timeoutも設定する必要がある。Cloud RunのローカルファイルやPGliteを公開用永続DBとして使わない。
-- 出力上限は実コスト全体の上限ではない。固定プロンプトのみ、回答/世帯/地点をAIに送らず、候補1・反復1・自動再試行0・出力256を維持。実モデルごとの入力/思考token上限と対応設定・単価の確認は公開前ブロッカー。現版の実AI hard gateを解除しない。
+- `TrainingLogin.tsx` / `auth.ts`: 利用者が選択したメール＋パスワード方式。既存Supabase SDKで既存非匿名アカウントへログインする。サインアップ、OTP/メール送信、OAuth grant、新しい認証サービスは追加しない。
+- 共有repositoryの匿名認証とは別のメモリ内セッション。永続ストレージ/URLへ保存せず、自動refreshなし。画面移動中は保持、ページ再読み込み後は再ログイン。パスワード欄は送信直後に消去し、セッション/資格/メールをログ・スクリーンショット等へ出さない。
+- ログインの重複・中断・失敗・古い応答を処理。ログアウト/期限切れ/401で質問・確認・比較結果を無効化し、進行中の質問を中断する。遅延結果はセッションrevisionも照合する。
+- ログアウトはUIの資格を即座に削除し、同セッションのrefresh権限をAuthへ失効要求する。SDK signOutが期限直前にrefreshを行うため、同じAuth logout endpointを固定URLで直接呼ぶ。失敗してもUIは再ログインが必要。既発行JWTは期限まで有効になり得るため、盗まれたJWTの即時失効までは保証しない。公開前に短いJWT有効期間を設定・検証する。
+- `runtime.mjs`: サーバー起動前に設定を検査。`TRAINING_ALLOW_EXTERNAL_IO=true` が明示されるまで実Auth/DB接続をしない。verifiedではAuth origin・public key・許可UUID・完全一致CORS・専用DB接続が必須。DB準備チェックに失敗するとlisten前に終了し、秘密を含む元エラーはログに出さない。
+- `security.mjs`: Bearerを固定Supabase Auth `/auth/v1/user` で検証し、非匿名ID＋最大20名のサーバー許可リストを使う。クライアントのuserId、metadata、ヘッダー、メールを認可根拠にしない。要求ごとに検証し、キャッシュしない。
+- `pg` 8.23.1はserver専用の最小SQL接続依存。TLS証明書検証を必須、pool最大2、接続3秒・statement3秒・lock2秒・query4秒。URLオプションでTLSを上書きできない。管理者postgres/service_roleでなく専用 `training_executor` のみ。異常時にメモリへフォールバックしない。
+- SQL案は `server/sql/quota-proposal.sql`。既存DBのprivate schema、RLS、SECURITY INVOKER、限定権限を使い、RESTへ公開しない。全体20回・利用者3回・出力256 tokens/回（全体5120、利用者768）を実行前に原子的に予約。同一budget行をロックし、台帳とcounterを同一transactionで確定。重複は409、失敗・中断・応答喪失・クラッシュでも返却しない。自動リセットなし。
+- 専用DB資格はサーバー側の信頼境界で、漏洩後の台帳直接操作まで防ぐ上限ではない。出力上限は入力/思考tokenやインフラ費を含む支出上限でもない。
+- Vertexプロトコル・サービスID認証は既存mockテスト済み。**実AI hard gateは維持**し、`ALLOW_PAID_AI=true` や全設定が揃っても起動を拒否する。課金/権限承認後に既存アダプターへtransportを渡すリリース変更をレビューする。認証/DB接続コードの追加実装は不要になったが、この解除操作と実環境確認は残る。
 
-## CORS と HTTP
-
-`TRAINING_SECURITY_MODE=local` は開発用。Cloud Runの `K_SERVICE` がある場合は拒否する。
-`verified` は検証済みauthenticate関数とreserve関数の両方が必要。環境設定だけでは配線されないため503になる。
-`TRAINING_ALLOWED_ORIGINS` はHTTPS originの完全一致、カンマ区切り。`*`、`null`、全Netlify previewのワイルドカードを認めない。承認された本番originだけを設定し、必要なpreviewは個別に追加する。
-OPTIONSはPOST＋Authorization/Content-Typeのみ許可、Cookie credentialsは許可しない。CORSは認証ではない。Origin無しのcurl等も認証・永続予約を必須にする。
-ローカルモードはloopback HTTP originだけ。リバースproxyでローカルモードを公開しない。
-有料providerはHTTPでも既定transportのないアダプターでも引き続き拒否する。
-
-## 起動と検証（外部接続なし）
+## ローカル起動（外部接続なし）
 
 ```sh
 npm ci
+npm ci --prefix server --ignore-scripts
 npm run test:assistant
 npm test
 npm run build
 ASSISTANT_PROVIDER=fake TRAINING_SECURITY_MODE=local npm run assistant
-# 別ターミナル
-VITE_LIVINGTOWN_DATA_MODE=local npm run dev -- --host 127.0.0.1
+# 別ターミナル: 通常のオフライン訓練
+VITE_LIVINGTOWN_DATA_MODE=local npm run dev -- --port 4173
+# 別ターミナル: ログイン操作も模擬する専用画面
+VITE_LIVINGTOWN_DATA_MODE=local VITE_TRAINING_AUTH_MODE=fake npm run dev -- --port 4175
 ```
 
-verifiedの成功経路は `server/security.node-test.mjs` の明示的mock依存注入で再現する。設定だけで公開できるランチャーは用意しない。
-PGlite 0.5.8 はdevDependencyのみ。SQLのローカル実行、権限、保存後の再openを検証する。Dockerイメージ取得拒否の再試行・迂回はしていない。PGliteは単一接続なので実Postgres複数接続のロック競合、Supabase advisor、ホスト環境の接続方式/TLS/RLSは未検証。
-ブラウザー回帰: `PLAYWRIGHT_MODULE=<installed module> node artifacts/local-training/browser-smoke.mjs`。Viteを127.0.0.1:4173、fake APIを8080で起動して行う。
+fakeログインはDEVかつloopbackかつAPI origin未設定時だけ許可し、「FAKE / 外部接続なし」と表示。`demo@example.test` / `demo` は模擬入力で、実パスワードを入力しない。期限は30秒。production buildではfakeログインを使えず、未設定として拒否する。
 
-## サーバー専用設定と将来の公開順序（未実行）
+ブラウザー試験: `PLAYWRIGHT_MODULE=<installed playwright module> node artifacts/local-training/login-smoke.mjs`。既存の全訓練フローは `browser-smoke.mjs`（4173と、共有障害を模擬する4174が必要）。テストは外部ホストを遮断する。
 
-1. Netlifyの実プラン・利用量・auto recharge/追加購入、Googleクレジット対象Scope/SKU・請求先・期限と、維持期間の費用承認を確認する。
-2. DB再開/既存プラン利用の承認後、既存データを保護して専用ロール/SQLを正式migration化。readiness、複数接続競合、再起動・複数instance・復元による台帳巻戻りを検証する。バックアップ復元後は残予算を照合するまで利用停止。
-3. 非匿名ログイン方式と少人数許可リストを確定。自動匿名ログインと分離し、ユーザーsessionのBearerだけを送るフロント導線を実装。Authのredirect originを限定し、ログアウト時・期限切れの回帰試験を追加する。
-4. サーバーだけにAuth origin、publishable key、許可UUID、DB TLS接続情報を渡す。DB資格はSecret Manager等の承認済み秘密管理から注入し、VITE_、Netlify frontend build、Git、ログに渡さない。実transportを配線し、まずfakeのまま実認証/永続予約を検証する。DB poolは小さくし、TLS証明書検証を無効化しない。
-5. 別途有料AI承認後、Vertex AIのモデル/リージョン/対応token制御を検証してからhard gate解除をレビューする。サービスID/ADCを使用し、サービスアカウントJSON/APIキーを配らない。
-6. Cloud Runを認証保護下で検証してから、必要なAPI到達性とアプリ認証の両立を確認する。Netlifyブラウザから直結する公開HTTP ingressは別途公開承認が必要。IAMで非公開のままならブラウザは直接呼べず、CORS変更だけでは解決しない。
-7. Netlifyの承認済みorigin/公開API URLを設定。許可外origin、無認証、期限切れ、重複、障害時ゼロ推論を実環境で確認して公開する。mainマージ/公開は今回実施しない。
+既存PGliteは開発依存のみ。SQL・権限・保存後再openを検証する。現環境にはpostgres/psql/pg_ctlがなく、実Postgres複数接続競合は未検証。Docker Hubの取得拒否を再試行/迂回していない。コンテナ・実Auth/DB・実AI・外部3D描画・iPhone実機は未検証。
 
-## 必要最小権限の確認項目（付与していない）
+## 承認後に行う外部設定と確認（未実行）
 
-- 実行サービスID: 推論に必要な `aiplatform.endpoints.predict` のカスタムロールを候補に、利用モデルの最新要件を確認する。既成 `roles/aiplatform.user` はより広い権限なので無条件採用しない。DB secretの特定リソースに限った `roles/secretmanager.secretAccessor`。owner/editorやDB管理権限不要。
-- デプロイ担当: 対象サービスに必要なCloud Runの作成/更新権限、対象サービスIDへの `roles/iam.serviceAccountUser`、対象Artifact Registryへの必要権限。ビルドIDと実行IDを分離する。ソースビルドを使う場合のCloud Build権限・API有効化は別途確認/承認。
-- DB: `training_executor` は新規専用資格。提案SQL内のprivate schema/table/function権限だけ。Google IAMはSupabase DBアクセスの代替にならない。
+### 1. Supabase: 既存プロジェクトの再利用
 
-## 費用の比較に必要な値
+- 現契約・再開費用・DB/Auth無料枠・session poolerの利用条件を確認してから再開する。新規Cloud SQL/Firestore等は作らない。
+- 既存の非匿名メール＋パスワードアカウントを確認。必要な少人数アカウントの作成/設定は別承認。公開signupは不要。AuthのJWT有効期間、パスワードポリシー、レート制限を確認する。
+- DB管理者がログイン用専用ロール `training_executor` を用意し、SQL案を正式migrationにして適用・advisor確認する。DB資格は秘密管理へ保管し、Gitやフロント設定に入れない。既存データを変更しない。
+- Cloud RunからIPv4接続する候補はSupabase **session pooler / port5432**。hostは管理画面の値、userは `training_executor.<project-ref>`。direct接続を使う場合は `db.<project-ref>.supabase.co` / `training_executor` で到達性・IPv6条件を確認する。transaction pooler 6543は今回未対応。TLS CAが必要なら検証済み証明書を用意し、検証無効化で通さない。
+- 別接続/別instanceで同ID同時要求、複数利用者の全体上限、timeout直後の再要求、再起動を試験する。テスト専用予算で行い、公開台帳をリセットしない。バックアップ復元による台帳巻戻り時は照合完了まで停止する。
 
-Netlify現行Freeは300 credits/月のハード制限で、上限では停止する。現在のFreeプランは利用者提供の管理画面情報で確認済み。静的フロントの移行は不要と判断し、現設定を維持する。Deploy Preview生成自体とプレビュー通信量の扱いを分け、不要pushを避ける。
-Cloud Runリクエスト課金の無料枠はus-central1価格換算でCPU180,000 vCPU秒・RAM360,000 GiB秒・200万要求/月、請求先全体で共有。地域、転送量、ビルド、Artifact Registry、秘密管理、Vertexは別計算。無料枠適用やクレジット充当を保証しない。
-概算は `呼出数 × (入力token × 入力単価 + 出力/思考token × 対応単価)` に、Cloud Run実測時間/メモリ、転送量、ビルド数、保管量、DB/Auth現契約を加える。出力予約だけから総額を見積もらない。Budget通知だけでは支出停止にならない。
-Supabaseは既存契約の範囲なら追加DBを避けられる候補だが、再開後の利用料・Auth対象人数・接続条件は未確認。Firestore等への移行は採用していない。
+### 2. Google Cloud: fake APIだけ先に確認
 
-公式資料（2026-10-01確認）:
+- プロジェクト/請求先/リージョン、クレジットScope/SKU/期限、クレジット終了後も含む費用上限を確認する。Budget通知だけでは支出は止まらない。
+- Cloud Run、Artifact Registry、必要ならCloud Build、DB資格を保管するSecret Managerの利用を承認してからAPI/資源を設定する。追加LB/VM/Cloud SQL/VPC connectorは初期案に含めない。
+- 実行サービスIDは専用とし、対象DB secretにだけ `roles/secretmanager.secretAccessor`。fake版にはVertex権限不要。owner/editorは不要。デプロイ担当には対象Cloud Runへの必要な作成/更新権限と実行IDへの `roles/iam.serviceAccountUser`、対象Artifact Registryの権限。build IDとruntime IDを分離する。
+- サーバー専用設定は `server/.env.example`。ローカルで実接続を承認した後ならrootのgitignored `.env.server`へ設定し、`node --env-file=.env.server server/index.mjs` で起動可能。Cloud Runでは秘密管理からDB password/必要なCAを注入。`TRAINING_AUTH_ORIGIN` と `TRAINING_AUTH_PUBLIC_KEY`、`TRAINING_ALLOWED_USERS`（UUIDの完全一致）、`TRAINING_ALLOWED_ORIGINS`、DB host/port/userもサーバー設定。`TRAINING_ALLOW_EXTERNAL_IO=true` はこの段階だけ設定する。
+- `ASSISTANT_PROVIDER=fake`、`TRAINING_SECURITY_MODE=verified`、最小instance0、初期最大1、request課金、小さいmemory/CPUから実測する。最大instance数は費用のハード上限ではない。コンテナはroot contextの `server/Dockerfile` を承認後にビルド。serverだけの依存を含み、秘密ファイルはcontextから除外する。
+- 最初は非公開サービスで疎通。Netlifyブラウザから直結するための公開HTTP到達性は別途公開承認が必要。Cloud Run IAM認証とSupabase Bearerは別物なので、IAM非公開のままCORSだけ変えてもブラウザから呼べない。HTTP入口を公開してもアプリ認証/永続quotaは必須。
+
+### 3. Netlify: 無料静的配信を維持
+
+- build `npm run build` / publish `dist` を維持。公開用に `VITE_TRAINING_AUTH_MODE=supabase`、`VITE_TRAINING_AUTH_ORIGIN`、**public/anon keyだけ**の `VITE_TRAINING_AUTH_PUBLIC_KEY`、承認済みCloud Run originの `VITE_TRAINING_API_ORIGIN` を設定する。DB資格、service_role、サービスID鍵、ユーザーtokenを設定しない。
+- API側CORSは `https://livingtown-webmcp.netlify.app` 等の正確なoriginだけ。Previewは個別承認のoriginのみ追加し、`*.netlify.app`を許可しない。POST/Authorization/Content-Typeのみ、cookie credentials不要。Origin無し要求も認証・quotaを通す。
+- 実認証の成功/失敗/匿名/許可外/期限切れ/ログアウト、中断、二重送信、再訪とquotaをfake APIで検証してから公開する。現版Netlify PR previewは実APIの動作確認ではない。
+
+### 4. Vertex AI: 別途課金承認後
+
+- モデルID・リージョン・単価・対応する入力/思考/出力制御を公式仕様で確定し、リリースgate解除とtransport配線の差分だけをレビューする。候補1、反復1、自動retry0、固定prompt、出力256を維持する。
+- 実行IDは必要な `aiplatform.endpoints.predict` を含む最小custom roleを候補とし、実モデルの要件を確認する。既成 `roles/aiplatform.user` は広いため無条件採用しない。サービスID/ADCを使い、SA JSON/API keyを配らない。
+- 少量の有料試験と請求先の使用量照合には別承認が必要。大会要件に対して実AI利用が認められるか、作品再利用可否も公開とは別に確認する。
+
+## 費用確認項目
+
+Netlifyは現行Freeを維持。Supabaseは既存契約の再開/DB/Auth/接続の範囲を確認。Google側はCloud Run CPU/メモリ/要求/転送、Artifact Registry保管、Cloud Build時間、Secret Manager保管version/アクセス、Vertex入力/出力/思考tokensを別々に見積もる。サービスを新設しない選択肢としてSecretを既存承認済み秘密管理へ置けるかも確認する。
+Cloud Run request課金の無料枠はus-central1価格換算でCPU180,000 vCPU秒、RAM360,000 GiB秒、200万要求/月で請求先全体共有。リージョン差・転送・他サービスは別料金。無料枠/クレジット充当を保証しない。少人数20回のAPI利用だけでなく、静的3D通信、ビルド回数、DB再開後の期間料金を含める。モデルと既存契約が未確定なので固定金額は未算出。
+
+公式資料（確認済み）:
+- https://supabase.com/docs/reference/javascript/auth-signinwithpassword
+- https://supabase.com/docs/reference/javascript/auth-signout
 - https://supabase.com/docs/reference/javascript/auth-getuser
-- https://supabase.com/docs/guides/auth/auth-anonymous
-- https://www.postgresql.org/docs/current/sql-createfunction.html
-- https://pglite.dev/docs/api
+- https://supabase.com/docs/guides/database/connecting-to-postgres
+- https://node-postgres.com/features/ssl
+- https://node-postgres.com/apis/client
 - https://cloud.google.com/run/docs/securing/service-identity
 - https://cloud.google.com/run/docs/configuring/services/secrets
-- https://cloud.google.com/vertex-ai/generative-ai/docs/access-control
 - https://cloud.google.com/run/pricing
+- https://cloud.google.com/secret-manager/pricing
 - https://www.netlify.com/pricing/
 - https://supabase.com/pricing
-
-Supabase changelog.mdは取得ツールがmarkdown非対応で読めなかった。関連Auth公式資料を確認し、既存SDKの更新は行っていない。

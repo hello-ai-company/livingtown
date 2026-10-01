@@ -50,3 +50,13 @@ Node 22以上、リポジトリで `npm ci` 後、`ASSISTANT_PROVIDER=fake npm r
 認証はAuthサーバー応答mock、永続SQLはdev-only PGliteで検証。実Auth、実DB複数接続、TLS/専用DBロール、コンテナ、実AIは未検証。専用DB資格漏洩後の直接台帳操作まで防ぐ上限ではない。実transportと非匿名ログイン導線は未配線で、Cloud Runでの無認証localモードと実AIは拒否したまま。
 
 最新設計・起動・費用/IAM確認項目: [NETLIFY_CLOUD_RUN_PREPARATION.md](NETLIFY_CLOUD_RUN_PREPARATION.md)。新しい有料サービスは追加せず、ホストDBへのSQL適用・外部設定変更も実施していない。
+
+## ログイン画面と実接続コードの最終レビュー（2026-10-01）
+
+基点 `3a469a7` からの追加差分を独立担当がレビュー。重大指摘なし。認証7件とbackend26件を独立実行しすべて成功。中断・二重送信・期限切れ・ログアウト・古い応答、productionでのfake拒否、TLS/専用DBロール/起動時fail closed、Docker contextの秘密除外を確認した。
+
+実装中にSDK signOutが期限直前にrefreshを行う挙動をmockテストで発見し、固定Auth logout endpointへ直接失効要求する方式にした。refreshを増やさない回帰テストが成功。既発行JWTは期限まで有効になり得る制約は維持する。
+
+最終検証はfrontend242件/41ファイル、backend26件、typecheck込みbuild、既存ブラウザー9項目＋ログイン7項目が成功。双方のbrowser pageErrorsなし。既存3D chunk警告あり。実Postgresのserver/CLIは現環境に無く、実複数接続試験・コンテナ・実Auth/DB/AIは未実施。Docker取得拒否の再試行や迂回はしていない。
+
+ログイン画面・Auth/SQLの接続コードは準備済み。外部設定の手順と費用/権限・本番試験は [接続準備文書](NETLIFY_CLOUD_RUN_PREPARATION.md) に集約した。実AIのhard gateは課金/権限承認後のリリース変更まで維持する。

@@ -2,4 +2,6 @@
 !server/
 !server/*.mjs
 !server/Dockerfile
+!server/package.json
+!server/package-lock.json
 server/*.node-test.mjs

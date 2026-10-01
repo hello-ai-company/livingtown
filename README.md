@@ -153,4 +153,4 @@ Phase 10のSupabase migrationはExpandとして実Supabaseへ適用済みで、p
 
 ### Netlify + Cloud Run の接続準備
 
-認証・永続利用上限・CORS・秘密管理・公開前ブロッカーは [接続準備の設計とローカル検証手順](docs/NETLIFY_CLOUD_RUN_PREPARATION.md) を参照してください。実AIの強制無効化を維持し、実認証/DB接続とログイン画面は未配線です。
+認証・永続利用上限・CORS・秘密管理・公開前ブロッカーは [接続準備の設計とローカル検証手順](docs/NETLIFY_CLOUD_RUN_PREPARATION.md) を参照してください。実AIの強制無効化を維持。メール＋パスワード画面、実認証/DB接続コードを準備し、外部設定と実環境検証を残しています。

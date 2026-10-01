@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { createAssistant, validateInput } from './assistant.mjs';
 import { allowedOrigin } from './security.mjs';
 import { pathToFileURL } from 'node:url';
+import { configureRuntime } from './runtime.mjs';
 const publicErrors = {
   PAID_PROVIDER_LOCKED: [503, 'この版はfake専用です。有料接続はコードで無効化されています。'],
   USER_CALL_LIMIT: [429, 'この利用者の質問回数上限（3回）に達しました。'],
@@ -68,6 +69,18 @@ export function createApp(ask, env = process.env, { authenticate, reserve } = {}
   });
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const port = Number(process.env.PORT || 8080);
-  createApp().listen(port, process.env.K_SERVICE ? '0.0.0.0' : '127.0.0.1', () => console.log(`Training assistant listening on port ${port}`));
+  try {
+    const runtime = await configureRuntime(process.env);
+    const port = Number(process.env.PORT || 8080);
+    const server = createApp(undefined, process.env, runtime);
+    server.on('error', () => { console.error('Training assistant could not listen.'); void runtime.close(); process.exitCode = 1; });
+    server.listen(port, process.env.K_SERVICE ? '0.0.0.0' : '127.0.0.1', () => console.log(`Training assistant listening on port ${port}`));
+    process.once('SIGTERM', () => {
+      server.close(() => { void runtime.close(); });
+      setTimeout(() => process.exit(0), 5000).unref();
+    });
+  } catch {
+    console.error('Training assistant startup refused. Check server-only auth, quota and provider configuration.');
+    process.exitCode = 1;
+  }
 }
