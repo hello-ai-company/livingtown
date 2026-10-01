@@ -1,0 +1,166 @@
+LivingTown local training verification
+Base: 995adbdb4c44d6abe35ed4d1a440a3ded000ce4b
+Branch: polish/local-training
+Verified UTC: 2026-10-01T00:08:09.512310+00:00
+Node: v24.19.0
+
+This local validation run performed no paid API calls, hosted DB mutations or deployments.
+Database SQL plans: 30 + 74 + 65 + 15 = 184 (static count only; NOT rerun).
+Hosted CI latest status NOT queried; local regression results below.
+
+Frontend tests
+
+> livingtown@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /workspace/livingtown
+
+ ✓ src/map/MyReportsPanel.test.tsx (3 tests) 22ms
+ ✓ src/data/supabaseRepository.test.ts (14 tests) 29ms
+ ✓ src/webmcp/register.test.ts (10 tests) 15ms
+ ✓ src/map/map2dSvg.test.tsx (2 tests) 26ms
+ ✓ src/map/MapExperience.test.tsx (8 tests) 58ms
+ ✓ src/observations/aroundYou.test.ts (5 tests) 16ms
+ ✓ src/data/repository.test.ts (7 tests) 15ms
+ ✓ src/data/store.test.ts (9 tests) 13ms
+ ✓ src/sim/route.test.ts (11 tests) 15ms
+ ✓ src/sim/longDistanceDemo.test.ts (10 tests) 21ms
+ ✓ src/map/ObservationComposer.test.tsx (7 tests) 19ms
+ ✓ src/map/mapGeoJson.test.ts (4 tests) 10ms
+ ✓ src/training/flow.test.ts (8 tests) 17ms
+ ✓ src/observations/observations.test.ts (23 tests) 12ms
+ ✓ src/map/MapFocusPanel.test.tsx (1 test) 15ms
+ ✓ src/app/longDistanceExample.test.tsx (8 tests) 17ms
+ ✓ src/map/KnowledgeVisual.test.tsx (2 tests) 12ms
+ ✓ src/map/knowledgeVisuals.test.ts (16 tests) 9ms
+ ✓ src/map3d/plateauLoader.test.ts (7 tests) 9ms
+ ✓ src/webmcp/tools/tools.test.ts (3 tests) 6ms
+ ✓ src/map3d/navaraCamera.test.ts (8 tests) 5ms
+ ✓ src/map3d/navaraWalkthrough.test.ts (9 tests) 6ms
+ ✓ src/map/basemaps.test.ts (10 tests) 5ms
+ ✓ src/webmcp/diagnostics.test.ts (3 tests) 6ms
+ ✓ src/map3d/navaraPhotorealistic.test.ts (4 tests) 4ms
+ ✓ src/map/geolocation.test.ts (3 tests) 5ms
+ ✓ src/data/localTrainingSwitch.test.ts (2 tests) 4ms
+ ✓ src/map3d/provider.test.ts (4 tests) 4ms
+ ✓ src/map3d/navaraDatasets.test.ts (2 tests) 5ms
+ ✓ src/map3d/navaraWeather.test.ts (2 tests) 6ms
+ ✓ src/map3d/plateauDatasets.test.ts (4 tests) 3ms
+ ✓ src/app/routeInputs.test.ts (3 tests) 3ms
+ ✓ src/i18n.test.ts (3 tests) 2ms
+ ✓ src/map/mapFilters.test.ts (3 tests) 3ms
+ ✓ src/map3d/navaraLoader.test.ts (2 tests) 3ms
+ ✓ src/app/mapDimension.test.ts (3 tests) 3ms
+ ✓ src/map3d/navaraCapabilities.test.ts (3 tests) 6ms
+ ✓ src/map3d/navaraStory.test.ts (3 tests) 3ms
+ ✓ src/app/verificationTarget.test.ts (4 tests) 3ms
+
+ Test Files  39 passed (39)
+      Tests  233 passed (233)
+   Start at  00:06:16
+   Duration  3.28s (transform 997ms, setup 0ms, collect 2.38s, tests 433ms, environment 5ms, prepare 2.04s)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+
+Backend tests
+
+> livingtown@0.1.0 test:assistant
+> node --test server/*.node-test.mjs
+
+✔ fake never accesses network; duplicates coalesce and per-user limits apply (1.680016ms)
+✔ global limit includes separate users (0.167983ms)
+✔ invalid tool names, extra fields, oversized and missing request IDs rejected (0.375275ms)
+✔ missing paid opt-in or settings fails without network (0.443587ms)
+✔ already aborted request consumes no budget (0.270267ms)
+✔ mock Vertex uses service identity, bounded structured output, and no tools/user data (1.126944ms)
+✔ invalid model route/verification output is rejected (0.202895ms)
+✔ provider error is not automatically retried or refunded (0.341654ms)
+✔ in-flight interruption reaches provider signal (0.600533ms)
+✔ HTTP validates content, sanitizes errors, locks paid providers regardless of settings (46.646276ms)
+✔ fully configured Vertex has no default network transport even outside HTTP (0.252931ms)
+✔ explicit new attempt recovers after failure but consumes user quota (0.442285ms)
+✔ parallel unique calls cannot race beyond global or user quota (0.264808ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 157.763984
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+
+Build (tail)
+dist/assets/higher_order_scattering-DESNvLXy.exr  3,583.04 kB
+dist/assets/scattering-CCKbhVfn.exr               4,088.74 kB
+dist/assets/navara_wasm_bg-HHmzdWJw.wasm          4,654.01 kB │ gzip: 1,726.02 kB
+dist/assets/index-Bx8g6Kd1.css                      191.85 kB │ gzip:    29.80 kB
+dist/assets/NavaraMap3D-CbHgSVhc.js                  44.15 kB │ gzip:    14.05 kB
+dist/assets/index-Lx_dre2D.js                     1,006.42 kB │ gzip:   330.76 kB
+dist/assets/index-VBfUO5KQ.js                     1,756.58 kB │ gzip:   489.41 kB
+dist/assets/index-xPRKcmnC.js                     3,018.90 kB │ gzip:   769.75 kB
+dist/assets/spark.module-COrDCc4I-J6TrWGi8.js     5,053.00 kB │ gzip: 1,785.93 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 8.40s
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+Browser smoke
+{
+  "passed": [
+    "data change after confirmation invalidates consent before any calculation",
+    "fake questions -> explicit confirmation -> deterministic comparison; duplicate submit blocked",
+    "bottleneck evidence includes content and actual creation timestamp",
+    "3D training link invokes existing map-dimension transition (remote 3D assets unverified)",
+    "condition edit invalidates confirmation and result",
+    "390px viewport has no horizontal overflow",
+    "503 and cancelled stale response produce no questions or routes",
+    "explicit retry after error/cancel uses a new request ID and recovers",
+    "simulated shared failure is visible; explicit local switch restores fixtures"
+  ],
+  "pageErrors": []
+}
+
+
+Container build blocker
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 220B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#2 ERROR: failed to do request: Head "https://registry-1.docker.io/v2/library/node/manifests/22-alpine": Forbidden
+------
+ > [internal] load metadata for docker.io/library/node:22-alpine:
+------
+Dockerfile:1
+--------------------
+   1 | >>> FROM node:22-alpine
+   2 |     ENV NODE_ENV=production
+   3 |     ENV ASSISTANT_PROVIDER=fake
+--------------------
+ERROR: failed to build: failed to solve: node:22-alpine: failed to resolve source metadata for docker.io/library/node:22-alpine: failed to do request: Head "https://registry-1.docker.io/v2/library/node/manifests/22-alpine": Forbidden
+
+
+Independent reviewer: 3 findings resolved; no remaining major findings for local fake only.
+Independent rerun: backend 13 pass, flow/local-switch 10 pass.
+Docker not retried or bypassed during independent review.

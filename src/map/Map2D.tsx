@@ -32,6 +32,7 @@ export interface Map2DProps {
   onRequestContribution?: (location: { lat: number; lng: number }, source?: 'map' | 'current' | 'center') => void
   onLocationPicked?: (location: { lat: number; lng: number }) => void
   locationPickerActive?: boolean
+  composerOpen?: boolean
   onEditKnowledge?: (knowledge: import('../sim/types').Knowledge) => void
   onDeleteKnowledge?: (knowledge: import('../sim/types').Knowledge) => void
   locale?: Locale
@@ -103,11 +104,12 @@ function overlapOffset(view: KnowledgeVisualView, views: KnowledgeVisualView[]) 
 /**
  * Exported for focused SVG framing tests. Map2D remains the public renderer.
  */
-export function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, locale = 'ja', mode = 'simple', surface = 'map', compact = false, filterState }: Map2DProps) {
+export function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, highlightKnowledgeId, onSelectHousehold, onSelectKnowledge, onClearKnowledge, onRequestContribution, onLocationPicked, locationPickerActive = false, composerOpen, locale = 'ja', mode = 'simple', surface = 'map', compact = false, filterState }: Map2DProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
   const [internalFilters] = useState(DEFAULT_MAP_FILTER_STATE)
   const filters = filterState ?? internalFilters
   const [postingMode, setPostingMode] = useState(false)
+  useEffect(() => { if (composerOpen === false) setPostingMode(false) }, [composerOpen])
   const [internalSelectedKnowledgeId, setInternalSelectedKnowledgeId] = useState<string>()
   const previousStates = useRef(new Map<string, KnowledgeVisualState>())
   const [transitioningKnowledgeIds, setTransitioningKnowledgeIds] = useState<Set<string>>(new Set())
@@ -228,7 +230,7 @@ export function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, high
     <div className={`map-surface map-surface--${surface}`}>
       <div className="map-frame__topline">
         <div>
-          <span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : t('map.simpleMode')}</span>
+          <span className="eyebrow">{surface === 'drill' ? t(mode === 'advanced' ? 'drill.eyebrow' : 'phase.drill.label') : surface === 'replay' ? t(mode === 'advanced' ? 'replay.eyebrow' : 'phase.replay.label') : mode === 'advanced' ? 'LIVING MAP / 2D FALLBACK' : (locale === 'ja' ? '訓練用の模式図' : 'Training diagram')}</span>
           <span className="map-frame__title">{surface === 'drill' ? t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title') : surface === 'replay' ? t(mode === 'simple' ? 'replay.simpleTitle' : 'replay.title') : t(mode === 'simple' ? 'map.simpleTitle' : 'map.title')}</span>
         </div>
         <span className="map-frame__mode"><span className="status-dot status-dot--live" /> {mode === 'advanced' ? 'offline graph · MapLibre fallback' : t('map.fallbackMode')}</span>

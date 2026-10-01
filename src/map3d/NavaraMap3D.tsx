@@ -402,6 +402,10 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
       </div>
       <div className={`map-frame navara-map-frame navara-map-frame--${surface}${walkthrough.active ? ' navara-map-frame--walkthrough' : ''}`} data-navara-readiness={diagnostics.readiness} data-navara-terrain={diagnostics.terrain} data-navara-imagery={diagnostics.imagery} data-navara-plateau={diagnostics.plateau} data-navara-plateau-dataset={diagnostics.plateauDatasetId ?? ''} data-navara-plateau-municipality={diagnostics.plateauMunicipality ?? ''} data-navara-plateau-switch={diagnostics.plateauSwitchState} data-surface={surface} data-replay-camera={snapshot.replay.camera} data-walkthrough={walkthrough.active ? 'active' : 'inactive'} data-walkthrough-index={walkthrough.active ? walkthrough.index : ''} data-walkthrough-event={walkthrough.active ? walkthroughFrame?.event ?? '' : ''}>
       <div ref={containerRef} className="navara-canvas" role="region" aria-label={t('map.knowledgeMap3dAlt')} aria-busy={diagnostics.readiness === 'loading'} />
+      <div className="navara-attribution">Navara Map · {t('map.gsiAttribution')}{diagnostics.plateau === 'ready' && <> · {diagnostics.plateauAttributionUrl ? <a href={diagnostics.plateauAttributionUrl} target="_blank" rel="noreferrer">{t('map.plateauAttribution')}{diagnostics.plateauMunicipality ? ` · ${diagnostics.plateauMunicipality}` : ''}</a> : t('map.plateauAttribution')}</>}<span>{locale === 'ja' ? '天候は訓練用の模擬表示' : 'Weather is simulated for training'}</span></div>
+      </div>
+      <div className="navara-controls">
+      <p className="navara-simulation-note">{t('map.noRealWeather')} · {t('map.weatherSimulation')}</p>
       <div className="navara-map-key" role="list" aria-label={t('map.markerLegend')}>
         <span className="navara-map-key__item" role="listitem"><i className="navara-map-key__swatch navara-map-key__swatch--start" />{t('map.markerStart')}</span>
         <span className="navara-map-key__item" role="listitem"><i className="navara-map-key__swatch navara-map-key__swatch--hazard" />{t('map.markerHazard')}</span>
@@ -473,17 +477,18 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
           </label>}
         </div>
       </div>}
-      {mode === 'advanced' && <div className="navara-advanced-panel">
-        <div className="navara-advanced-panel__head"><span className="eyebrow">{t('map.advanced3d')}</span><span>{VERSION_SUMMARY}</span></div>
-        <div className="navara-diagnostics-grid">
-          <span>{t('map.renderer')}<strong>{diagnostics.renderer}</strong></span>
-          <span>{t('map.terrain')}<strong>{statusLabel(diagnostics.terrain, locale)}</strong></span>
-          <span>{t('map.imagery')}<strong>{imageryLabel(diagnostics.imagery, locale)}</strong></span>
-          <span>{t('map.plateau')}<strong>{statusLabel(diagnostics.plateau, locale)}{diagnostics.plateauMunicipality ? ` · ${diagnostics.plateauMunicipality}` : ''}</strong></span>
-          <span>{t('map.visualWeather')}<strong>{t(weatherModeLabelKey(diagnostics.weather.mode))}</strong></span>
-          <span>{t('map.quality')}<strong>{t(`map.quality.${diagnostics.quality}`)}</strong></span>
-          {diagnostics.fps !== undefined && <span>FPS<strong>{diagnostics.fps}</strong></span>}
-        </div>
+      <details className="navara-settings" onKeyDown={(event) => {
+        if (event.key !== 'Escape') return
+        const nested = (event.target as HTMLElement).closest('details')
+        const target = nested instanceof HTMLDetailsElement && nested.open ? nested : event.currentTarget
+        if (!target.open) return
+        event.preventDefault()
+        event.stopPropagation()
+        target.open = false
+        target.querySelector('summary')?.focus()
+      }}>
+        <summary>{locale === 'ja' ? '3Dの表示設定' : '3D display settings'}</summary>
+        <div className="navara-settings__body">
         <label className="navara-weather-control">{t('map.weather')}
           <select value={weatherMode ?? 'route'} onChange={(event) => onWeatherModeChange?.(event.target.value === 'route' ? undefined : event.target.value as WeatherVisualMode)}>
             <option value="route">{t('map.routeWeather')}</option>
@@ -501,14 +506,32 @@ export function NavaraMap3D({ snapshot, focusHouseholdId, selectedKnowledgeId, c
           </select>
         </label>
         <p className="navara-advanced-panel__note">{t('map.noRealWeather')} · {diagnostics.plateauSwitchState === 'loading' ? t('map.plateauLoading') : diagnostics.plateau === 'ready' && diagnostics.plateauAttributionUrl ? <a href={diagnostics.plateauAttributionUrl} target="_blank" rel="noreferrer">{diagnostics.plateauMunicipality ? `${diagnostics.plateauMunicipality} · ` : ''}{t('map.plateauAttribution')}</a> : diagnostics.plateauSwitchState === 'blocked' ? t('map.plateauSwitchFailed') : diagnostics.plateau === 'not_applicable' ? t('map.plateauNoDataset') : t('map.plateauOptional')}</p>
-      </div>}
+        <details className="navara-diagnostics"><summary>{locale === 'ja' ? '描画の診断情報' : 'Rendering diagnostics'}</summary>
+        <div className="navara-advanced-panel__head"><span className="eyebrow">{t('map.advanced3d')}</span><span>{VERSION_SUMMARY}</span></div>
+        <div className="navara-diagnostics-grid">
+          <span>{t('map.renderer')}<strong>{diagnostics.renderer}</strong></span>
+          <span>{t('map.terrain')}<strong>{statusLabel(diagnostics.terrain, locale)}</strong></span>
+          <span>{t('map.imagery')}<strong>{imageryLabel(diagnostics.imagery, locale)}</strong></span>
+          <span>{t('map.plateau')}<strong>{statusLabel(diagnostics.plateau, locale)}{diagnostics.plateauMunicipality ? ` · ${diagnostics.plateauMunicipality}` : ''}</strong></span>
+          <span>{t('map.visualWeather')}<strong>{t(weatherModeLabelKey(diagnostics.weather.mode))}</strong></span>
+          <span>{t('map.quality')}<strong>{t(`map.quality.${diagnostics.quality}`)}</strong></span>
+          {diagnostics.fps !== undefined && <span>FPS<strong>{diagnostics.fps}</strong></span>}
+        </div>
+        </details>
+        <button type="button" className="secondary-button" onClick={(event) => {
+          const settings = event.currentTarget.closest('.navara-settings') as HTMLDetailsElement
+          settings.open = false
+          settings.querySelector('summary')?.focus()
+        }}>{locale === 'ja' ? '設定を閉じる' : 'Close settings'}</button>
+        </div>
+      </details>
       {tourPlaying && <div className="navara-tour-controls" role="group" aria-label={t('map.guide')}>
         <span>{tourStepLabel}</span>
         {tourPaused ? <button type="button" className="text-button" onClick={resumeTour}>{t('map.guideResume')}</button> : <button type="button" className="text-button" onClick={pauseTour}>{t('map.guidePause')}</button>}
         <button type="button" className="text-button" onClick={() => { setSelectedTourIndex(0); setTourPaused(false) }}>{t('map.guideOverview')}</button>
         <button type="button" className="text-button" onClick={exitTour}>{t('map.guideExit')}</button>
       </div>}
-      <div className="navara-attribution">Navara Map · {t('map.gsiAttribution')}{diagnostics.plateau === 'ready' && ` · ${t('map.plateauAttribution')}${diagnostics.plateauMunicipality ? ` · ${diagnostics.plateauMunicipality}` : ''}`}</div>
+
       </div>
     </div>
   )

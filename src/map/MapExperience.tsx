@@ -113,7 +113,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
   const [focusOpen, setFocusOpen] = useState(false)
   const [mapOnly, setMapOnly] = useState(false)
   const initialRoute = mapProps.focusHouseholdId ? mapProps.snapshot.routes[mapProps.focusHouseholdId] : Object.values(mapProps.snapshot.routes)[0]
-  const [panelOpen, setPanelOpen] = useState(() => Boolean(mapProps.selectedKnowledgeId) || (mapProps.mode === 'advanced' && surface === 'map') || (surface !== 'map' && Boolean(initialRoute)))
+  const [panelOpen, setPanelOpen] = useState(() => Boolean(mapProps.selectedKnowledgeId) || (dimension === '2d' && mapProps.mode === 'advanced' && surface === 'map') || (surface !== 'map' && Boolean(initialRoute)))
   const [panelTab, setPanelTab] = useState<MapFocusPanelTab>(() => mapProps.selectedKnowledgeId ? 'details' : mapProps.mode === 'advanced' && surface === 'map' ? 'filters' : 'details')
   const [filterState, setFilterState] = useState<MapFilterState>(DEFAULT_MAP_FILTER_STATE)
   const previousDimension = useRef(dimension)
@@ -156,7 +156,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
     if (mode === 'simple') {
       setFilterState((current) => current.category === 'all' ? current : { ...current, category: 'all' })
     }
-    if (surface === 'map' && mode === 'advanced' && !mapProps.selectedKnowledgeId) {
+    if (dimension === '2d' && surface === 'map' && mode === 'advanced' && !mapProps.selectedKnowledgeId) {
       setPanelTab('filters')
       setPanelOpen(true)
     }
@@ -164,7 +164,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
       setPanelTab('details')
       setPanelOpen(hasRouteContext)
     }
-  }, [hasRouteContext, mapProps.selectedKnowledgeId, mode, surface])
+  }, [dimension, hasRouteContext, mapProps.selectedKnowledgeId, mode, surface])
 
   useEffect(() => {
     const selectionChanged = previousSelectedKnowledgeId.current !== mapProps.selectedKnowledgeId

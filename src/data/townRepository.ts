@@ -11,10 +11,10 @@ export interface TownRepositoryConfig {
 }
 
 function environmentConfig(): TownRepositoryConfig {
-  let localOverride = false
+  let localOverride = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('training') === 'local'
   if (typeof window !== 'undefined') {
     try {
-      localOverride = window.sessionStorage.getItem(DATA_MODE_OVERRIDE_KEY) === 'local'
+      localOverride = localOverride || window.sessionStorage.getItem(DATA_MODE_OVERRIDE_KEY) === 'local'
     } catch {
       // Storage can be unavailable in a locked-down browser context.
     }
@@ -53,9 +53,11 @@ export function switchToLocalDemo() {
   try {
     window.sessionStorage.setItem(DATA_MODE_OVERRIDE_KEY, 'local')
   } catch {
-    // The reload still makes the action visible even if session storage is blocked.
+    // The explicit URL flag still works if session storage is blocked.
   }
-  window.location.reload()
+  const url = new URL(window.location.href)
+  url.searchParams.set('training', 'local')
+  window.location.assign(url.toString())
 }
 
 export const townRepository = createTownRepository()

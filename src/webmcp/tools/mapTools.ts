@@ -78,7 +78,7 @@ export function mapTools(store: TownRepository): ToolDefinition[] {
       readOnlyHint: true,
       run: async (input: QueryAreaInput, context) => {
         const result = await store.queryArea(input, { signal: context.signal })
-        await store.recordActivity('query_area', `${result.length}件の暗黙知を周辺検索`)
+        if (context.recordActivity !== false) await store.recordActivity('query_area', `${result.length}件の暗黙知を周辺検索`)
         return { items: result }
       },
     },

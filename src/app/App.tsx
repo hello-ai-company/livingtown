@@ -1,3 +1,5 @@
+import { AgentConsentPanel } from '../webmcp/AgentConsentPanel'
+import { TrainingAssistant } from '../training/TrainingAssistant'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapExperience, type MapExperienceProps } from '../map/MapExperience'
 import { KnowledgeContributionForm } from '../map/KnowledgeContributionForm'
@@ -55,7 +57,7 @@ function formatTime(value: string, locale: Locale) {
 
 function repositoryStatusLabel(status: ReturnType<typeof townRepository.getStatus>, locale: Locale, mode: ExperienceMode) {
   if (mode === 'advanced') return `${dataModeLabel(status.mode)} / ${status.connection}`
-  if (status.connection === 'ERROR') return locale === 'ja' ? '情報を確認中' : 'Checking information'
+  if (status.connection === 'ERROR') return locale === 'ja' ? '共有接続に失敗' : 'Shared connection failed'
   return status.mode === 'SUPABASE_SHARED'
     ? (locale === 'ja' ? '地域の共有情報' : 'Community information')
     : (locale === 'ja' ? 'デモ情報' : 'Demo information')
@@ -64,12 +66,13 @@ function repositoryStatusLabel(status: ReturnType<typeof townRepository.getStatu
 function AppShell() {
   const snapshot = useTownSnapshot(townRepository)
   const repositoryStatus = useRepositoryStatus(townRepository)
-  const { phase, selectPhase, registry, phaseSignal } = usePhase()
+  const { phase, selectPhase, registry, phaseSignal, agentConsent } = usePhase()
   const { locale, mode, setLocale, setMode } = useUiPreferences()
   const t = useTranslator(locale)
   const phaseMeta = useMemo(() => getPhaseMeta(t), [t])
   const [panel, setPanel] = useState<Phase | 'reports' | 'admin'>('map')
-  const [selectedHouseholdId, setSelectedHouseholdId] = useState('h-wheelchair')
+  const [selectedHouseholdId, setSelectedHouseholdIdState] = useState('h-wheelchair')
+  const setSelectedHouseholdId = useCallback((id: string) => { agentConsent.invalidate(); setSelectedHouseholdIdState(id) }, [agentConsent])
   const [selectedKnowledgeId, setSelectedKnowledgeId] = useState<string>()
   const [lastKnowledgeId, setLastKnowledgeId] = useState<string | undefined>()
   const [routeInputs, setRouteInputs] = useState<RouteInputs>({ scenario: 'flood', weather: 'rain', time_of_day: 'day' })
@@ -79,7 +82,7 @@ function AppShell() {
   const [observationMapLocation, setObservationMapLocation] = useState<{ lat: number; lng: number }>()
   const [observationCurrentLocation, setObservationCurrentLocation] = useState<{ lat: number; lng: number }>()
   const [observationLocationSource, setObservationLocationSource] = useState<'map' | 'current' | 'center'>('center')
-  const [observationComposerOpen, setObservationComposerOpen] = useState(true)
+  const [observationComposerOpen, setObservationComposerOpen] = useState(false)
   const [editingKnowledge, setEditingKnowledge] = useState<Knowledge>()
   const [editingLocation, setEditingLocation] = useState<{ lat: number; lng: number }>()
   const [locationPickerActive, setLocationPickerActive] = useState(false)
@@ -90,6 +93,13 @@ function AppShell() {
   const knownHouseholdIds = useRef<Set<string> | undefined>(undefined)
   const knownRouteHouseholdIds = useRef<Set<string> | undefined>(undefined)
   const sharedSnapshotHydrated = useRef(repositoryStatus.mode !== 'SUPABASE_SHARED')
+
+  useEffect(() => {
+    if (observationComposerOpen && panel === 'map') {
+      const frame = requestAnimationFrame(() => document.getElementById('observation-text')?.focus())
+      return () => cancelAnimationFrame(frame)
+    }
+  }, [observationComposerOpen, panel])
 
   const browserUserAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
   const currentEvidence = useMemo(
@@ -107,6 +117,7 @@ function AppShell() {
 
   useEffect(() => {
     if (mode !== 'simple') return
+    agentConsent.invalidate()
     setRouteInputs((current) => {
       const next = routeInputsForMode(mode, current)
       return next.scenario === current.scenario && next.weather === current.weather && next.time_of_day === current.time_of_day ? current : next
@@ -196,6 +207,11 @@ function AppShell() {
 
   const transitionTo = useCallback((nextPanel: Phase | 'reports' | 'admin') => {
     setPanel(nextPanel)
+    setObservationComposerOpen(false)
+    setObservationMapLocation(undefined)
+    setObservationCurrentLocation(undefined)
+    setObservationLocationSource('center')
+    setLocationPickerActive(false)
     if (nextPanel !== 'admin' && nextPanel !== 'reports') selectPhase(nextPanel)
   }, [selectPhase])
 
@@ -280,8 +296,9 @@ function AppShell() {
   }
 
   const handleRouteInputsChange = useCallback((next: RouteInputs) => {
+    agentConsent.invalidate()
     setRouteInputs(mode === 'simple' ? routeInputsForMode(mode, next) : next)
-  }, [mode])
+  }, [agentConsent, mode])
 
   const registerDemoHousehold = async () => {
     const result = await runTool('register_household', {
@@ -404,8 +421,6 @@ function AppShell() {
   }
 
   const currentMeta = phaseMeta.find((item) => item.key === phase) ?? phaseMeta[0]
-  const verifiedCount = snapshot.knowledge.filter(isKnowledgeVerified).length
-  const routeCount = Object.keys(snapshot.routes).length
 
   const mapExperienceProps: Omit<MapExperienceProps, 'surface'> = {
     snapshot,
@@ -422,20 +437,24 @@ function AppShell() {
     weatherMode: weatherVisualMode,
     onWeatherModeChange: setWeatherVisualMode,
     locationPickerActive,
+    composerOpen: observationComposerOpen,
     onSelectHousehold: selectPhaseAndFocusHousehold,
     onSelectKnowledge: setSelectedKnowledgeId,
     onClearKnowledge: () => setSelectedKnowledgeId(undefined),
     onVerifyKnowledge: (knowledgeId, verdict) => { void verifyKnowledge(knowledgeId, verdict) },
     onRequestContribution: (location, source = 'map') => {
-      if (source === 'current') setObservationCurrentLocation(location)
-      if (source === 'map') setObservationMapLocation(location)
+      setObservationCurrentLocation(source === 'current' ? location : undefined)
+      setObservationMapLocation(source === 'map' ? location : undefined)
       setObservationLocationSource(source)
       setObservationComposerOpen(true)
     },
     onLocationPicked: (location) => {
       setLocationPickerActive(false)
       if (editingKnowledge) setEditingLocation(location)
-      else setObservationMapLocation(location)
+      else {
+        setObservationMapLocation(location)
+        setObservationCurrentLocation(undefined)
+      }
       setObservationLocationSource('map')
       setObservationComposerOpen(true)
       setNotice(t('notice.locationSelected'))
@@ -468,18 +487,25 @@ function AppShell() {
         </div>
       </header>
 
+      <section className="training-connection" aria-label="訓練データの接続状態">
+        <div className="training-status-line"><strong>{locale === 'ja' ? '訓練デモ · 実AIオフ' : 'Training demo · Live AI off'}</strong><span>{repositoryStatus.mode === 'LOCAL_DEMO' ? (locale === 'ja' ? 'サンプル / 共有保存なし' : 'Sample / no shared writes') : repositoryStatusLabel(repositoryStatus, locale, mode)}</span></div>
+        <p>{locale === 'ja' ? '実際の避難経路の安全を保証しません。' : 'This does not guarantee a safe evacuation route.'}</p>
+        {repositoryStatus.localPersistence === 'unavailable' && <p role="alert">端末への保存ができません。現在の画面では操作できますが、再読み込みで失われる場合があります。</p>}
+        {repositoryStatus.connection === 'ERROR' && <p role="alert">{locale === 'ja' ? '共有DBへ接続できません。表示中の情報が最新とは限りません。' : 'Shared data is unavailable and may be out of date.'}</p>}
+        <details><summary>{locale === 'ja' ? '接続状態・訓練データについて' : 'Connection and training data'}</summary>
+          <strong>{repositoryStatus.mode} / {repositoryStatus.connection}</strong>
+          <p>{repositoryStatus.mode === 'LOCAL_DEMO' ? 'ローカル訓練モード：サンプルとこのブラウザ内の入力です。共有DBへの保存・同期は行いません。' : '共有DBモードです。接続状態・最終同期時点を確認してご利用ください。'}</p>
+          <p>東京の固定10ノード・11辺を使います。実AIは無効で、模擬質問を使用します。</p>
+          {repositoryStatus.mode === 'SUPABASE_SHARED' && <p>最終共有同期: {repositoryStatus.lastSync || '未同期'}</p>}
+          {repositoryStatus.fallbackReason && <p>{repositoryStatus.fallbackReason}</p>}
+        </details>
+        {repositoryStatus.mode === 'SUPABASE_SHARED' && <button className="secondary-button" onClick={switchToLocalDemo}>このタブをローカル訓練モードに切り替える</button>}
+      </section>
       <main className="workspace">
-        <section className={`intro-row${mode === 'simple' ? ' intro-row--simple' : ''}`}>
-          <div className="intro-copy">
-            <span className="eyebrow">{t(mode === 'simple' ? 'hero.simpleEyebrow' : 'hero.eyebrow')}</span>
-            {mode === 'simple' ? <h1>{t('hero.simpleTitle')}</h1> : <h1>{t('hero.title')}<br /><em>{t('hero.titleAccent')}</em></h1>}
-            <p>{t(mode === 'simple' ? 'hero.simpleBody' : 'hero.body')}</p>
-          </div>
-          {mode === 'advanced' && <div className="signal-board" aria-label={t('signal.label')}>
-            <div className="signal-board__label">{t('signal.label')} <span className="status-dot status-dot--live" /></div>
-            <div className="signal-board__main">{verifiedCount}<small> {t('signal.verified')}</small></div>
-            <div className="signal-board__footer"><span>{snapshot.knowledge.length} {t('signal.observations')}</span><span>{routeCount} {t('signal.routes')}</span></div>
-          </div>}
+        <AgentConsentPanel />
+        <section className="map-first-intro">
+          <div><h1>{locale === 'ja' ? '地図から、家族の移動を練習' : 'Practice your family’s journey'}</h1><p>{locale === 'ja' ? '4つの条件を選んで、約1分の訓練体験。登録は不要です（サンプルモード）。' : 'Explore the map, then check your travel needs.'}</p></div>
+          {panel === 'map' ? <button className="primary-button" onClick={() => transitionTo('drill')}>{locale === 'ja' ? '家族の訓練を始める' : 'Start family training'} →</button> : <button className="secondary-button" onClick={() => transitionTo('map')}>← {locale === 'ja' ? '地図へ戻る' : 'Back to map'}</button>}
         </section>
 
         <nav className="phase-nav" aria-label={t('phase.navLabel')}>
@@ -507,10 +533,9 @@ function AppShell() {
           <section className="map-column">
             {panel === 'reports' ? <MyReportsPanel knowledge={snapshot.knowledge} locale={locale} onEdit={editKnowledge} onDelete={(knowledge) => void deleteKnowledge(knowledge)} onPost={() => { transitionTo('map'); setObservationComposerOpen(true) }} /> : <>
               {panel === 'map' && <MapExperience {...mapExperienceProps} surface="map" />}
-              {panel === 'map' && mode === 'simple' && <div className="simple-map-actions"><button type="button" className="secondary-button" onClick={() => transitionTo('reports')}>{t('nav.myReports')}</button></div>}
-              {panel === 'map' && mode === 'simple' && <AroundYouNow repository={townRepository} camera={mapCamera} locale={locale} mode={mode} refreshKey={snapshot.knowledge.map((item) => `${item.id}:${item.updated_at ?? item.created_at}:${item.agree_count}:${item.disagree_count}`).join('|')} onSelectKnowledge={(knowledgeId) => { setSelectedKnowledgeId(knowledgeId); transitionTo('map') }} />}
-              {panel === 'map' && observationComposerOpen && <ObservationComposer locale={locale} mode={mode} location={observationMapLocation ?? observationCurrentLocation ?? { lat: mapCamera.lat, lng: mapCamera.lng }} locationSource={observationMapLocation ? 'map' : observationCurrentLocation ? 'current' : observationLocationSource} onRequestLocationChange={() => { setObservationMapLocation(undefined); setObservationLocationSource(observationCurrentLocation ? 'current' : 'center'); setLocationPickerActive(true) }} onSubmit={submitKnowledge} lastPostedKnowledgeId={lastKnowledgeId} onUndo={() => void undoLastObservation()} />}
-              {panel === 'map' && <MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} />}
+              {panel === 'map' && mode === 'simple' && <details className="progressive-section"><summary>{locale === 'ja' ? 'この周辺の情報を見る' : 'Nearby observations'}</summary><AroundYouNow repository={townRepository} camera={mapCamera} locale={locale} mode={mode} refreshKey={snapshot.knowledge.map((item) => `${item.id}:${item.updated_at ?? item.created_at}:${item.agree_count}:${item.disagree_count}`).join('|')} onSelectKnowledge={(knowledgeId) => { setSelectedKnowledgeId(knowledgeId); transitionTo('map') }} /></details>}
+              {panel === 'map' && observationComposerOpen && <ObservationComposer onClose={() => { setObservationComposerOpen(false); setObservationMapLocation(undefined); setObservationCurrentLocation(undefined); setObservationLocationSource('center'); setLocationPickerActive(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.map-post-button')?.focus()) }} locale={locale} mode={mode} location={observationMapLocation ?? observationCurrentLocation ?? { lat: mapCamera.lat, lng: mapCamera.lng }} locationSource={observationMapLocation ? 'map' : observationCurrentLocation ? 'current' : observationLocationSource} onRequestLocationChange={() => { setObservationMapLocation(undefined); setObservationLocationSource(observationCurrentLocation ? 'current' : 'center'); setLocationPickerActive(true) }} onSubmit={submitKnowledge} lastPostedKnowledgeId={lastKnowledgeId} onUndo={() => void undoLastObservation()} />}
+              {panel === 'map' && <details className="progressive-section"><summary>{locale === 'ja' ? '投稿・確認の練習と報告一覧' : 'Practice reports and confirmations'}</summary><MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} /></details>}
               {panel === 'drill' && <DrillStage mapProps={mapExperienceProps} snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={handleRouteInputsChange} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} onLongDistanceExample={() => void applyLongDistanceExample()} />}
               {panel === 'replay' && <ReplayStage mapProps={mapExperienceProps} snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} onView3D={open3D} />}
               {panel === 'admin' && <AdminStage registry={registry} phase={phase} phaseMeta={phaseMeta} locale={locale} mode={mode} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} repositoryStatus={repositoryStatus} onRetry={() => { void townRepository.retry().catch((error) => setNotice(error instanceof Error ? error.message : (locale === 'ja' ? 'Supabaseの再接続に失敗しました。' : 'Supabase reconnect failed.'))) }} onFallbackToLocal={switchToLocalDemo} />}
@@ -518,7 +543,7 @@ function AppShell() {
           </section>
 
           {mode === 'advanced' && <aside className="inspector-column">
-            <ToolSurface phase={phase} locale={locale} mode={mode} nativeAvailable={registry.nativeAvailable} nativeRegistered={registry.nativeRegistered} />
+            <details className="progressive-section"><summary>{locale === 'ja' ? 'ツール・診断の詳細' : 'Tools and diagnostics'}</summary><ToolSurface phase={phase} locale={locale} mode={mode} nativeAvailable={registry.nativeAvailable} nativeRegistered={registry.nativeRegistered} /></details>
             <ActivityLog events={snapshot.events} locale={locale} mode={mode} />
             <div className="inspector-note">
               <span className="inspector-note__icon">⌁</span>
@@ -607,9 +632,13 @@ interface DrillStageProps {
 function DrillStage({ mapProps, snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onView3D, onRunTool, onRegisterHousehold, onLongDistanceExample, locale, mode }: DrillStageProps) {
   const t = useTranslator(locale)
   return (
-    <section className={`stage-panel stage-panel--${mode}`}>
+    <section className={`stage-panel stage-panel--${mode} drill-stage`}>
+      <div className="drill-stage__map"><MapExperience {...mapProps} focusHouseholdId={selectedHouseholdId} surface="drill" compact /></div>
+      <TrainingAssistant repository={townRepository} onView3D={onView3D} onSelectHousehold={onSelectHousehold} />
+      <details className="progressive-section drill-stage__manual"><summary>{locale === 'ja' ? 'その他の操作：世帯・経路を個別に試す' : 'More: individual households and routes'}</summary>
       <div className="stage-panel__head"><div><span className="eyebrow">{mode === 'advanced' ? t('drill.eyebrow') : t('phase.drill.label')}</span><h2>{t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title')}</h2></div><span className="stage-panel__count">{snapshot.households.length}<small> {t('drill.households')}</small></span></div>
       <p className="stage-lead">{t(mode === 'simple' ? 'drill.simpleLead' : 'drill.lead')}</p>
+
 
       {mode === 'simple' && <ol className="simple-drill-steps">
         <li><span>01</span><strong>{t('drill.simpleStepScenario')}</strong></li>
@@ -637,11 +666,9 @@ function DrillStage({ mapProps, snapshot, selectedHouseholdId, selectedHousehold
       </div>
 
       <div className={`drill-route-view${selectedRoute ? ' drill-route-view--ready' : ''}`}>
-        <div className="drill-route-view__map">
-          <MapExperience {...mapProps} focusHouseholdId={selectedHouseholdId} surface="drill" compact />
-        </div>
         {selectedRoute ? <div className="drill-route-view__reason"><RouteResultPanel route={selectedRoute} locale={locale} mode={mode} onReplay={onReplay} onView3D={onView3D} onRunTool={onRunTool} selectedHouseholdId={selectedHouseholdId} /></div> : <div className="empty-route"><div className="empty-route__icon">⌁</div><div><strong>{t('drill.emptyTitle')}</strong><p>{t('drill.emptyBody')}</p></div></div>}
       </div>
+      </details>
     </section>
   )
 }
