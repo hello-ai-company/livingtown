@@ -67,6 +67,7 @@ export function buildObservationPreview(text: string, location: { lat: number; l
 }
 
 interface ObservationComposerProps {
+  onClose?: () => void
   locale: Locale
   mode: ExperienceMode
   location: { lat: number; lng: number }
@@ -77,7 +78,7 @@ interface ObservationComposerProps {
   onUndo?: () => void
 }
 
-export function ObservationComposer({ locale, mode, location, locationSource, onRequestLocationChange, onSubmit, lastPostedKnowledgeId, onUndo }: ObservationComposerProps) {
+export function ObservationComposer({ locale, mode, location, locationSource, onRequestLocationChange, onSubmit, lastPostedKnowledgeId, onUndo, onClose }: ObservationComposerProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
   const [text, setText] = useState('')
   const [expanded, setExpanded] = useState(mode === 'advanced')
@@ -85,6 +86,7 @@ export function ObservationComposer({ locale, mode, location, locationSource, on
   const [voiceError, setVoiceError] = useState<string>()
   const [voiceState, setVoiceState] = useState<'idle' | 'listening'>('idle')
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const [preview, setPreview] = useState<ObservationPreview>()
   const recognitionRef = useRef<SpeechRecognitionLike | undefined>(undefined)
   const interpretation = text.trim() ? interpretObservation(text) : undefined
@@ -116,7 +118,8 @@ export function ObservationComposer({ locale, mode, location, locationSource, on
   }
 
   const postPreview = async () => {
-    if (!preview) return
+    if (!preview || submittingRef.current) return
+    submittingRef.current = true
     setError(undefined)
     setSubmitting(true)
     try {
@@ -128,6 +131,7 @@ export function ObservationComposer({ locale, mode, location, locationSource, on
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : t('notice.saveFailed'))
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -177,6 +181,7 @@ export function ObservationComposer({ locale, mode, location, locationSource, on
           <h2 id="observation-composer-title">{t('composer.placeholder')}</h2>
         </div>
         <span className="observation-composer__trust">{t('trust.communityReport')}</span>
+        {onClose && <button type="button" className="secondary-button" disabled={submitting} onClick={onClose}>{locale === 'ja' ? '入力を破棄して閉じる' : 'Discard and close'}</button>}
       </div>
       {preview ? <div className="observation-composer__preview" role="dialog" aria-labelledby="observation-preview-title">
         <div className="observation-composer__preview-head"><div><span className="eyebrow">{t('composer.previewEyebrow')}</span><h3 id="observation-preview-title">{t('composer.previewTitle')}</h3></div><span className="observation-composer__preview-status">{t('trust.communityReport')}</span></div>

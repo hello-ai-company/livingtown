@@ -129,6 +129,7 @@ export function MapLibreMap({
   onEditKnowledge,
   onDeleteKnowledge,
   locationPickerActive = false,
+  composerOpen,
   compact = false,
   locale,
   mode,
@@ -148,6 +149,7 @@ export function MapLibreMap({
   const callbacksRef = useRef({ onRequestContribution, onLocationPicked, onSelectHousehold, onSelectKnowledge, onCameraChange })
   const [mapReady, setMapReady] = useState(false)
   const [postingMode, setPostingMode] = useState(false)
+  useEffect(() => { if (composerOpen === false) { postingModeRef.current = false; setPostingMode(false) } }, [composerOpen])
   const [basemapMode, setBasemapMode] = useState<BasemapMode>(filterState?.basemap ?? 'auto')
   const [provider, setProvider] = useState<BasemapProvider>(() => resolveBasemapProvider(filterState?.basemap ?? 'auto', { lat: DEMO_AREA.center.lat, lng: DEMO_AREA.center.lng }).provider)
   const [internalFilters] = useState(DEFAULT_MAP_FILTER_STATE)
@@ -316,7 +318,12 @@ export function MapLibreMap({
         return
       }
     })
-    map.on('error', () => setMapNotice(t('map.fallback')))
+    map.on('error', () => {
+      setMapNotice(t('map.fallback'))
+      // A failed basemap must not leave an empty canvas labelled as a working map.
+      // Reuse the existing, explicitly labelled offline training graph.
+      onFallback?.()
+    })
 
     return () => {
       cameraRef.current = captureCamera(map, initialCamera)

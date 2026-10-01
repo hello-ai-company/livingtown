@@ -137,7 +137,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 ## Phase 10: Living Observation Layer
 
-Phase 10では、MAPに一行投稿欄「この場所で何がありましたか？」を常時表示します。JA/ENの短い自由文をEnterまたは送信するとpreviewが開き、カテゴリ、時刻、安全な公開要約、位置の粗化を確認してから明示的に投稿します。Simpleの初回導線はAround You Now、一行投稿、My Reportsの3つに絞り、My Reportsは自分が編集できる行だけを表示します。対応ブラウザの音声入力は本文を補完するだけで、自動投稿しません。ルールベースのinterpreterがカテゴリ、persistent condition / incident、条件、確度、観測時刻を決定的に整理します。外部LLM APIや新しい有料APIは必須ではありません。投稿場所は、明示的に選択した地図位置、明示取得した現在地、地図の中心の順で、現在地の取得は自動実行しません。
+MAPでは、地図の投稿ボタンを押すと一行投稿欄「この場所で何がありましたか？」を表示します。JA/ENの短い自由文をEnterまたは送信するとpreviewが開き、カテゴリ、時刻、安全な公開要約、位置の粗化を確認してから明示的に投稿します。Simpleの初回導線は地図と「家族の訓練を始める」に絞り、周辺情報・診断は必要時に開きます。My Reportsは自分が編集できる行だけを表示します。対応ブラウザの音声入力は本文を補完するだけで、自動投稿しません。ルールベースのinterpreterがカテゴリ、persistent condition / incident、条件、確度、観測時刻を決定的に整理します。外部LLM APIや新しい有料APIは必須ではありません。投稿場所は、最後に明示した地図位置または現在地、未指定時は地図の中心で、現在地の取得は自動実行しません。
 
 既存Knowledgeの検証・所有権・Realtime・route・WebMCP・MapLibre・Navaraを再利用し、地域からの報告と「地域確認 2件以上」を公式情報から分離します。盗難、ハラスメント、暴力、紛争関連は断定的な文言を避け、公開Knowledgeへraw sensitive descriptionを保存しません。盗難／ハラスメントは避難routeへ影響させません。紛争は2kmの地域単位・中立的な地図表示に留め、軍人・部隊・装備・作戦の精密位置はブロックします。昨日／昨夜などのrelative timeを解釈し、第三者視点のincidentは保守的に聞いた話として扱います。一般的な浸水・段差・バリアフリー情報の地図位置は維持します。
 
@@ -154,3 +154,5 @@ Phase 10のSupabase migrationはExpandとして実Supabaseへ適用済みで、p
 ### Netlify + Cloud Run の接続準備
 
 認証・永続利用上限・CORS・秘密管理・公開前ブロッカーは [接続準備の設計とローカル検証手順](docs/NETLIFY_CLOUD_RUN_PREPARATION.md) を参照してください。実AIの強制無効化を維持。メール＋パスワード画面、実認証/DB接続コードを準備し、外部設定と実環境検証を残しています。
+
+UIの比較画像・独立レビュー・再現手順: [UIブラッシュアップ検証](docs/UI_POLISH_REVIEW.md)。

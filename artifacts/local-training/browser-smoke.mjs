@@ -40,6 +40,7 @@ try {
   assert.equal(await calculate.isDisabled(), true);
   assert.equal(await assistant.locator('tbody tr').count(), 2);
   checks.push('fake questions -> explicit confirmation -> deterministic comparison; duplicate submit blocked');
+  await assistant.locator('.training-evidence > summary').click();
   await assistant.getByText('計算時に参照した混雑報告と作成時点（未適用を含む）', { exact: true }).click();
   const congestionEvidence = await assistant.getByText(/独立レビュー用の混雑訓練/).textContent();
   assert.ok(congestionEvidence.includes(bottleneck.created_at));
@@ -87,9 +88,11 @@ try {
   const shared = await browser.newPage();
   await shared.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
   await shared.goto('http://127.0.0.1:4174');
+  await shared.locator('.training-connection > details > summary').click();
   await shared.locator('.training-connection').getByText('SUPABASE_SHARED / ERROR', { exact: true }).waitFor({ timeout: 15000 });
   await shared.locator('.training-connection').screenshot({ path: 'artifacts/local-training/shared-error.png' });
   await shared.getByRole('button', { name: 'このタブをローカル訓練モードに切り替える' }).click();
+  await shared.locator('.training-connection > details > summary').click();
   await shared.locator('.training-connection').getByText('LOCAL_DEMO / LOCAL', { exact: true }).waitFor();
   checks.push('simulated shared failure is visible; explicit local switch restores fixtures');
   assert.deepEqual(errors, []);
