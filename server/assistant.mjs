@@ -1,6 +1,10 @@
 // Only question ordering crosses the model boundary. No household/location data,
 // route tools, database credentials or resident verification tools are exposed.
 export const FIELDS = ['household_id', 'scenario', 'weather', 'time_of_day'];
+export function validateInput(input) {
+  if (!input || Object.keys(input).sort().join() !== 'action,request_id' || input.action !== 'questions' ||
+      typeof input.request_id !== 'string' || !/^[a-zA-Z0-9-]{8,80}$/.test(input.request_id)) throw new Error('INVALID_INPUT');
+}
 export function validateQuestions(value) {
   if (!value || Object.keys(value).join() !== 'fields' || !Array.isArray(value.fields) ||
       value.fields.length !== FIELDS.length || new Set(value.fields).size !== FIELDS.length ||
@@ -12,8 +16,7 @@ export function createAssistant({ env = process.env, fetcher, maxCalls = 20, max
   const users = new Map();
   let calls = 0;
   return async function ask(input, signal, userId = 'local-demo') {
-    if (!input || Object.keys(input).sort().join() !== 'action,request_id' || input.action !== 'questions' ||
-        typeof input.request_id !== 'string' || !/^[a-zA-Z0-9-]{8,80}$/.test(input.request_id)) throw new Error('INVALID_INPUT');
+    validateInput(input);
     if (typeof userId !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(userId)) throw new Error('INVALID_INPUT');
     signal?.throwIfAborted();
     const key = `${userId}:${input.request_id}`;

@@ -1,0 +1,11 @@
+2026-10-01 local verification, PR #13 security preparation after bf307fcf
+npm test: 235 tests, 40 files passed
+npm run test:assistant: 22 passed (Node + dev-only PGlite 0.5.8)
+npm run build: passed, includes typecheck; existing large 3D chunk warning
+Chromium browser-smoke.mjs: 9 passed, pageErrors=[]
+Independent review: no P1/P2; P3 stale Docker instruction removed.
+No live Auth/DB/Vertex calls, no Docker retry, no infrastructure changes.
+PGlite verifies SQL/role denial/reopen persistence; NOT hosted PostgreSQL multi-connection contention.
+Auth response is mocked; real JWT signature/expiry verification delegated to Auth is not end-to-end tested.
+Login UI, live auth/query transports and dedicated DB credentials are not wired.
+Paid provider remains hard locked; Cloud Run local unauthenticated mode rejected.

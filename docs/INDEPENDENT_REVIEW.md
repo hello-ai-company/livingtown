@@ -38,3 +38,15 @@ Node 22以上、リポジトリで `npm ci` 後、`ASSISTANT_PROVIDER=fake npm r
 `npm test`、`npm run test:assistant`、`npm run build`。画面検証は `artifacts/local-training/browser-smoke.mjs`。詳しくは `docs/LOCAL_TRAINING_REVIEW.md`。
 
 更新パッチ `livingtown-review.patch` は開始点995adbdの別checkoutへ `git apply --check` → `git apply` で適用する。既存作業ツリーへ二重適用しない。パッチ適用後の全変更ファイルのbyte一致も確認する。
+
+## Netlify + Cloud Run 境界の追加レビュー（2026-10-01）
+
+初回の保存済みSHA `bf307fcf` を基点とする追加差分を、同じ独立担当がレビュー。ローカル準備版を阻むP1/P2指摘なし。P3として旧Docker起動手順とK_SERVICE拒否条件の不整合を指摘し、旧コマンドを削除して新準備文書へ誘導した。
+
+独立担当はバックエンド21件とendpoint2件を再実行し成功。予約待ち中断→遅延予約確定→同ID再要求拒否も追加mock実験で確認した。このケースは正式回帰テストへ取り込み、最終バックエンドは22件となった。修正後に独立担当も22件を再実行し成功、P3解消を確認した。
+
+最終ローカル再検証: フロント235件/40ファイル、バックエンド22件、typecheckを含むbuild、Chromium9項目すべて成功。ブラウザー503文言変更に伴う旧期待値を更新した。pageErrorsなし、既存3Dのchunk警告あり。
+
+認証はAuthサーバー応答mock、永続SQLはdev-only PGliteで検証。実Auth、実DB複数接続、TLS/専用DBロール、コンテナ、実AIは未検証。専用DB資格漏洩後の直接台帳操作まで防ぐ上限ではない。実transportと非匿名ログイン導線は未配線で、Cloud Runでの無認証localモードと実AIは拒否したまま。
+
+最新設計・起動・費用/IAM確認項目: [NETLIFY_CLOUD_RUN_PREPARATION.md](NETLIFY_CLOUD_RUN_PREPARATION.md)。新しい有料サービスは追加せず、ホストDBへのSQL適用・外部設定変更も実施していない。

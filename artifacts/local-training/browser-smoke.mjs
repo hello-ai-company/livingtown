@@ -66,7 +66,7 @@ try {
   await failure.getByRole('button', { name: 'JA', exact: true }).click();
   await failure.getByRole('button', { name: /02.*避難を試す/ }).click();
   await failure.getByRole('button', { name: '条件の質問を開始' }).click();
-  await failure.getByRole('alert').filter({ hasText: 'この版はfake専用です' }).waitFor();
+  await failure.getByRole('alert').filter({ hasText: '質問サービスの認証・利用上限・設定を確認できません' }).waitFor();
   assert.equal(await failure.locator('.training-assistant table').count(), 0);
   await failure.unroute('**/api/training/questions');
   await failure.route('**/api/training/questions', async route => {

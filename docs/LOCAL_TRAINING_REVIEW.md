@@ -1,5 +1,7 @@
 # LivingTown ローカル訓練ブラッシュアップ / 独立レビュー手順
 
+この文書は初回ローカル版の記録です。PR #13の認証・永続上限・CORS追加準備と最新の公開前ブロッカーは [NETLIFY_CLOUD_RUN_PREPARATION.md](NETLIFY_CLOUD_RUN_PREPARATION.md) を参照してください。
+
 ## 対象と実装範囲
 
 開始点: `995adbd`（作業開始時クリーン）。作業ブランチ: `polish/local-training`。
@@ -89,12 +91,7 @@ git apply /path/to/livingtown-review.patch
 
 ## Cloud Run準備（未実行）
 
-バックエンド用Dockerfileはルートcontextで使う。
-
-```bash
-docker build -f server/Dockerfile -t livingtown-training:local .
-docker run --rm -p 8080:8080 -e K_SERVICE=local-container -e ASSISTANT_PROVIDER=fake livingtown-training:local
-```
+バックエンド用Dockerfileはルートcontextを想定する。旧 `K_SERVICE=local-container` + local/fake の起動手順は、追加した公開境界で質問APIが503になるため削除した。現版のCloud Run上ではverifiedの実配線が必要で、設定のみで起動・公開する手順は用意していない。ローカル検証はNode直接起動を使う。
 
 Cloud RunのPORTと0.0.0.0待受に対応。コンテナはnon-rootで動作し、Docker contextはserverだけを許可する。node:22-alpineの取得は今回Docker HubからForbiddenとなり、コンテナビルド/起動は未完了。Node直接起動のHTTP検証は成功。独立レビュー時にはDocker取得の再試行や別経路による回避を行っていない。
 

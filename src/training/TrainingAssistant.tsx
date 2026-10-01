@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { TownRepository } from '../data/repository'
 import { useTownSnapshot } from '../data/useTownSnapshot'
 import { compareTrainingRoutes, trainingRevision, validateQuestionResponse, type Comparison, type QuestionField } from './flow'
+import { questionEndpoint } from './endpoint'
 
 const labels: Record<QuestionField, string> = {
   household_id: '誰と、どこから移動する訓練ですか？（架空の世帯・出発地点）',
@@ -44,10 +45,10 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
     requestId.current = crypto.randomUUID(); setAttempted(true)
     const requestSignal = AbortSignal.any([controller.signal, AbortSignal.timeout(20000)])
     try {
-      const response = await fetch('/api/training/questions', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(questionEndpoint(import.meta.env.VITE_TRAINING_API_ORIGIN), { method: 'POST', credentials: 'omit', redirect: 'error', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'questions', request_id: requestId.current }), signal: requestSignal })
       if (!response.ok) {
-        const message = response.status === 429 ? '質問回数の上限です。' : response.status === 401 ? '認証済みゲートウェイが必要です。ブラウザに認証トークンを設定しないでください。' : response.status === 503 ? 'この版はfake専用です。ローカルでは ASSISTANT_PROVIDER=fake npm run assistant で起動してください。' : '質問サービスに接続できません。npm run assistant と fake 設定を確認してください。'
+        const message = response.status === 429 ? '質問回数の上限です。' : response.status === 401 ? '許可された利用者のログインが必要です。この版の公開用ログイン導線は準備中です。' : response.status === 503 ? '質問サービスの認証・利用上限・設定を確認できません。ローカルでは ASSISTANT_PROVIDER=fake npm run assistant で起動してください。' : response.status === 409 ? 'この要求は受付済みです。再実行しません。' : '質問サービスに接続できません。接続先URL・CORS・バックエンド設定を確認してください。'
         if (!controller.signal.aborted) setError(message)
         return
       }
