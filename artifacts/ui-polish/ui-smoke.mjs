@@ -1,0 +1,68 @@
+// All routes outside loopback are blocked; no real credentials or data are used.
+import assert from 'node:assert/strict';
+import { writeFile } from 'node:fs/promises';
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const browser = await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/bin/chromium',args:['--no-sandbox']});
+const checks=[]; const measurements=[];
+try {
+ for(const [name,width,height] of [['desktop',1440,1000],['iphone',390,844]]) {
+  const page=await browser.newPage({viewport:{width,height}}); const errors=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+  await page.goto('http://127.0.0.1:4173'); await page.getByRole('button',{name:'JA',exact:true}).click();
+  await page.locator('.town-map').waitFor();
+  assert.equal(await page.locator('.observation-composer').count(),0);
+  assert.equal(await page.locator('.progressive-section[open]').count(),0);
+  assert.equal(await page.getByRole('button',{name:'家族の訓練を始める →',exact:true}).count(),1);
+  const box=await page.locator('.map-frame').boundingBox(); assert.ok(box.y < height * 0.65, 'map starts within the first viewport');
+  assert.equal(await page.locator('.training-status-line').isVisible(),true);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  measurements.push({viewport:name,mapTop:Math.round(box.y),pageHeight:await page.evaluate(()=>document.documentElement.scrollHeight)});
+  await page.screenshot({path:`artifacts/ui-polish/after-${name}.png`,fullPage:true});
+  await page.getByRole('button',{name:'地図を大きく見る',exact:true}).click();
+  await page.getByRole('button',{name:'地図を戻す',exact:true}).click();
+  assert.equal(await page.locator('[data-map-focus="active"]').count(),0);
+  await page.getByRole('button',{name:'気づいたことを投稿',exact:false}).click();
+  const composer=page.locator('.observation-composer'); await composer.waitFor();
+  if(width<1100)await page.getByRole('tab',{name:'地図を見る',exact:true}).click();
+  await page.locator('.town-map').click({position:{x:120,y:130}});
+  await composer.getByText('投稿場所: 地図上で選択済み', {exact:true}).waitFor();
+  await composer.locator('input[name="observation"]').fill('訓練の入力');
+  await composer.getByRole('button',{name:'入力を破棄して閉じる'}).click();
+  assert.equal(await composer.count(),0);
+  assert.equal(await page.getByRole('button',{name:'投稿モードを終了',exact:false}).count(),0);
+  await page.getByRole('button',{name:'気づいたことを投稿',exact:false}).click();
+  await composer.getByText('投稿場所: 地図の中心付近', {exact:true}).waitFor();
+  await composer.waitFor(); assert.equal(await composer.locator('input[name="observation"]').inputValue(),'');
+  await composer.locator('input[name="observation"]').fill('横断歩道に水が溜まっています');
+  await composer.locator('form button[type="submit"]').click();
+  await composer.getByRole('button',{name:'編集に戻る',exact:true}).click();
+  assert.equal(await composer.locator('input[name="observation"]').inputValue(),'横断歩道に水が溜まっています');
+  await composer.locator('form button[type="submit"]').click();
+  const count=async()=>page.evaluate(async()=>{const url=performance.getEntriesByType('resource').map(e=>e.name).find(n=>new URL(n).pathname==='/src/data/townRepository.ts');const {townRepository}=await import(url);return townRepository.getSnapshot().knowledge.length});
+  const before=await count();
+  await composer.getByRole('button',{name:'投稿する',exact:false}).evaluate(button=>{button.click();button.click()});
+  await page.waitForFunction(async(expected)=>{const url=performance.getEntriesByType('resource').map(e=>e.name).find(n=>new URL(n).pathname==='/src/data/townRepository.ts');const {townRepository}=await import(url);return townRepository.getSnapshot().knowledge.length===expected},before+1);
+  assert.equal(await count(),before+1);
+  await composer.getByRole('button',{name:'入力を破棄して閉じる'}).click();
+  checks.push(`${name}: map-first, safety status, no initial form, close/discard/reopen, edit-back, double-post guard`);
+  await page.getByRole('button',{name:'家族の訓練を始める →',exact:true}).click();
+  assert.equal(await page.locator('.drill-stage__manual').getAttribute('open'),null);
+  await page.getByRole('button',{name:'← 地図へ戻る',exact:true}).click();
+  assert.equal(await page.locator('.observation-composer').count(),0);
+  await page.getByRole('button',{name:'家族の訓練を始める →',exact:true}).click();
+  const assistant=page.locator('.training-assistant'); assert.equal(await assistant.locator('select').count(),0);
+  await page.route('**/api/training/questions',async r=>{await new Promise(done=>setTimeout(done,400));await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({provider:'fake',fields:['household_id','scenario','weather','time_of_day']})}).catch(()=>{})});
+  await assistant.getByRole('button',{name:'条件の質問を開始',exact:true}).click();
+  await assistant.getByRole('button',{name:'中断',exact:true}).click();await page.waitForTimeout(550);
+  assert.equal(await assistant.locator('select').count(),0);
+  await assistant.getByRole('button',{name:'新しい質問を試す（上限に算入）',exact:true}).click();
+  await assistant.locator('select').first().waitFor();
+  assert.equal(await assistant.getByRole('button',{name:'確認した条件で経路を比較'}).isDisabled(),true);
+  await page.screenshot({path:`artifacts/ui-polish/training-${name}.png`,fullPage:true});
+  checks.push(`${name}: back/revisit resets unfinished inputs, cancelled stale questions ignored, explicit confirmation retained`);
+  assert.deepEqual(errors,[]); await page.close();
+ }
+ await writeFile('artifacts/ui-polish/measurements.json',JSON.stringify(measurements,null,2)+'\n');
+ console.log(JSON.stringify({checks,measurements,pageErrors:[]},null,2));
+} finally { await browser.close() }

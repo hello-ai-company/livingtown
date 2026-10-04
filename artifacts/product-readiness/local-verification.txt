@@ -1,0 +1,88 @@
+=== product ===
+{
+  "checks": [
+    "desktop: simulated WebMCP host, inspect/propose/no side effect, human confirmation/double approve, UI=agent deterministic route, cached duplicate, input change/stale, cancel, human-only voting, saved conditions/reload/reconfirm; no pageerrors/overflow",
+    "iphone: simulated WebMCP host, inspect/propose/no side effect, human confirmation/double approve, UI=agent deterministic route, cached duplicate, input change/stale, cancel, human-only voting, saved conditions/reload/reconfirm; no pageerrors/overflow"
+  ]
+}
+
+=== login ===
+{
+  "passed": [
+    "failed login stays signed out and clears password field",
+    "cancelled login cannot install a late session",
+    "double submit produces one authenticated state",
+    "navigation revisit retains the memory-only session",
+    "logout immediately invalidates in-flight questions and late responses",
+    "expired session disables question requests without refresh",
+    "page reload requires login and creates no persistent auth storage"
+  ],
+  "pageErrors": []
+}
+
+=== static ===
+{
+  "origin": "http://127.0.0.1:4181",
+  "checks": [
+    "desktop: HTTP 200, explicit local sample, no API calls, confirmation required, comparison/evidence visible, no overflow/pageerrors",
+    "iphone: HTTP 200, explicit local sample, no API calls, confirmation required, comparison/evidence visible, no overflow/pageerrors"
+  ]
+}
+
+=== experience ===
+{
+  "checks": [
+    "desktop: first-view map, tap target, progress, slow/duplicate/cancel/stale/error/retry, keyboard confirm, comparison/evidence, revisit, no overflow/pageerrors; motion=no-preference",
+    "iphone: first-view map, tap target, progress, slow/duplicate/cancel/stale/error/retry, keyboard confirm, comparison/evidence, revisit, no overflow/pageerrors; motion=no-preference",
+    "reduced: first-view map, tap target, progress, slow/duplicate/cancel/stale/error/retry, keyboard confirm, comparison/evidence, revisit, no overflow/pageerrors; motion=reduce",
+    "compact: first-view map, tap target, progress, slow/duplicate/cancel/stale/error/retry, keyboard confirm, comparison/evidence, revisit, no overflow/pageerrors; motion=reduce"
+  ]
+}
+
+=== regression ===
+{
+  "passed": [
+    "data change after confirmation invalidates consent before any calculation",
+    "fake questions -> explicit confirmation -> deterministic comparison; duplicate submit blocked",
+    "bottleneck evidence includes content and actual creation timestamp",
+    "3D training link invokes existing map-dimension transition (remote 3D assets unverified)",
+    "condition edit invalidates confirmation and result",
+    "390px viewport has no horizontal overflow",
+    "503 and cancelled stale response produce no questions or routes",
+    "explicit retry after error/cancel uses a new request ID and recovers",
+    "simulated shared failure is visible; explicit local switch restores fixtures"
+  ],
+  "pageErrors": []
+}
+
+=== ui ===
+{
+  "checks": [
+    "desktop: map-first, safety status, no initial form, close/discard/reopen, edit-back, double-post guard",
+    "desktop: back/revisit resets unfinished inputs, cancelled stale questions ignored, explicit confirmation retained",
+    "iphone: map-first, safety status, no initial form, close/discard/reopen, edit-back, double-post guard",
+    "iphone: back/revisit resets unfinished inputs, cancelled stale questions ignored, explicit confirmation retained"
+  ],
+  "measurements": [
+    {
+      "viewport": "desktop",
+      "mapTop": 527,
+      "pageHeight": 1296
+    },
+    {
+      "viewport": "iphone",
+      "mapTop": 500,
+      "pageHeight": 1189
+    }
+  ],
+  "pageErrors": []
+}
+
+=== 3d ===
+{
+  "checks": [
+    "desktop: no map/control overlap, collapsed diagnostics, settings weather/quality, keyboard/Escape/focus, double toggle, focus scrolling, map-only attribution, 2D/back/revisit, simple training walkthrough/next/Escape",
+    "iphone: no map/control overlap, collapsed diagnostics, settings weather/quality, keyboard/Escape/focus, double toggle, focus scrolling, map-only attribution, 2D/back/revisit, simple training walkthrough/next/Escape"
+  ],
+  "pageErrors": []
+}

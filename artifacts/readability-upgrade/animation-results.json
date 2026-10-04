@@ -1,0 +1,35 @@
+{
+  "visibility_hidden": "simulated document state event",
+  "checks": [
+    {
+      "mode": "play",
+      "videoRequests": 1,
+      "passed": true
+    },
+    {
+      "mode": "reduced",
+      "videoRequests": 0,
+      "passed": true
+    },
+    {
+      "mode": "save-data",
+      "videoRequests": 0,
+      "passed": true
+    },
+    {
+      "mode": "offscreen",
+      "videoRequests": 1,
+      "passed": true
+    },
+    {
+      "mode": "hidden",
+      "videoRequests": 1,
+      "passed": true
+    },
+    {
+      "mode": "manual-stop",
+      "videoRequests": 1,
+      "passed": true
+    }
+  ]
+}

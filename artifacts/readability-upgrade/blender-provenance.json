@@ -1,0 +1,17 @@
+{
+  "blender_version": "4.3.2",
+  "created_on": "2026-10-04",
+  "source": "assets/blender/create_training_guide.py",
+  "scene": "assets/blender/training-guide.blend",
+  "original_geometry": true,
+  "external_assets": false,
+  "resolution": [
+    288,
+    192
+  ],
+  "frames": 36,
+  "fps": 12,
+  "duration_seconds": 3,
+  "render_completed": true,
+  "scene_sha256": "6d14d7ba40248b16c86aa2a40990a6a7ac48403174648a70181b19bfee431953"
+}

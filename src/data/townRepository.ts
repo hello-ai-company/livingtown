@@ -1,6 +1,7 @@
 import { LocalTownRepository } from './supabase'
 import { SupabaseTownRepository } from './supabaseRepository'
 import type { DataMode, TownRepository } from './repository'
+import { trainingConnections } from '../training/releasePolicy'
 
 export const DATA_MODE_OVERRIDE_KEY = 'livingtown-data-mode-override'
 
@@ -11,18 +12,18 @@ export interface TownRepositoryConfig {
 }
 
 function environmentConfig(): TownRepositoryConfig {
-  let localOverride = false
+  let localOverride = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('training') === 'local'
   if (typeof window !== 'undefined') {
     try {
-      localOverride = window.sessionStorage.getItem(DATA_MODE_OVERRIDE_KEY) === 'local'
+      localOverride = localOverride || window.sessionStorage.getItem(DATA_MODE_OVERRIDE_KEY) === 'local'
     } catch {
       // Storage can be unavailable in a locked-down browser context.
     }
   }
   return {
-    dataMode: localOverride ? 'local' : import.meta.env.VITE_LIVINGTOWN_DATA_MODE,
-    supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-    supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    dataMode: localOverride ? 'local' : trainingConnections.VITE_LIVINGTOWN_DATA_MODE,
+    supabaseUrl: trainingConnections.VITE_SUPABASE_URL,
+    supabaseAnonKey: trainingConnections.VITE_SUPABASE_ANON_KEY,
   }
 }
 
@@ -53,9 +54,11 @@ export function switchToLocalDemo() {
   try {
     window.sessionStorage.setItem(DATA_MODE_OVERRIDE_KEY, 'local')
   } catch {
-    // The reload still makes the action visible even if session storage is blocked.
+    // The explicit URL flag still works if session storage is blocked.
   }
-  window.location.reload()
+  const url = new URL(window.location.href)
+  url.searchParams.set('training', 'local')
+  window.location.assign(url.toString())
 }
 
 export const townRepository = createTownRepository()

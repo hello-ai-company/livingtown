@@ -1,5 +1,7 @@
 # LivingTown
 
+Current status (2026-10-04): production is sample training only, even with inherited Auth/shared DB/API environment settings. Real AI remains locked. Supabase was read-only confirmed INACTIVE. September shared/production evidence below is historical. Current target, costs and connection prerequisites: [Zenn vol5 readiness](./docs/ZENN_VOL5_PRODUCTION_READINESS.md).
+
 > Neighborhood conversations can change an evacuation route.
 
 LivingTown is a WebMCP-powered disaster-preparedness prototype. It turns everyday local observations into verifiable town knowledge, then combines that knowledge with safe household constraint enums to return an explainable evacuation route.

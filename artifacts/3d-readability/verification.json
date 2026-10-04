@@ -1,0 +1,8 @@
+{
+  "renderer": "test fixture; external 3D assets unverified",
+  "checks": [
+    "desktop: no map/control overlap, collapsed diagnostics, settings weather/quality, keyboard/Escape/focus, double toggle, focus scrolling, map-only attribution, 2D/back/revisit, simple training walkthrough/next/Escape",
+    "iphone: no map/control overlap, collapsed diagnostics, settings weather/quality, keyboard/Escape/focus, double toggle, focus scrolling, map-only attribution, 2D/back/revisit, simple training walkthrough/next/Escape"
+  ],
+  "pageErrors": []
+}

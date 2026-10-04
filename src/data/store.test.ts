@@ -159,3 +159,12 @@ describe('LivingTownStore privacy boundary', () => {
     expect(loaded.getSnapshot().knowledge).toEqual(new LivingTownStore({ persist: false }).getSnapshot().knowledge)
   })
 })
+
+it('continues in memory and notifies UI when local persistence is denied', () => {
+  const store = new LivingTownStore()
+  const listener = vi.fn(); store.subscribe(listener)
+  vi.spyOn(memoryStorage, 'setItem').mockImplementation(() => { throw new Error('quota') })
+  expect(() => store.registerHousehold({ constraints: [], start_lat: 35.681, start_lng: 139.76 })).not.toThrow()
+  expect(store.getStatus().localPersistence).toBe('unavailable')
+  expect(listener).toHaveBeenCalled()
+})

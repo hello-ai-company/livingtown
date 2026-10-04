@@ -175,6 +175,7 @@ export class LocalTownRepository implements TownRepository {
   private readonly listeners = new Set<StoreListener>()
   private readonly statusListeners = new Set<StoreListener>()
   private readonly persist: boolean
+  private persistenceFailed = false
   private readonly fallbackReason?: string
   private readonly supabaseConfigured: boolean
   private status: RepositoryStatus
@@ -190,6 +191,7 @@ export class LocalTownRepository implements TownRepository {
   private buildStatus(): RepositoryStatus {
     return {
       mode: this.dataMode,
+      localPersistence: this.persist ? this.persistenceFailed ? 'unavailable' : 'enabled' : 'memory_only',
       supabaseConfigured: this.supabaseConfigured,
       connection: 'LOCAL',
       realtime: 'DISABLED',
@@ -249,9 +251,13 @@ export class LocalTownRepository implements TownRepository {
 
   private commit(next: TownSnapshot) {
     this.snapshot = next
-    if (this.persist && typeof window !== 'undefined') window.localStorage.setItem(LIVING_TOWN_STORAGE_KEY, JSON.stringify(next))
+    if (this.persist && typeof window !== 'undefined') {
+      try { window.localStorage.setItem(LIVING_TOWN_STORAGE_KEY, JSON.stringify(next)); this.persistenceFailed = false }
+      catch { this.persistenceFailed = true }
+    }
     this.status = {
       ...this.status,
+      localPersistence: this.persist ? this.persistenceFailed ? 'unavailable' : 'enabled' : 'memory_only',
       visibleKnowledgeCount: next.knowledge.length,
       verificationCount: next.verifications.length,
     }

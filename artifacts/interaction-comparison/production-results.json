@@ -1,0 +1,16 @@
+{
+  "checks": [
+    {
+      "width": 1440,
+      "production_result_evidence_map": true,
+      "pageErrors": []
+    },
+    {
+      "width": 390,
+      "production_result_evidence_map": true,
+      "pageErrors": []
+    }
+  ],
+  "real_ai": false,
+  "native_host": "simulated"
+}

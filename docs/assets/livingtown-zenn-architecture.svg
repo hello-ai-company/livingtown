@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="620" viewBox="0 0 1160 620" role="img" aria-labelledby="title description">
+  <title id="title">LivingTown 承認後の最小構成案</title>
+  <desc id="description">Netlify静的画面からCloud Run質問API、既存Supabase認証と利用上限、Google AIへ接続する案。現在はサンプルのみで実接続は無効。</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#40665b"/></marker></defs>
+  <rect width="1160" height="620" fill="#f5f8f5"/>
+  <g font-family="sans-serif" fill="#17352d">
+    <text x="40" y="48" font-size="28" font-weight="bold">LivingTown：承認後の最小構成案</text>
+    <text x="40" y="79" font-size="17">家族の移動・避難訓練 / サンプルは実経路の安全を保証しません</text>
+    <g fill="white" stroke="#54756b" stroke-width="2">
+      <rect x="40" y="200" width="260" height="190" rx="16"/>
+      <rect x="430" y="200" width="300" height="190" rx="16"/>
+      <rect x="850" y="130" width="270" height="140" rx="16"/>
+      <rect x="850" y="310" width="270" height="125" rx="16"/>
+      <rect x="430" y="110" width="300" height="60" rx="12"/>
+      <rect x="430" y="440" width="300" height="60" rx="12"/>
+    </g>
+    <g font-size="22" font-weight="bold">
+      <text x="60" y="239">Netlify Free</text><text x="450" y="239">Cloud Run</text>
+      <text x="870" y="166">既存 Supabase</text><text x="870" y="346">Google AI / Gemini</text>
+    </g>
+    <g font-size="17">
+      <text x="60" y="271">React 静的フロント</text><text x="60" y="299">利用者による条件確認</text>
+      <text x="60" y="327">決定的な経路計算・根拠</text><text x="60" y="355">MapLibre / 任意の3D</text>
+      <text x="450" y="270">質問順だけの API</text><text x="450" y="298">認証済みUUIDの許可リスト</text>
+      <text x="450" y="326">全体20 / 利用者3 / retry0</text><text x="450" y="354">実行サービスID / 鍵配布なし</text>
+      <text x="870" y="197">メール＋パスワード Auth</text><text x="870" y="226">private quota / 原子的予約</text>
+      <text x="870" y="373">候補: gemini-3.1-flash-lite</text><text x="870" y="403">256出力 / MINIMAL思考</text>
+      <text x="450" y="146">Cloud Build / Artifact Registry</text>
+      <text x="450" y="477">Secret Manager：DB資格のみ</text>
+    </g>
+    <g fill="none" stroke="#40665b" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow)">
+      <path d="M300 292 H426"/><path d="M730 244 H782 V209 H846"/>
+      <path d="M730 348 H846"/><path d="M580 170 V196"/><path d="M580 440 V394"/>
+      <path d="M170 200 V100 H984 V126"/>
+    </g>
+    <g font-size="15"><text x="318" y="279">HTTPS/Bearer</text><text x="752" y="235">Auth/TLS</text><text x="750" y="338">サービスID</text></g>
+    <rect x="40" y="532" width="1080" height="64" rx="12" fill="#e9edcf"/>
+    <text x="58" y="558" font-size="17" font-weight="bold">現在：公開版はサンプル限定。Auth/共有DB/API接続と実AIはコードで無効。</text>
+    <text x="58" y="582" font-size="16">点線は未接続の計画。DB再開・権限・費用・公開承認後に解除して検証 / 2026-10-04</text>
+  </g>
+</svg>

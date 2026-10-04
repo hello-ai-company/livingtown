@@ -4,6 +4,7 @@ import type { Phase } from '../sim/types'
 import { createWebMcpRegistry, type RegistryStatus, type WebMcpRegistry } from '../webmcp/register'
 
 interface PhaseContextValue {
+  agentConsent: WebMcpRegistry['consent']
   phase: Phase
   selectPhase: (phase: Phase) => void
   registry: RegistryStatus
@@ -36,7 +37,7 @@ export function PhaseProvider({ store, children }: PropsWithChildren<{ store: To
   const selectPhase = useCallback((nextPhase: Phase) => setPhaseState(nextPhase), [])
   const phaseSignal = registryInstance.getPhaseSignal()
   const value = useMemo(
-    () => ({ phase, selectPhase, registry, toolNames: registry.registeredToolNames, phaseSignal }),
+    () => ({ agentConsent: registryInstance.consent, phase, selectPhase, registry, toolNames: registry.registeredToolNames, phaseSignal }),
     [phase, selectPhase, registry, phaseSignal],
   )
 

@@ -13,7 +13,9 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed": "tsx seed/seed.ts"
+    "seed": "tsx seed/seed.ts",
+    "assistant": "node server/index.mjs",
+    "test:assistant": "node --test server/*.node-test.mjs"
   },
   "dependencies": {
     "@navaramap/three": "0.1.1",
@@ -26,6 +28,7 @@
     "three": "0.185.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^4.7.0",

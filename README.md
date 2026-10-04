@@ -5,9 +5,13 @@ License: MIT — see [LICENSE](./LICENSE).
 
 **近所の立ち話が、避難経路を変える。**
 
-LivingTownは、住民エージェントとの日常会話を検証可能な街の記憶へ変換し、訓練時には世帯の制約enumと組み合わせて説明可能な避難経路を返すWebMCP Challenge向けプロトタイプです。
+LivingTownは、街の知識と世帯の条件を組み合わせ、家族で移動・避難を練習するサンプルデモです。東京固定10ノード11辺の訓練で、実際の避難経路の安全を保証しません。
 
-## 現在の検証ステータス（2026-09-01）
+## 現在の状態（2026-10-04）
+
+productionはサンプル訓練に固定し、既存Netlifyの環境設定が残っていても共有DB・ログイン・質問APIへ接続しません。実AIもサーバーで無効です。既存Supabaseはread-only確認でINACTIVE。以下の9月のshared/production PASSは履歴で、現在の実接続を保証しません。対象大会はZenn Google Cloud Japan vol5。必要な外部設定、費用、構成図、再現手順は [公開準備](./docs/ZENN_VOL5_PRODUCTION_READINESS.md) にまとめています。
+
+## 過去の検証ステータス（2026-09-01）
 
 - **Hosted Expand:** Phase 8／Phase 10のExpand migration適用済み。実Supabaseのremote migration historyは8本。
 - **Disposable DB:** GitHub Actions上の一時Supabaseで0004／0005／0006を実行し、169 pgTAP testsがPASS。
@@ -15,7 +19,7 @@ LivingTownは、住民エージェントとの日常会話を検証可能な街�
 - **公開production gate:** `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` を既存Netlify productionへ反映し、公開URLでNative WebMCP、Core Demo、Supabase shared stateを再検証済み。詳細は [WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md)。
 - **まだ未完了:** RPC-only contractは未適用、動画、Devpost最終提出は未実施。Native in-flight AbortSignalの実機中断確認は今回未実行で、non-blocking limitationとして記録。
 
-下記に残る古い「未適用」「未実行」の記述は、各時点の履歴として保持しています。現在の判断には上記の最新証跡を使います。
+下記に残る接続手順・PASS・未実施は各時点の履歴です。現在の接続可否は10月の状態と公開準備を参照してください。
 
 ## Quick start
 
@@ -27,7 +31,7 @@ npm run dev
 
 `npm run seed` は、外部APIなしでデモ用歩行グラフ、暗黙知10件、pseudonymous verification data、世帯3件を `seed/` に生成します。アプリは初回起動時に同じ決定的データをLocalStorageへ読み込みます。
 
-## Public production demo
+## Public production demo（2026-09-01の履歴）
 
 審査員向けのPrimary Live URLは [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) です。現在公開されているURLは、公開GitHubリポジトリの `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` からNetlify Free planで継続デプロイしています。Buildは `npm run build`、publish directoryは `dist` です。Production buildには `VITE_LIVINGTOWN_DATA_MODE=shared` と既存Livingtown Supabaseのブラウザ公開可能な設定をNetlifyのEnvironment variablesへ登録しています。値はこのrepositoryへcommitしていません。
 
@@ -81,9 +85,9 @@ git diff --check
 
 実装状況と残課題は [docs/EVALUATION.md](./docs/EVALUATION.md)、設計の正本は [docs/DESIGN.md](./docs/DESIGN.md) と [Notionの設計書](https://app.notion.com/p/c22ef848aa464ff6b6a39dc010d5f2c7) です。Phase 8／10の適用済みExpand gate、未適用のRPC-only contract、Phase 9の3D境界とローカルゲートは、同ドキュメントの各節を参照してください。
 
-## Shared LivingTown mode
+## Shared LivingTown mode（DEV接続用・外部設定承認後のみ）
 
-既定値は、LocalStorageを使う決定的な `LOCAL_DEMO` です。共有DBを明示的に使う場合だけ、次の環境変数を設定して再起動してください。
+既定値は、LocalStorageを使う決定的な `LOCAL_DEMO` です。productionではコードのrelease lockにより下記環境設定でも共有DBに接続しません。DEVでの実共有接続も外部設定・利用の承認が必要です。
 
 ```bash
 VITE_LIVINGTOWN_DATA_MODE=shared
@@ -137,7 +141,7 @@ phase遷移は世代番号とphase AbortSignalで管理し、登録解除・実�
 
 ## Phase 10: Living Observation Layer
 
-Phase 10では、MAPに一行投稿欄「この場所で何がありましたか？」を常時表示します。JA/ENの短い自由文をEnterまたは送信するとpreviewが開き、カテゴリ、時刻、安全な公開要約、位置の粗化を確認してから明示的に投稿します。Simpleの初回導線はAround You Now、一行投稿、My Reportsの3つに絞り、My Reportsは自分が編集できる行だけを表示します。対応ブラウザの音声入力は本文を補完するだけで、自動投稿しません。ルールベースのinterpreterがカテゴリ、persistent condition / incident、条件、確度、観測時刻を決定的に整理します。外部LLM APIや新しい有料APIは必須ではありません。投稿場所は、明示的に選択した地図位置、明示取得した現在地、地図の中心の順で、現在地の取得は自動実行しません。
+MAPでは、地図の投稿ボタンを押すと一行投稿欄「この場所で何がありましたか？」を表示します。JA/ENの短い自由文をEnterまたは送信するとpreviewが開き、カテゴリ、時刻、安全な公開要約、位置の粗化を確認してから明示的に投稿します。Simpleの初回導線は地図と「家族の訓練を始める」に絞り、周辺情報・診断は必要時に開きます。My Reportsは自分が編集できる行だけを表示します。対応ブラウザの音声入力は本文を補完するだけで、自動投稿しません。ルールベースのinterpreterがカテゴリ、persistent condition / incident、条件、確度、観測時刻を決定的に整理します。外部LLM APIや新しい有料APIは必須ではありません。投稿場所は、最後に明示した地図位置または現在地、未指定時は地図の中心で、現在地の取得は自動実行しません。
 
 既存Knowledgeの検証・所有権・Realtime・route・WebMCP・MapLibre・Navaraを再利用し、地域からの報告と「地域確認 2件以上」を公式情報から分離します。盗難、ハラスメント、暴力、紛争関連は断定的な文言を避け、公開Knowledgeへraw sensitive descriptionを保存しません。盗難／ハラスメントは避難routeへ影響させません。紛争は2kmの地域単位・中立的な地図表示に留め、軍人・部隊・装備・作戦の精密位置はブロックします。昨日／昨夜などのrelative timeを解釈し、第三者視点のincidentは保守的に聞いた話として扱います。一般的な浸水・段差・バリアフリー情報の地図位置は維持します。
 
@@ -146,3 +150,21 @@ MAPのWebMCP surfaceは3本（contribute_knowledge、verify_knowledge、query_ar
 Phase 10のSupabase migrationはExpandとして実Supabaseへ適用済みで、pgTAPはGitHub Actionsの一時Supabaseで0006を含む169 testsをPASSしています。最終のRPC-only contractは未適用です。`main@0789688c7e7806a8a9563ef605e2e3014e5c1024` はNetlifyへ反映済みで、公開URLのNative WebMCP／shared-state再検証は [公開証跡](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md) に記録しています。Phase 10.3のreal shared gateは [最新証跡](./docs/evidence/SUPABASE_PHASE_10_REAL_SHARED_GATE_2026-09-01.md) を参照してください。
 
 写真アップロードはPhase 10.2では扱いません。顔・ナンバープレート・EXIF位置情報の保護、moderation／redaction、retention、Storage権限、コスト、bot／abuse対策を先に設計する必要があるためです。
+
+## ローカル家族訓練アシスタント（fake検証）
+
+共有DBが停止中でもローカルの質問・条件確認・経路比較を試せます。`ASSISTANT_PROVIDER=fake npm run assistant` と `VITE_LIVINGTOWN_DATA_MODE=local npm run dev` を別ターミナルで起動してください。Gemini実接続・Cloud Run公開は未実施です。[再現手順・制限・承認事項](docs/LOCAL_TRAINING_REVIEW.md) を参照してください。
+
+### Netlify + Cloud Run の接続準備
+
+認証・永続利用上限・CORS・秘密管理・公開前ブロッカーは [接続準備の設計とローカル検証手順](docs/NETLIFY_CLOUD_RUN_PREPARATION.md) を参照してください。実AIの強制無効化を維持。メール＋パスワード画面、実認証/DB接続コードを準備し、外部設定と実環境検証を残しています。
+
+UIの比較画像・独立レビュー・再現手順: [UIブラッシュアップ検証](docs/UI_POLISH_REVIEW.md)。
+
+最新の見た目・操作・モーション改善: [UI/UX検証と比較画像](docs/EXPERIENCE_POLISH_REVIEW.md)。
+
+人・エージェント双方の確認、保存・復元、構造化ツール応答の検証: [Human / Agent 受入条件と証跡](docs/HUMAN_AGENT_READINESS.md)。
+
+地図と入力の分離・状態表示・Blender短尺素材（ローカル検証）: [視認性改善と確認画像](docs/READABILITY_UPGRADE_REVIEW.md)。
+
+手動／模擬エージェントの同条件比較と回帰結果: [INTERACTION_COMPARISON.md](docs/INTERACTION_COMPARISON.md)。

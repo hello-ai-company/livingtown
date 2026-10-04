@@ -8,6 +8,7 @@ import { selectThreeDProvider } from '../map3d/provider'
 import type { GeoCamera, MapDimension, WeatherVisualMode } from '../map3d/types'
 import { createTranslator, type Locale } from '../i18n'
 import { householdDisplayLabel } from '../app/longDistanceExample'
+import { useWorkspaceMapVisible } from '../app/MapInputWorkspace'
 
 const NavaraMap3D = lazy(() => import('../map3d/NavaraMap3D').then((module) => ({ default: module.NavaraMap3D })))
 
@@ -107,13 +108,14 @@ function BoundaryFallback({ reason, locale, onFallback, mapProps, camera, surfac
 }
 
 export function MapExperience({ dimension, camera, onDimensionChange, onCameraChange, onNotice, weatherMode, onWeatherModeChange, surface = 'map', ...mapProps }: MapExperienceProps) {
+  const workspaceVisible = useWorkspaceMapVisible()
   const [capabilities] = useState(() => getNavaraCapabilities())
   const provider = useMemo(() => selectThreeDProvider('navara', { navara: capabilities.supported, cesium: false }), [capabilities.supported])
   const [replayCameraOverride, setReplayCameraOverride] = useState<GeoCamera>()
   const [focusOpen, setFocusOpen] = useState(false)
   const [mapOnly, setMapOnly] = useState(false)
   const initialRoute = mapProps.focusHouseholdId ? mapProps.snapshot.routes[mapProps.focusHouseholdId] : Object.values(mapProps.snapshot.routes)[0]
-  const [panelOpen, setPanelOpen] = useState(() => Boolean(mapProps.selectedKnowledgeId) || (mapProps.mode === 'advanced' && surface === 'map') || (surface !== 'map' && Boolean(initialRoute)))
+  const [panelOpen, setPanelOpen] = useState(() => Boolean(mapProps.selectedKnowledgeId) || (dimension === '2d' && mapProps.mode === 'advanced' && surface === 'map') || (surface !== 'map' && Boolean(initialRoute)))
   const [panelTab, setPanelTab] = useState<MapFocusPanelTab>(() => mapProps.selectedKnowledgeId ? 'details' : mapProps.mode === 'advanced' && surface === 'map' ? 'filters' : 'details')
   const [filterState, setFilterState] = useState<MapFilterState>(DEFAULT_MAP_FILTER_STATE)
   const previousDimension = useRef(dimension)
@@ -156,7 +158,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
     if (mode === 'simple') {
       setFilterState((current) => current.category === 'all' ? current : { ...current, category: 'all' })
     }
-    if (surface === 'map' && mode === 'advanced' && !mapProps.selectedKnowledgeId) {
+    if (dimension === '2d' && surface === 'map' && mode === 'advanced' && !mapProps.selectedKnowledgeId) {
       setPanelTab('filters')
       setPanelOpen(true)
     }
@@ -164,7 +166,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
       setPanelTab('details')
       setPanelOpen(hasRouteContext)
     }
-  }, [hasRouteContext, mapProps.selectedKnowledgeId, mode, surface])
+  }, [dimension, hasRouteContext, mapProps.selectedKnowledgeId, mode, surface])
 
   useEffect(() => {
     const selectionChanged = previousSelectedKnowledgeId.current !== mapProps.selectedKnowledgeId
@@ -325,7 +327,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
       </div>}
       <div className={`map-experience__body${panelOpen && !mapOnly ? ' map-experience__body--panel-open' : ''}`}>
         <div className="map-experience__map">
-          {dimension === '3d' ? <ThreeDErrorBoundary fallback={renderFallback}>
+          {dimension === '3d' && !workspaceVisible ? <div className="map-suspended">{locale === 'ja' ? '入力中は3D描画を休止しています。' : '3D rendering is suspended while entering inputs.'}</div> : dimension === '3d' ? <ThreeDErrorBoundary fallback={renderFallback}>
             <Suspense fallback={<Loading3D locale={locale} />}>
               <NavaraMap3D {...mapProps} locale={locale} mode={mode} surface={surface} camera={effectiveCamera} weatherMode={weatherMode} onWeatherModeChange={onWeatherModeChange} onCameraChange={onCameraChange} onSelectKnowledge={selectKnowledge} onClearKnowledge={clearKnowledge} onBackTo2D={() => changeDimension('2d')} onFallback={handleFallback} />
             </Suspense>

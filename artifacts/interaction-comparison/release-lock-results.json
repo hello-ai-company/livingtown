@@ -1,0 +1,24 @@
+{
+  "real_ai": false,
+  "external_services": false,
+  "checks": [
+    {
+      "width": 1440,
+      "inherited_config_sample_only": true,
+      "no_auth_db_api_requests": true,
+      "confirmation_required": true,
+      "double_submit_result": true,
+      "evidence_visible": true,
+      "page_errors": 0
+    },
+    {
+      "width": 390,
+      "inherited_config_sample_only": true,
+      "no_auth_db_api_requests": true,
+      "confirmation_required": true,
+      "double_submit_result": true,
+      "evidence_visible": true,
+      "page_errors": 0
+    }
+  ]
+}

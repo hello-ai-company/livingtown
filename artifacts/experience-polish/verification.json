@@ -1,0 +1,8 @@
+{
+  "checks": [
+    "desktop: first-view map, tap target, progress, slow/duplicate/cancel/stale/error/retry, keyboard confirm, comparison/evidence, revisit, no overflow/pageerrors; motion=no-preference",
+    "iphone: first-view map, tap target, progress, slow/duplicate/cancel/stale/error/retry, keyboard confirm, comparison/evidence, revisit, no overflow/pageerrors; motion=no-preference",
+    "reduced: first-view map, tap target, progress, slow/duplicate/cancel/stale/error/retry, keyboard confirm, comparison/evidence, revisit, no overflow/pageerrors; motion=reduce",
+    "compact: first-view map, tap target, progress, slow/duplicate/cancel/stale/error/retry, keyboard confirm, comparison/evidence, revisit, no overflow/pageerrors; motion=reduce"
+  ]
+}
