@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { trainingConnections } from './releasePolicy'
 
 export type SessionLease = { token: string; expiresAt: number; revoke: () => Promise<void> }
 export type PasswordGateway = { signIn: (email: string, password: string, signal: AbortSignal) => Promise<SessionLease> }
@@ -98,9 +99,9 @@ export function passwordGateway(origin: string, publicKey: string): PasswordGate
 }
 
 function configuredAuth() {
-  const mode = import.meta.env.VITE_TRAINING_AUTH_MODE
-  if (!mode && !import.meta.env.VITE_TRAINING_API_ORIGIN) return new TrainingAuth(undefined, 'local')
-  if (mode === 'fake' && import.meta.env.DEV && ['localhost', '127.0.0.1'].includes(location.hostname) && !import.meta.env.VITE_TRAINING_API_ORIGIN) {
+  const mode = trainingConnections.VITE_TRAINING_AUTH_MODE
+  if (!mode && !trainingConnections.VITE_TRAINING_API_ORIGIN) return new TrainingAuth(undefined, 'local')
+  if (mode === 'fake' && import.meta.env.DEV && ['localhost', '127.0.0.1'].includes(location.hostname) && !trainingConnections.VITE_TRAINING_API_ORIGIN) {
     return new TrainingAuth({ signIn: async (email, password, signal) => {
       await new Promise<void>((resolve, reject) => {
         const timer = setTimeout(resolve, 500)
@@ -111,7 +112,7 @@ function configuredAuth() {
     } }, 'enabled', true)
   }
   if (mode === 'supabase') {
-    try { return new TrainingAuth(passwordGateway(import.meta.env.VITE_TRAINING_AUTH_ORIGIN || '', import.meta.env.VITE_TRAINING_AUTH_PUBLIC_KEY || '')) } catch { /* fail closed */ }
+    try { return new TrainingAuth(passwordGateway(trainingConnections.VITE_TRAINING_AUTH_ORIGIN || '', trainingConnections.VITE_TRAINING_AUTH_PUBLIC_KEY || '')) } catch { /* fail closed */ }
   }
   return new TrainingAuth(undefined, 'unavailable')
 }

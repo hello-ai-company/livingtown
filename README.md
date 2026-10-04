@@ -5,9 +5,13 @@ License: MIT — see [LICENSE](./LICENSE).
 
 **近所の立ち話が、避難経路を変える。**
 
-LivingTownは、住民エージェントとの日常会話を検証可能な街の記憶へ変換し、訓練時には世帯の制約enumと組み合わせて説明可能な避難経路を返すWebMCP Challenge向けプロトタイプです。
+LivingTownは、街の知識と世帯の条件を組み合わせ、家族で移動・避難を練習するサンプルデモです。東京固定10ノード11辺の訓練で、実際の避難経路の安全を保証しません。
 
-## 現在の検証ステータス（2026-09-01）
+## 現在の状態（2026-10-04）
+
+productionはサンプル訓練に固定し、既存Netlifyの環境設定が残っていても共有DB・ログイン・質問APIへ接続しません。実AIもサーバーで無効です。既存Supabaseはread-only確認でINACTIVE。以下の9月のshared/production PASSは履歴で、現在の実接続を保証しません。対象大会はZenn Google Cloud Japan vol5。必要な外部設定、費用、構成図、再現手順は [公開準備](./docs/ZENN_VOL5_PRODUCTION_READINESS.md) にまとめています。
+
+## 過去の検証ステータス（2026-09-01）
 
 - **Hosted Expand:** Phase 8／Phase 10のExpand migration適用済み。実Supabaseのremote migration historyは8本。
 - **Disposable DB:** GitHub Actions上の一時Supabaseで0004／0005／0006を実行し、169 pgTAP testsがPASS。
@@ -15,7 +19,7 @@ LivingTownは、住民エージェントとの日常会話を検証可能な街�
 - **公開production gate:** `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` を既存Netlify productionへ反映し、公開URLでNative WebMCP、Core Demo、Supabase shared stateを再検証済み。詳細は [WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md](./docs/evidence/WEBMCP_PUBLIC_PRODUCTION_GATE_2026-09-01.md)。
 - **まだ未完了:** RPC-only contractは未適用、動画、Devpost最終提出は未実施。Native in-flight AbortSignalの実機中断確認は今回未実行で、non-blocking limitationとして記録。
 
-下記に残る古い「未適用」「未実行」の記述は、各時点の履歴として保持しています。現在の判断には上記の最新証跡を使います。
+下記に残る接続手順・PASS・未実施は各時点の履歴です。現在の接続可否は10月の状態と公開準備を参照してください。
 
 ## Quick start
 
@@ -27,7 +31,7 @@ npm run dev
 
 `npm run seed` は、外部APIなしでデモ用歩行グラフ、暗黙知10件、pseudonymous verification data、世帯3件を `seed/` に生成します。アプリは初回起動時に同じ決定的データをLocalStorageへ読み込みます。
 
-## Public production demo
+## Public production demo（2026-09-01の履歴）
 
 審査員向けのPrimary Live URLは [https://livingtown-webmcp.netlify.app/](https://livingtown-webmcp.netlify.app/) です。現在公開されているURLは、公開GitHubリポジトリの `main@0789688c7e7806a8a9563ef605e2e3014e5c1024` からNetlify Free planで継続デプロイしています。Buildは `npm run build`、publish directoryは `dist` です。Production buildには `VITE_LIVINGTOWN_DATA_MODE=shared` と既存Livingtown Supabaseのブラウザ公開可能な設定をNetlifyのEnvironment variablesへ登録しています。値はこのrepositoryへcommitしていません。
 
@@ -81,9 +85,9 @@ git diff --check
 
 実装状況と残課題は [docs/EVALUATION.md](./docs/EVALUATION.md)、設計の正本は [docs/DESIGN.md](./docs/DESIGN.md) と [Notionの設計書](https://app.notion.com/p/c22ef848aa464ff6b6a39dc010d5f2c7) です。Phase 8／10の適用済みExpand gate、未適用のRPC-only contract、Phase 9の3D境界とローカルゲートは、同ドキュメントの各節を参照してください。
 
-## Shared LivingTown mode
+## Shared LivingTown mode（DEV接続用・外部設定承認後のみ）
 
-既定値は、LocalStorageを使う決定的な `LOCAL_DEMO` です。共有DBを明示的に使う場合だけ、次の環境変数を設定して再起動してください。
+既定値は、LocalStorageを使う決定的な `LOCAL_DEMO` です。productionではコードのrelease lockにより下記環境設定でも共有DBに接続しません。DEVでの実共有接続も外部設定・利用の承認が必要です。
 
 ```bash
 VITE_LIVINGTOWN_DATA_MODE=shared

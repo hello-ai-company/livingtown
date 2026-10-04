@@ -1,0 +1,19 @@
+{
+  "gcp_project_id": "",
+  "billing_account_id": "",
+  "run_region": "",
+  "model_location": "",
+  "gemini_model": "",
+  "supabase_project_ref": "",
+  "supabase_db_host": "",
+  "supabase_db_user": "",
+  "supabase_plan": "unconfirmed",
+  "runtime_service_account": "",
+  "build_service_account": "",
+  "image_repository": "",
+  "db_password_secret": "",
+  "netlify_origin": "",
+  "maintenance_until": "2026-12-01",
+  "credit_scope_verified": false,
+  "max_out_of_pocket_yen": null
+}

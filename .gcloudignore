@@ -1,0 +1,12 @@
+# Future Cloud Build source upload: server code only, no frontend or local evidence.
+**
+!.gcloudignore
+!.dockerignore
+!LICENSE
+!server/
+!server/*.mjs
+!server/Dockerfile
+!server/package.json
+!server/package-lock.json
+!server/cloudbuild.json
+server/*.node-test.mjs

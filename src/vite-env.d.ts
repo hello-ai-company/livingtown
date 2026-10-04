@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare const __LIVINGTOWN_STATIC_BUILD__: boolean
+
 interface ImportMetaEnv {
   readonly VITE_TRAINING_AUTH_MODE?: 'supabase' | 'fake'
   readonly VITE_TRAINING_AUTH_ORIGIN?: string

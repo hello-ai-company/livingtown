@@ -8,6 +8,7 @@ import { canUseOfflineQuestions, questionEndpoint } from './endpoint'
 import { trainingAuth } from './auth'
 import { TrainingLogin } from './TrainingLogin'
 import { WaitingIllustration } from './WaitingIllustration'
+import { staticTrainingBuild, trainingConnections } from './releasePolicy'
 
 const labels: Record<QuestionField, string> = {
   household_id: '誰と、どこから移動する訓練ですか？（架空の世帯・出発地点）',
@@ -25,7 +26,7 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold, req
   const snapshot = useTownSnapshot(repository)
   const auth = useSyncExternalStore(trainingAuth.subscribe, trainingAuth.snapshot)
   const authReady = auth.phase === 'local' || auth.phase === 'signed_in'
-  const offlineQuestions = canUseOfflineQuestions(import.meta.env.PROD, import.meta.env.VITE_TRAINING_API_ORIGIN, import.meta.env.VITE_TRAINING_AUTH_MODE, repository.dataMode)
+  const offlineQuestions = canUseOfflineQuestions(staticTrainingBuild, trainingConnections.VITE_TRAINING_API_ORIGIN, trainingConnections.VITE_TRAINING_AUTH_MODE, repository.dataMode)
   const [questions, setQuestions] = useState<ReturnType<typeof validateQuestionResponse>>()
   const [values, setValues] = useState<Record<QuestionField, string>>({ household_id: '', scenario: '', weather: '', time_of_day: '' })
   const [confirmationRevision, setConfirmationRevision] = useState<string>()
@@ -73,7 +74,7 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold, req
         setQuestions({ provider: 'fake', fields: [...QUESTION_FIELDS] })
         return
       }
-      const response = await fetch(questionEndpoint(import.meta.env.VITE_TRAINING_API_ORIGIN), { method: 'POST', credentials: 'omit', redirect: 'error', headers: { 'Content-Type': 'application/json', ...(authorization ? { Authorization: authorization } : {}) },
+      const response = await fetch(questionEndpoint(trainingConnections.VITE_TRAINING_API_ORIGIN), { method: 'POST', credentials: 'omit', redirect: 'error', headers: { 'Content-Type': 'application/json', ...(authorization ? { Authorization: authorization } : {}) },
         body: JSON.stringify({ action: 'questions', request_id: requestId.current }), signal: requestSignal })
       if (!response.ok) {
         if (response.status === 401 && authRevision === trainingAuth.snapshot().revision && !controller.signal.aborted && auth.phase !== 'local') {
@@ -115,7 +116,7 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold, req
       <TrainingLogin />
       {draft && !questions && <div className="training-draft"><p>このタブに保存した条件があります。前回の確認・計算結果は引き継ぎません。</p><button className="secondary-button" disabled={busy || !authReady} onClick={() => { agentConsent.invalidate(); setValues(snapshot.households.some(h => h.id === draft.household_id) ? draft : { ...draft, household_id: '' }); setConfirmationRevision(undefined); setResult(undefined); setDraftNotice('条件を読み込みました。「条件の質問を開始」から内容を再確認してください。') }}>保存した条件を使う</button><button className="secondary-button" onClick={() => { try { window.sessionStorage.removeItem(TRAINING_DRAFT_KEY); setDraft(undefined); setDraftNotice('保存した条件を削除しました。') } catch { setDraftNotice('保存領域を利用できないため削除できません。') } }}>保存条件を削除</button></div>}
       {draftNotice && <p role="status">{draftNotice}</p>}
-      {offlineQuestions && <p role="status">ブラウザー内の模擬質問です。サーバー・実AIには接続しません。</p>}
+      {offlineQuestions && <p role="status">公開版はサンプル訓練です。ブラウザー内の模擬質問を使い、共有DB・ログイン・サーバー・実AIには接続しません。</p>}
       {!questions && <button className="secondary-button" disabled={busy || !authReady} onClick={() => void start()}>{attempted ? '新しい質問を試す（上限に算入）' : '条件の質問を開始'}</button>}
       {questions && <>
         <p role="status">{questions.provider === 'fake' ? 'FAKE / 模擬質問（Gemini未接続・外部AI呼び出しなし）' : 'Vertex AI / Gemini の質問順序'} · 出発地点や回答はAIへ送信しません。</p>

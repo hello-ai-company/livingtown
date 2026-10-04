@@ -1,6 +1,11 @@
 // Only question ordering crosses the model boundary. No household/location data,
 // route tools, database credentials or resident verification tools are exposed.
 export const FIELDS = ['household_id', 'scenario', 'weather', 'time_of_day'];
+// Prepared for the currently documented stable candidate, mock transport only.
+// Runtime/HTTP release locks still reject every real paid provider.
+export function thinkingConfig(model) {
+  return model === 'gemini-3.1-flash-lite' ? { thinkingLevel: 'MINIMAL', includeThoughts: false } : undefined;
+}
 export function validateInput(input) {
   if (!input || Object.keys(input).sort().join() !== 'action,request_id' || input.action !== 'questions' ||
       typeof input.request_id !== 'string' || !/^[a-zA-Z0-9-]{8,80}$/.test(input.request_id)) throw new Error('INVALID_INPUT');
@@ -53,6 +58,7 @@ export function createAssistant({ env = process.env, fetcher, maxCalls = 20, max
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [{ text: 'For a family evacuation TRAINING questionnaire, order these four required fields: household_id, scenario, weather, time_of_day. Return each exactly once. Do not answer them or create routes, facts or resident verification.' }] }],
             generationConfig: { temperature: 0, candidateCount: 1, maxOutputTokens: 256, responseMimeType: 'application/json',
+              ...(thinkingConfig(env.GEMINI_MODEL) ? { thinkingConfig: thinkingConfig(env.GEMINI_MODEL) } : {}),
               responseSchema: { type: 'OBJECT', properties: { fields: { type: 'ARRAY', items: { type: 'STRING', enum: FIELDS }, minItems: 4, maxItems: 4 } }, required: ['fields'] } },
           }),
         });

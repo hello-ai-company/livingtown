@@ -1,6 +1,7 @@
 import { LocalTownRepository } from './supabase'
 import { SupabaseTownRepository } from './supabaseRepository'
 import type { DataMode, TownRepository } from './repository'
+import { trainingConnections } from '../training/releasePolicy'
 
 export const DATA_MODE_OVERRIDE_KEY = 'livingtown-data-mode-override'
 
@@ -20,9 +21,9 @@ function environmentConfig(): TownRepositoryConfig {
     }
   }
   return {
-    dataMode: localOverride ? 'local' : import.meta.env.VITE_LIVINGTOWN_DATA_MODE,
-    supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-    supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    dataMode: localOverride ? 'local' : trainingConnections.VITE_LIVINGTOWN_DATA_MODE,
+    supabaseUrl: trainingConnections.VITE_SUPABASE_URL,
+    supabaseAnonKey: trainingConnections.VITE_SUPABASE_ANON_KEY,
   }
 }
 

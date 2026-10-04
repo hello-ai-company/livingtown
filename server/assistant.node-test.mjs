@@ -96,6 +96,20 @@ test('fully configured Vertex has no default network transport even outside HTTP
   const ask = createAssistant({ env });
   await assert.rejects(ask(input()), /PAID_PROVIDER_LOCKED/);
 });
+test('prepared 3.1 Flash-Lite request pins minimal thinking without adding retries or tools', async () => {
+  const calls = [];
+  const ask = createAssistant({ env: { ...env, GEMINI_MODEL: 'gemini-3.1-flash-lite' }, fetcher: async (url, init) => {
+    calls.push([url, init]);
+    return calls.length === 1 ? response({ access_token: 'mock-only' }) : generated(FIELDS);
+  } });
+  await ask(input());
+  const body = JSON.parse(calls[1][1].body);
+  assert.deepEqual(body.generationConfig.thinkingConfig, { thinkingLevel: 'MINIMAL', includeThoughts: false });
+  assert.equal(body.generationConfig.maxOutputTokens, 256);
+  assert.equal(body.generationConfig.candidateCount, 1);
+  assert.equal(body.tools, undefined);
+  await ask(input()); assert.equal(calls.length, 2);
+});
 test('explicit new attempt recovers after failure but consumes user quota', async () => {
   let calls = 0;
   const ask = createAssistant({ env, maxUserCalls: 2, fetcher: async () => {

@@ -1,5 +1,7 @@
 # Netlify + Cloud Run 接続準備（2026-10-01）
 
+**2026-10-04更新:** 現行の対象大会・モデル寿命・費用・権限・構成画像・外部作業順序は [ZENN_VOL5_PRODUCTION_READINESS.md](./ZENN_VOL5_PRODUCTION_READINESS.md) を参照。productionはAuth/共有DB/API設定があってもサンプルへ固定され、下記のNetlify設定だけでは接続できない。実接続にはfrontend release lockのレビュー済み解除も必要。
+
 静的フロントは既存Netlify Free、APIはCloud Run、認証と永続上限は既存Supabaseを利用する最小案。Free契約は利用者提供の管理画面で確認済みで、静的フロントの移行は不要。ホストDB再開・IAM/API設定・デプロイ・実AIは今回実施していない。
 
 ## 実装済みの接続経路
