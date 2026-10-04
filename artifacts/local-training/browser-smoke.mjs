@@ -9,6 +9,13 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   // External map textures are unnecessary for this deterministic local smoke.
   await page.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
+  // A fresh isolated fake process avoids consuming another local test's quota.
+  if (process.env.LOCAL_FAKE_ORIGIN) {
+    const origin = new URL(process.env.LOCAL_FAKE_ORIGIN);
+    assert.equal(origin.hostname, '127.0.0.1');
+    assert.equal(origin.protocol, 'http:');
+    await page.route('**/api/training/questions', async route => route.fulfill({ response: await route.fetch({ url: `${origin.origin}/api/training/questions` }) }));
+  }
   await page.goto('http://127.0.0.1:4173');
   await page.getByRole('button', { name: 'JA', exact: true }).click();
   await page.getByRole('button', { name: /02.*避難を試す/ }).click();
@@ -87,7 +94,7 @@ try {
 
   const shared = await browser.newPage();
   await shared.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
-  await shared.goto('http://127.0.0.1:4174');
+  await shared.goto(process.env.SHARED_ORIGIN || 'http://127.0.0.1:4174');
   await shared.locator('.training-connection > details > summary').click();
   await shared.locator('.training-connection').getByText('SUPABASE_SHARED / ERROR', { exact: true }).waitFor({ timeout: 15000 });
   await shared.locator('.training-connection').screenshot({ path: 'artifacts/local-training/shared-error.png' });

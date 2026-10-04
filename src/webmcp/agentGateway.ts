@@ -32,7 +32,7 @@ export function agentSchema(tool: ToolDefinition) {
 }
 
 type Status = 'awaiting_confirmation' | 'executing' | 'completed' | 'cancelled' | 'stale' | 'unconfirmed' | 'authorization_required'
-export interface AgentRequest { request_id: string; tool: string; title: string; input: Record<string, unknown>; revision: string; status: Status; created_at: string; household?: Household; basis?: { revision: string; captured_at: string; evidence: unknown; bottlenecks: unknown; unverified: string }; result?: unknown }
+export interface AgentRequest { request_id: string; tool: string; title: string; input: Record<string, unknown>; revision: string; status: Status; created_at: string; household?: Household; basis?: { revision: string; captured_at: string; evidence: Array<{ id: string; description: string; updated_at: string; observed_at: string | null }>; bottlenecks: Array<{ id: string; description?: string; created_at: string }>; unverified: string }; result?: unknown }
 interface Entry { view: AgentRequest; fingerprint: string; definition: ToolDefinition; store: TownRepository; signal: AbortSignal }
 
 export function createAgentGateway(authorize: () => unknown = () => trainingAuth.authorization()) {

@@ -15,6 +15,7 @@ interface KnowledgeContributionFormProps {
   onRequestLocationChange?: () => void
   onCancelLocationPicker?: () => void
   locationPickerActive?: boolean
+  inline?: boolean
 }
 
 const CONDITIONS: KnowledgeCondition[] = ['always', 'rain', 'night', 'crowded']
@@ -47,7 +48,7 @@ function toDateTimeLocal(value?: string) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export function KnowledgeContributionForm({ locale, mode, initialLocation, knowledge, onSubmit, onCancel, onRequestLocationChange, onCancelLocationPicker, locationPickerActive = false }: KnowledgeContributionFormProps) {
+export function KnowledgeContributionForm({ locale, mode, initialLocation, knowledge, onSubmit, onCancel, onRequestLocationChange, onCancelLocationPicker, locationPickerActive = false, inline = false }: KnowledgeContributionFormProps) {
   const t = useMemo(() => createTranslator(locale), [locale])
   const [step, setStep] = useState(1)
   const [category, setCategory] = useState<KnowledgeCategory>(knowledge?.category ?? 'flood')
@@ -70,6 +71,7 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
   const hasLocation = Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && lat.trim() !== '' && lng.trim() !== ''
 
   useEffect(() => {
+    if (inline) return
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined
     closeButtonRef.current?.focus()
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -96,7 +98,7 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
       document.removeEventListener('keydown', handleKeyDown)
       previousFocus?.focus()
     }
-  }, [])
+  }, [inline])
 
   useEffect(() => {
     if (!initialLocation) return
@@ -153,8 +155,8 @@ export function KnowledgeContributionForm({ locale, mode, initialLocation, knowl
   }
 
   return (
-    <div className={`knowledge-form-backdrop${locationPickerActive ? ' knowledge-form-backdrop--picking' : ''}`} role="presentation">
-      <section ref={dialogRef} className="knowledge-form" role="dialog" aria-modal="true" aria-labelledby="knowledge-form-title">
+    <div className={inline ? 'knowledge-form-inline' : `knowledge-form-backdrop${locationPickerActive ? ' knowledge-form-backdrop--picking' : ''}`} role="presentation">
+      <section ref={dialogRef} className="knowledge-form" role={inline ? 'region' : 'dialog'} aria-modal={inline ? undefined : true} aria-labelledby="knowledge-form-title" onKeyDown={event => { if (inline && event.key === 'Escape' && !submitting) { event.stopPropagation(); onCancel() } }}>
         <div className="knowledge-form__head">
           <div><span className="eyebrow">{t('form.step', { step })}</span><h2 id="knowledge-form-title">{t(knowledge ? 'form.editTitle' : 'form.newTitle')}</h2></div>
           <button ref={closeButtonRef} type="button" className="knowledge-form__close" onClick={onCancel} aria-label={t('form.cancel')}>×</button>

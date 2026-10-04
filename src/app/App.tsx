@@ -1,5 +1,7 @@
+import { MapInputWorkspace } from './MapInputWorkspace'
 import { AgentConsentPanel } from '../webmcp/AgentConsentPanel'
 import { TrainingAssistant } from '../training/TrainingAssistant'
+import { validateTrainingInput, type ManualTrainingConditions } from '../training/flow'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapExperience, type MapExperienceProps } from '../map/MapExperience'
 import { KnowledgeContributionForm } from '../map/KnowledgeContributionForm'
@@ -83,6 +85,10 @@ function AppShell() {
   const [observationCurrentLocation, setObservationCurrentLocation] = useState<{ lat: number; lng: number }>()
   const [observationLocationSource, setObservationLocationSource] = useState<'map' | 'current' | 'center'>('center')
   const [observationComposerOpen, setObservationComposerOpen] = useState(false)
+  const [composerFocusKey, setComposerFocusKey] = useState(0)
+  const [manualConditions, setManualConditions] = useState<ManualTrainingConditions>()
+  const [trainingMapFocusKey, setTrainingMapFocusKey] = useState(0)
+  const [trainingInputFocusKey, setTrainingInputFocusKey] = useState(0)
   const [editingKnowledge, setEditingKnowledge] = useState<Knowledge>()
   const [editingLocation, setEditingLocation] = useState<{ lat: number; lng: number }>()
   const [locationPickerActive, setLocationPickerActive] = useState(false)
@@ -206,6 +212,7 @@ function AppShell() {
   }, [repositoryStatus.connection, repositoryStatus.mode, snapshot.households, snapshot.knowledge, snapshot.routes])
 
   const transitionTo = useCallback((nextPanel: Phase | 'reports' | 'admin') => {
+    if (nextPanel !== 'drill') setManualConditions(undefined)
     setPanel(nextPanel)
     setObservationComposerOpen(false)
     setObservationMapLocation(undefined)
@@ -447,6 +454,7 @@ function AppShell() {
       setObservationMapLocation(source === 'map' ? location : undefined)
       setObservationLocationSource(source)
       setObservationComposerOpen(true)
+      setComposerFocusKey(value => value + 1)
     },
     onLocationPicked: (location) => {
       setLocationPickerActive(false)
@@ -454,9 +462,9 @@ function AppShell() {
       else {
         setObservationMapLocation(location)
         setObservationCurrentLocation(undefined)
+        setObservationComposerOpen(true)
       }
       setObservationLocationSource('map')
-      setObservationComposerOpen(true)
       setNotice(t('notice.locationSelected'))
     },
     onEditKnowledge: editKnowledge,
@@ -502,7 +510,13 @@ function AppShell() {
         {repositoryStatus.mode === 'SUPABASE_SHARED' && <button className="secondary-button" onClick={switchToLocalDemo}>このタブをローカル訓練モードに切り替える</button>}
       </section>
       <main className="workspace">
-        <AgentConsentPanel />
+        <AgentConsentPanel repository={townRepository} onShowRoute={id => { setSelectedHouseholdId(id); transitionTo('drill'); setTrainingInputFocusKey(0); setTrainingMapFocusKey(value => value + 1) }} onEditRoute={value => {
+          try {
+            const input = validateTrainingInput(value)
+            if (townRepository.dataMode !== 'LOCAL_DEMO' || !townRepository.getSnapshot().households.some(h => h.id === input.household_id)) throw new Error('対象の訓練世帯がありません。最新条件を選び直してください。')
+            transitionTo('drill'); setTrainingMapFocusKey(0); setManualConditions({ id: crypto.randomUUID(), input }); setTrainingInputFocusKey(key => key + 1)
+          } catch { setNotice('提案は取り消しました。訓練モードと対象世帯を確認して条件を選び直してください。') }
+        }} />
         <section className="map-first-intro">
           <div><h1>{locale === 'ja' ? '地図から、家族の移動を練習' : 'Practice your family’s journey'}</h1><p>{locale === 'ja' ? '4つの条件を選んで、約1分の訓練体験。登録は不要です（サンプルモード）。' : 'Explore the map, then check your travel needs.'}</p></div>
           {panel === 'map' ? <button className="primary-button" onClick={() => transitionTo('drill')}>{locale === 'ja' ? '家族の訓練を始める' : 'Start family training'} →</button> : <button className="secondary-button" onClick={() => transitionTo('map')}>← {locale === 'ja' ? '地図へ戻る' : 'Back to map'}</button>}
@@ -532,11 +546,14 @@ function AppShell() {
         <div className={`main-grid${mode === 'simple' ? ' main-grid--simple' : ''}`}>
           <section className="map-column">
             {panel === 'reports' ? <MyReportsPanel knowledge={snapshot.knowledge} locale={locale} onEdit={editKnowledge} onDelete={(knowledge) => void deleteKnowledge(knowledge)} onPost={() => { transitionTo('map'); setObservationComposerOpen(true) }} /> : <>
-              {panel === 'map' && <MapExperience {...mapExperienceProps} surface="map" />}
+              {panel === 'map' && <MapInputWorkspace locale={locale} inputFocusKey={composerFocusKey} title={locale === 'ja' ? '投稿を入力' : 'Write observation'} inputOpen={observationComposerOpen || Boolean(contributionLocation || editingKnowledge)} picking={locationPickerActive} map={<MapExperience {...mapExperienceProps} surface="map" />}>
+                {(contributionLocation || editingKnowledge) && <KnowledgeContributionForm inline locale={locale} mode={mode} initialLocation={editingKnowledge ? (editingLocation ?? { lat: editingKnowledge.lat, lng: editingKnowledge.lng }) : contributionLocation} knowledge={editingKnowledge} locationPickerActive={locationPickerActive} onRequestLocationChange={() => setLocationPickerActive(true)} onCancelLocationPicker={() => setLocationPickerActive(false)} onSubmit={submitKnowledge} onCancel={() => { setContributionLocation(undefined); setEditingKnowledge(undefined); setEditingLocation(undefined); setLocationPickerActive(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.map-focus-toggle')?.focus()) }} />}
+                {panel === 'map' && observationComposerOpen && <ObservationComposer onClose={() => { setObservationComposerOpen(false); setObservationMapLocation(undefined); setObservationCurrentLocation(undefined); setObservationLocationSource('center'); setLocationPickerActive(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.map-post-button')?.focus()) }} locale={locale} mode={mode} location={observationMapLocation ?? observationCurrentLocation ?? { lat: mapCamera.lat, lng: mapCamera.lng }} locationSource={observationMapLocation ? 'map' : observationCurrentLocation ? 'current' : observationLocationSource} onRequestLocationChange={() => { setObservationMapLocation(undefined); setObservationLocationSource(observationCurrentLocation ? 'current' : 'center'); setLocationPickerActive(true) }} onSubmit={submitKnowledge} lastPostedKnowledgeId={lastKnowledgeId} onUndo={() => void undoLastObservation()} />}
+              </MapInputWorkspace>}
               {panel === 'map' && mode === 'simple' && <details className="progressive-section"><summary>{locale === 'ja' ? 'この周辺の情報を見る' : 'Nearby observations'}</summary><AroundYouNow repository={townRepository} camera={mapCamera} locale={locale} mode={mode} refreshKey={snapshot.knowledge.map((item) => `${item.id}:${item.updated_at ?? item.created_at}:${item.agree_count}:${item.disagree_count}`).join('|')} onSelectKnowledge={(knowledgeId) => { setSelectedKnowledgeId(knowledgeId); transitionTo('map') }} /></details>}
-              {panel === 'map' && observationComposerOpen && <ObservationComposer onClose={() => { setObservationComposerOpen(false); setObservationMapLocation(undefined); setObservationCurrentLocation(undefined); setObservationLocationSource('center'); setLocationPickerActive(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.map-post-button')?.focus()) }} locale={locale} mode={mode} location={observationMapLocation ?? observationCurrentLocation ?? { lat: mapCamera.lat, lng: mapCamera.lng }} locationSource={observationMapLocation ? 'map' : observationCurrentLocation ? 'current' : observationLocationSource} onRequestLocationChange={() => { setObservationMapLocation(undefined); setObservationLocationSource(observationCurrentLocation ? 'current' : 'center'); setLocationPickerActive(true) }} onSubmit={submitKnowledge} lastPostedKnowledgeId={lastKnowledgeId} onUndo={() => void undoLastObservation()} />}
+
               {panel === 'map' && <details className="progressive-section"><summary>{locale === 'ja' ? '投稿・確認の練習と報告一覧' : 'Practice reports and confirmations'}</summary><MapStage snapshot={snapshot} lastKnowledgeId={lastKnowledgeId} selectedKnowledgeId={selectedKnowledgeId} locale={locale} mode={mode} onContribute={contributeDemoKnowledge} onVerify={verifyLastKnowledge} onDrill={() => transitionTo('drill')} /></details>}
-              {panel === 'drill' && <DrillStage mapProps={mapExperienceProps} snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={handleRouteInputsChange} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} onLongDistanceExample={() => void applyLongDistanceExample()} />}
+              {panel === 'drill' && <DrillStage requestedConditions={manualConditions} externalMapFocusKey={trainingMapFocusKey} inputFocusKey={trainingInputFocusKey} mapProps={mapExperienceProps} snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} routeInputs={routeInputs} locale={locale} mode={mode} onSelectHousehold={setSelectedHouseholdId} onChangeRouteInputs={handleRouteInputsChange} onCalculate={calculateRoute} onReplay={() => transitionTo('replay')} onView3D={open3D} onRunTool={runTool} onRegisterHousehold={registerDemoHousehold} onLongDistanceExample={() => void applyLongDistanceExample()} />}
               {panel === 'replay' && <ReplayStage mapProps={mapExperienceProps} snapshot={snapshot} selectedHouseholdId={selectedHouseholdId} selectedRoute={selectedRoute} locale={locale} mode={mode} onRunTool={runTool} onSelectHousehold={setSelectedHouseholdId} onSelectKnowledge={setSelectedKnowledgeId} onView3D={open3D} />}
               {panel === 'admin' && <AdminStage registry={registry} phase={phase} phaseMeta={phaseMeta} locale={locale} mode={mode} onSelectPhase={selectPhaseFromAdmin} onReset={resetDemo} snapshot={snapshot} currentEvidence={currentEvidence} evidenceByPhase={evidenceByPhase} evidenceJson={evidenceJson} onCopyEvidence={copyEvidence} onDownloadEvidence={downloadEvidence} repositoryStatus={repositoryStatus} onRetry={() => { void townRepository.retry().catch((error) => setNotice(error instanceof Error ? error.message : (locale === 'ja' ? 'Supabaseの再接続に失敗しました。' : 'Supabase reconnect failed.'))) }} onFallbackToLocal={switchToLocalDemo} />}
             </>}
@@ -557,7 +574,7 @@ function AppShell() {
         <span>{t('footer.tagline')}</span>
         <span>{mode === 'advanced' ? t('footer.phase', { phase: currentMeta.short }) : t('footer.simple')}</span>
       </footer>
-      {(contributionLocation || editingKnowledge) && <KnowledgeContributionForm locale={locale} mode={mode} initialLocation={editingKnowledge ? (editingLocation ?? { lat: editingKnowledge.lat, lng: editingKnowledge.lng }) : contributionLocation} knowledge={editingKnowledge} locationPickerActive={locationPickerActive} onRequestLocationChange={() => setLocationPickerActive(true)} onCancelLocationPicker={() => setLocationPickerActive(false)} onSubmit={submitKnowledge} onCancel={() => { setContributionLocation(undefined); setEditingKnowledge(undefined); setEditingLocation(undefined); setLocationPickerActive(false) }} />}
+
     </div>
   )
 }
@@ -611,6 +628,9 @@ function MemoryRow({ item, locale, mode }: { item: Knowledge; locale: Locale; mo
 }
 
 interface DrillStageProps {
+  requestedConditions?: ManualTrainingConditions
+  externalMapFocusKey: number
+  inputFocusKey: number
   mapProps: Omit<MapExperienceProps, 'surface'>
   snapshot: TownSnapshot
   selectedHouseholdId: string
@@ -629,12 +649,15 @@ interface DrillStageProps {
   mode: ExperienceMode
 }
 
-function DrillStage({ mapProps, snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onView3D, onRunTool, onRegisterHousehold, onLongDistanceExample, locale, mode }: DrillStageProps) {
+function DrillStage({ requestedConditions, externalMapFocusKey, inputFocusKey, mapProps, snapshot, selectedHouseholdId, selectedHousehold, selectedRoute, routeInputs, onSelectHousehold, onChangeRouteInputs, onCalculate, onReplay, onView3D, onRunTool, onRegisterHousehold, onLongDistanceExample, locale, mode }: DrillStageProps) {
   const t = useTranslator(locale)
+  const [mapFocusKey, setMapFocusKey] = useState(0)
+  const show3D = () => { setMapFocusKey(value => value + 1); onView3D() }
   return (
     <section className={`stage-panel stage-panel--${mode} drill-stage`}>
-      <div className="drill-stage__map"><MapExperience {...mapProps} focusHouseholdId={selectedHouseholdId} surface="drill" compact /></div>
-      <TrainingAssistant repository={townRepository} onView3D={onView3D} onSelectHousehold={onSelectHousehold} />
+      <MapInputWorkspace locale={locale} mapFocusKey={mapFocusKey + externalMapFocusKey} inputFocusKey={inputFocusKey} title={locale === 'ja' ? '条件を入力' : 'Enter conditions'} map={<div className="drill-stage__map"><MapExperience {...mapProps} focusHouseholdId={selectedHouseholdId} surface="drill" compact /></div>}>
+        <TrainingAssistant requestedConditions={requestedConditions} repository={townRepository} onView3D={show3D} onSelectHousehold={onSelectHousehold} />
+      </MapInputWorkspace>
       <details className="progressive-section drill-stage__manual"><summary>{locale === 'ja' ? 'その他の操作：世帯・経路を個別に試す' : 'More: individual households and routes'}</summary>
       <div className="stage-panel__head"><div><span className="eyebrow">{mode === 'advanced' ? t('drill.eyebrow') : t('phase.drill.label')}</span><h2>{t(mode === 'simple' ? 'drill.simpleTitle' : 'drill.title')}</h2></div><span className="stage-panel__count">{snapshot.households.length}<small> {t('drill.households')}</small></span></div>
       <p className="stage-lead">{t(mode === 'simple' ? 'drill.simpleLead' : 'drill.lead')}</p>

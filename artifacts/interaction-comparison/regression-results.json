@@ -1,0 +1,13 @@
+{
+  "checks": [
+    "double approval preserves a single result",
+    "displayed dates match captured basis",
+    "reset disables current-map action but preserves historical evidence",
+    "old envelope cannot recreate reset route",
+    "omitted incident type/date summary matches actual saved defaults",
+    "no verification votes created",
+    "handoff cancels checked approval and writes nothing",
+    "session expiry after handoff disables manual start"
+  ],
+  "external_calls": 0
+}

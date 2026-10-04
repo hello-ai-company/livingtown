@@ -24,6 +24,7 @@ try {
   assert.equal(await page.locator('[data-map-focus="active"]').count(),0);
   await page.getByRole('button',{name:'気づいたことを投稿',exact:false}).click();
   const composer=page.locator('.observation-composer'); await composer.waitFor();
+  if(width<1100)await page.getByRole('tab',{name:'地図を見る',exact:true}).click();
   await page.locator('.town-map').click({position:{x:120,y:130}});
   await composer.getByText('投稿場所: 地図上で選択済み', {exact:true}).waitFor();
   await composer.locator('input[name="observation"]').fill('訓練の入力');

@@ -4,6 +4,7 @@ import type { Bottleneck, Household, Knowledge, RouteResult } from '../sim/types
 
 export const QUESTION_FIELDS = ['household_id', 'scenario', 'weather', 'time_of_day'] as const
 export type QuestionField = typeof QUESTION_FIELDS[number]
+export interface ManualTrainingConditions { id: string; input: EvacuationRouteInput }
 export function validateQuestionResponse(value: unknown): { provider: 'fake' | 'vertex'; fields: QuestionField[] } {
   const data = value as { provider?: unknown; fields?: unknown }
   if (!data || !['fake', 'vertex'].includes(String(data.provider)) || !Array.isArray(data.fields) ||

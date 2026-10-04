@@ -1,0 +1,63 @@
+{
+  "real_browser": "Chromium",
+  "native_host": "simulated",
+  "real_ai": false,
+  "results": [
+    {
+      "viewport": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "toInputMs": 305,
+      "checks": "map/input separation; retained inputs; keyboard tabs and resize; reduced motion; interrupted/late response; double submit; failure/retry; consent/stale; inline edit/escape; no overflow/pageerrors"
+    },
+    {
+      "viewport": "large",
+      "width": 1920,
+      "height": 1080,
+      "toInputMs": 271,
+      "checks": "map/input separation; retained inputs; keyboard tabs and resize; reduced motion; interrupted/late response; double submit; failure/retry; consent/stale; inline edit/escape; no overflow/pageerrors"
+    },
+    {
+      "viewport": "threshold",
+      "width": 1100,
+      "height": 900,
+      "toInputMs": 265,
+      "checks": "map/input separation; retained inputs; keyboard tabs and resize; reduced motion; interrupted/late response; double submit; failure/retry; consent/stale; inline edit/escape; no overflow/pageerrors"
+    },
+    {
+      "viewport": "tablet",
+      "width": 768,
+      "height": 1024,
+      "toInputMs": 225,
+      "checks": "map/input separation; retained inputs; keyboard tabs and resize; reduced motion; interrupted/late response; double submit; failure/retry; consent/stale; inline edit/escape; no overflow/pageerrors"
+    },
+    {
+      "viewport": "iphone",
+      "width": 390,
+      "height": 844,
+      "toInputMs": 188,
+      "checks": "map/input separation; retained inputs; keyboard tabs and resize; reduced motion; interrupted/late response; double submit; failure/retry; consent/stale; inline edit/escape; no overflow/pageerrors"
+    },
+    {
+      "viewport": "compact",
+      "width": 320,
+      "height": 740,
+      "toInputMs": 205,
+      "checks": "map/input separation; retained inputs; keyboard tabs and resize; reduced motion; interrupted/late response; double submit; failure/retry; consent/stale; inline edit/escape; no overflow/pageerrors"
+    },
+    {
+      "viewport": "landscape",
+      "width": 844,
+      "height": 390,
+      "toInputMs": 647,
+      "checks": "map/input separation; retained inputs; keyboard tabs and resize; reduced motion; interrupted/late response; double submit; failure/retry; consent/stale; inline edit/escape; no overflow/pageerrors"
+    },
+    {
+      "viewport": "text-large",
+      "width": 720,
+      "height": 900,
+      "toInputMs": 372,
+      "checks": "map/input separation; retained inputs; keyboard tabs and resize; reduced motion; interrupted/late response; double submit; failure/retry; consent/stale; inline edit/escape; no overflow/pageerrors"
+    }
+  ]
+}

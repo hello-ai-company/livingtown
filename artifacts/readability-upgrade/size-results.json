@@ -1,0 +1,53 @@
+{
+  "baseline_sha": "d6f4c1ea52f279ab5a381563cfc469d868f9f080",
+  "before": {
+    "dist/assets/index-BBT_wHQY.js": {
+      "bytes": 1780058,
+      "gzip": 491283
+    },
+    "dist/assets/index-OA1kXz2-.css": {
+      "bytes": 211677,
+      "gzip": 33061
+    }
+  },
+  "after": {
+    "dist/assets/index-D4LYWM5L.js": {
+      "bytes": 1791238,
+      "gzip": 495473
+    },
+    "dist/assets/index-Bou7TxE-.css": {
+      "bytes": 218072,
+      "gzip": 34294
+    }
+  },
+  "initial_gzip_delta_bytes": 5423,
+  "media": [
+    {
+      "file": "public/media/training-guide.mp4",
+      "bytes": 5132,
+      "sha256": "8ed0339d3e1b713a6de67caf4a4f484c032053965ed05db421084ac069791bf6"
+    },
+    {
+      "file": "public/media/training-guide.webm",
+      "bytes": 4992,
+      "sha256": "d367ad3869b2631ff63cf214a56ffa2e5eafc7dd83cbf0cdeb13d13b891571f5"
+    },
+    {
+      "file": "public/media/training-guide.webp",
+      "bytes": 1840,
+      "sha256": "2fb1ec545e0b40d4e90064cd729d29c8f84df841aa08efbb48a9b073c734445a"
+    }
+  ],
+  "notes": "Sizes measured on local production outputs; browser latency results are local headless timings, not real device/network performance.",
+  "readability_only_after": {
+    "dist/assets/index-BNhtMk4e.js": {
+      "bytes": 1786855,
+      "gzip": 493794
+    },
+    "dist/assets/index-Bou7TxE-.css": {
+      "bytes": 218072,
+      "gzip": 34294
+    }
+  },
+  "readability_only_gzip_delta_bytes": 3744
+}

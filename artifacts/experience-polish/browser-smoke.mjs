@@ -37,7 +37,9 @@ try {
   await assistant.locator('.training-result').waitFor();assert.equal(await assistant.locator('tbody tr').count(),2);assert.equal(await assistant.locator('[aria-current="step"]').textContent(),'3経路を比較');
   await assistant.locator('.training-evidence > summary').click();await page.waitForTimeout(250);assert.equal(await assistant.getByText(/未確認: 現地/).isVisible(),true);
   if(reducedMotion==='reduce')assert.equal(await assistant.locator('.training-result').evaluate(e=>getComputedStyle(e).animationName),'none');
+  if(width<1100)await page.getByRole('tab',{name:'地図を見る',exact:true}).click();
   const summaryBox=await page.locator('.map-surface-summary').first().boundingBox();const bodyBox=await page.locator('.map-experience__body').first().boundingBox();assert.ok(summaryBox.y>=bodyBox.y+bodyBox.height-1);
+  if(width<1100)await page.getByRole('tab',{name:'条件を入力',exact:true}).click();
   if(name==='iphone'||name==='desktop')await page.screenshot({path:`artifacts/experience-polish/comparison-${name}.png`,fullPage:true});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.getByRole('button',{name:'← 地図へ戻る',exact:true}).click();await page.getByRole('button',{name:'家族の訓練を始める →',exact:true}).click();assert.equal(await page.locator('.training-result').count(),0);

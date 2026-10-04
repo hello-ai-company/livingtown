@@ -160,3 +160,7 @@ UIの比較画像・独立レビュー・再現手順: [UIブラッシュアッ�
 最新の見た目・操作・モーション改善: [UI/UX検証と比較画像](docs/EXPERIENCE_POLISH_REVIEW.md)。
 
 人・エージェント双方の確認、保存・復元、構造化ツール応答の検証: [Human / Agent 受入条件と証跡](docs/HUMAN_AGENT_READINESS.md)。
+
+地図と入力の分離・状態表示・Blender短尺素材（ローカル検証）: [視認性改善と確認画像](docs/READABILITY_UPGRADE_REVIEW.md)。
+
+手動／模擬エージェントの同条件比較と回帰結果: [INTERACTION_COMPARISON.md](docs/INTERACTION_COMPARISON.md)。

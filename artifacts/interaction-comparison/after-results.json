@@ -1,0 +1,213 @@
+{
+  "measurement": "scripted UI actions and local automation duration only; excludes model goal entry/reasoning/questioning/latency/cost",
+  "model_quality_tested": false,
+  "first_time_users_tested": false,
+  "rows": [
+    {
+      "viewport": "desktop",
+      "task": "route_with_evidence",
+      "mode": "manual",
+      "ui_actions": 9,
+      "actions": [
+        "enter training",
+        "request mock questions",
+        "select household_id",
+        "select scenario",
+        "select weather",
+        "select time_of_day",
+        "confirm conditions",
+        "calculate comparison",
+        "open calculation evidence"
+      ],
+      "tool_calls": 0,
+      "automated_ms": 1953,
+      "route_equal_expected": true,
+      "calculation_evidence_in_result_ui": true,
+      "real_model": false
+    },
+    {
+      "viewport": "desktop",
+      "task": "correct_weather",
+      "mode": "manual",
+      "ui_actions": 3,
+      "actions": [
+        "change weather",
+        "reconfirm changed conditions",
+        "recalculate"
+      ],
+      "tool_calls": 0,
+      "automated_ms": 696,
+      "route_equal_expected": true,
+      "real_model": false
+    },
+    {
+      "viewport": "desktop",
+      "task": "route_with_evidence",
+      "mode": "agent",
+      "ui_actions": 5,
+      "actions": [
+        "enter training",
+        "confirm exact proposal",
+        "approve one request",
+        "view approved route on map",
+        "open calculation evidence"
+      ],
+      "tool_calls": 2,
+      "automated_ms": 931,
+      "route_equal_expected": true,
+      "calculation_evidence_in_result_ui": true,
+      "real_model": false
+    },
+    {
+      "viewport": "desktop",
+      "task": "correct_weather",
+      "mode": "agent",
+      "ui_actions": 5,
+      "actions": [
+        "handoff proposal to manual edit",
+        "request mock questions",
+        "change weather manually",
+        "confirm edited conditions",
+        "calculate manually"
+      ],
+      "tool_calls": 2,
+      "automated_ms": 448,
+      "route_equal_expected": true,
+      "real_model": false
+    },
+    {
+      "viewport": "desktop",
+      "task": "save_observation",
+      "mode": "manual",
+      "ui_actions": 4,
+      "actions": [
+        "open observation input",
+        "enter synthetic observation",
+        "preview observation",
+        "save one observation"
+      ],
+      "tool_calls": 0,
+      "automated_ms": 582,
+      "votes_not_created": true,
+      "real_model": false
+    },
+    {
+      "viewport": "desktop",
+      "task": "save_observation",
+      "mode": "agent",
+      "ui_actions": 2,
+      "actions": [
+        "confirm structured observation",
+        "approve one save"
+      ],
+      "tool_calls": 2,
+      "automated_ms": 314,
+      "votes_not_created": true,
+      "real_model": false
+    },
+    {
+      "viewport": "phone",
+      "task": "route_with_evidence",
+      "mode": "manual",
+      "ui_actions": 10,
+      "actions": [
+        "enter training",
+        "request mock questions",
+        "select household_id",
+        "select scenario",
+        "select weather",
+        "select time_of_day",
+        "confirm conditions",
+        "calculate comparison",
+        "open calculation evidence",
+        "switch to map"
+      ],
+      "tool_calls": 0,
+      "automated_ms": 1003,
+      "route_equal_expected": true,
+      "calculation_evidence_in_result_ui": true,
+      "real_model": false
+    },
+    {
+      "viewport": "phone",
+      "task": "correct_weather",
+      "mode": "manual",
+      "ui_actions": 4,
+      "actions": [
+        "return to input",
+        "change weather",
+        "reconfirm changed conditions",
+        "recalculate"
+      ],
+      "tool_calls": 0,
+      "automated_ms": 291,
+      "route_equal_expected": true,
+      "real_model": false
+    },
+    {
+      "viewport": "phone",
+      "task": "route_with_evidence",
+      "mode": "agent",
+      "ui_actions": 5,
+      "actions": [
+        "enter training",
+        "confirm exact proposal",
+        "approve one request",
+        "view approved route on map",
+        "open calculation evidence"
+      ],
+      "tool_calls": 2,
+      "automated_ms": 702,
+      "route_equal_expected": true,
+      "calculation_evidence_in_result_ui": true,
+      "real_model": false
+    },
+    {
+      "viewport": "phone",
+      "task": "correct_weather",
+      "mode": "agent",
+      "ui_actions": 5,
+      "actions": [
+        "handoff proposal to manual edit",
+        "request mock questions",
+        "change weather manually",
+        "confirm edited conditions",
+        "calculate manually"
+      ],
+      "tool_calls": 2,
+      "automated_ms": 341,
+      "route_equal_expected": true,
+      "real_model": false
+    },
+    {
+      "viewport": "phone",
+      "task": "save_observation",
+      "mode": "manual",
+      "ui_actions": 4,
+      "actions": [
+        "open observation input",
+        "enter synthetic observation",
+        "preview observation",
+        "save one observation"
+      ],
+      "tool_calls": 0,
+      "automated_ms": 393,
+      "votes_not_created": true,
+      "real_model": false
+    },
+    {
+      "viewport": "phone",
+      "task": "save_observation",
+      "mode": "agent",
+      "ui_actions": 2,
+      "actions": [
+        "confirm structured observation",
+        "approve one save"
+      ],
+      "tool_calls": 2,
+      "automated_ms": 346,
+      "votes_not_created": true,
+      "real_model": false
+    }
+  ]
+}

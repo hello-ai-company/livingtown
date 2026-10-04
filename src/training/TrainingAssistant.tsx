@@ -3,10 +3,11 @@ import { readTrainingDraft, saveTrainingDraft, TRAINING_DRAFT_KEY, type DraftVal
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { TownRepository } from '../data/repository'
 import { useTownSnapshot } from '../data/useTownSnapshot'
-import { compareTrainingRoutes, trainingRevision, validateQuestionResponse, QUESTION_FIELDS, type Comparison, type QuestionField } from './flow'
+import { compareTrainingRoutes, trainingRevision, validateQuestionResponse, QUESTION_FIELDS, type Comparison, type QuestionField, type ManualTrainingConditions } from './flow'
 import { canUseOfflineQuestions, questionEndpoint } from './endpoint'
 import { trainingAuth } from './auth'
 import { TrainingLogin } from './TrainingLogin'
+import { WaitingIllustration } from './WaitingIllustration'
 
 const labels: Record<QuestionField, string> = {
   household_id: '誰と、どこから移動する訓練ですか？（架空の世帯・出発地点）',
@@ -15,8 +16,8 @@ const labels: Record<QuestionField, string> = {
 const options = { scenario: [['flood', '水害'], ['earthquake', '地震']], weather: [['rain', '雨'], ['clear', '晴れ']], time_of_day: [['day', '昼'], ['night', '夜']] }
 const constraints: Record<string, string> = { wheelchair: '車椅子', infant: '乳幼児', elderly: '高齢者', pet: 'ペット' }
 
-export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
-  repository: TownRepository; onView3D: () => void; onSelectHousehold: (id: string) => void
+export function TrainingAssistant({ repository, onView3D, onSelectHousehold, requestedConditions }: {
+  repository: TownRepository; onView3D: () => void; onSelectHousehold: (id: string) => void; requestedConditions?: ManualTrainingConditions
 }) {
   const { agentConsent } = usePhase()
   const [draft, setDraft] = useState<DraftValues | undefined>(() => { try { return readTrainingDraft(window.sessionStorage) } catch { return undefined } })
@@ -41,6 +42,13 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
     setQuestions(undefined); setResult(undefined); setConfirmationRevision(undefined); setError('')
   }, [auth.revision])
   useEffect(() => () => active.current?.abort(), [])
+  useEffect(() => {
+    if (!requestedConditions) return
+    active.current?.abort(); active.current = null; setBusy(false)
+    setValues({ ...requestedConditions.input }); setQuestions(undefined); setResult(undefined)
+    setConfirmationRevision(undefined); setAttempted(false); setError('')
+    setDraftNotice('提案を取り消して条件だけを読み込みました。「条件の質問を開始」から修正し、改めて確認してください。')
+  }, [requestedConditions])
   useEffect(() => {
     if (result && (trainingRevision(repository) !== result.revision || JSON.stringify(snapshot.routes[result.household.id]) !== JSON.stringify(result.informed))) {
       setResult(undefined); setConfirmationRevision(undefined); setError('訓練データまたは経路が変わりました。条件を再確認して計算してください。')
@@ -95,8 +103,10 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
   }
   const step = result ? 2 : questions && Object.values(values).every(Boolean) ? 1 : 0
   const household = snapshot.households.find(item => item.id === values.household_id)
-  return <section className="training-assistant" aria-labelledby="training-title">
+  const stateLabel = !authReady ? 'ログイン待ち · 下の案内を確認' : busy ? (questions ? '実行中 · 訓練経路を比較' : '確認中 · 訓練の質問を準備') : error ? (error.startsWith('中断') ? '中断 · 条件は保持しています' : '失敗・要確認 · 案内を確認') : result ? '完了 · 比較結果を確認' : !questions ? '開始前 · 質問を開始してください' : step === 1 ? (confirmed ? '確認済み · 比較を実行できます' : '本人の承認待ち · 条件を確認') : '条件を確認中 · 4項目を選択'
+  return <section tabIndex={-1} className="training-assistant" aria-labelledby="training-title">
     <h3 id="training-title">家族の移動条件を確認</h3>
+    <p className="operation-state" data-state={busy ? 'busy' : error ? 'error' : result ? 'complete' : 'review'} role="status"><span aria-hidden="true" />{stateLabel}</p>
     <ol className="training-progress" aria-label="訓練の進め方">{['条件を選ぶ', '内容を確認', '経路を比較'].map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined} data-complete={step > index}><span aria-hidden="true">{index + 1}</span>{label}</li>)}</ol>
     <details><summary>訓練の前提・AIの役割</summary><p>東京の固定10ノード・11辺による訓練です。実際の避難経路の安全を保証しません。目的地はデモ避難所に固定されています。</p>
     <p>AIは質問項目の順序だけを提案します。経路は既存の決定的な計算で求め、住民確認票をAIが作成・代行することはありません。</p>
@@ -108,7 +118,7 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
       {offlineQuestions && <p role="status">ブラウザー内の模擬質問です。サーバー・実AIには接続しません。</p>}
       {!questions && <button className="secondary-button" disabled={busy || !authReady} onClick={() => void start()}>{attempted ? '新しい質問を試す（上限に算入）' : '条件の質問を開始'}</button>}
       {questions && <>
-        <p role="status">{questions.provider === 'fake' ? 'FAKE / 模擬質問（Gemini未接続・API呼び出しなし）' : 'Vertex AI / Gemini の質問順序'} · 出発地点や回答はAIへ送信しません。</p>
+        <p role="status">{questions.provider === 'fake' ? 'FAKE / 模擬質問（Gemini未接続・外部AI呼び出しなし）' : 'Vertex AI / Gemini の質問順序'} · 出発地点や回答はAIへ送信しません。</p>
         {snapshot.households.length === 0 && <p role="status" className="training-feedback">訓練用の世帯がありません。サンプルデータの状態を確認してください。</p>}
         <div className="training-fields">{questions.fields.map(field => <label key={field}>{labels[field]}<select value={values[field]} disabled={busy} onChange={event => { agentConsent.invalidate(); setValues(previous => ({ ...previous, [field]: event.target.value })); setConfirmationRevision(undefined); setResult(undefined) }}>
           <option value="">選択してください</option>
@@ -119,7 +129,7 @@ export function TrainingAssistant({ repository, onView3D, onSelectHousehold }: {
         <label className="training-confirmation"><input type="checkbox" checked={confirmed} disabled={busy || Object.values(values).some(v => !v)} onChange={event => setConfirmationRevision(event.target.checked ? currentRevision : undefined)} /> 上の世帯・出発地点・移動条件・災害・天候・時間帯を確認しました</label>
         <div><button className="primary-button" disabled={!confirmed || busy || Boolean(result)} onClick={() => void calculate()}>確認した条件で経路を比較</button></div>
       </>}
-      {busy && <div className="training-pending"><p role="status"><span className="request-indicator" aria-hidden="true" />{questions ? '確認した条件で比較しています…' : '訓練の質問を準備しています…'}</p><button className="secondary-button" onClick={cancel}>中断</button></div>}
+      {busy && <div className="training-pending"><p role="status"><span className="request-indicator" aria-hidden="true" />{questions ? '確認した条件で比較しています…' : '訓練の質問を準備しています…'}</p><button className="secondary-button" onClick={cancel}>中断</button><WaitingIllustration /></div>}
       {error && <p className="training-feedback training-feedback--error" role="alert">{error}</p>}
       {result && <div className="training-result">
         <p className="training-result__status" role="status">比較が完了しました。条件と根拠を確認して、3D訓練へ進めます。</p>

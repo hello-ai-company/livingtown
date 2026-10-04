@@ -8,6 +8,7 @@ import { selectThreeDProvider } from '../map3d/provider'
 import type { GeoCamera, MapDimension, WeatherVisualMode } from '../map3d/types'
 import { createTranslator, type Locale } from '../i18n'
 import { householdDisplayLabel } from '../app/longDistanceExample'
+import { useWorkspaceMapVisible } from '../app/MapInputWorkspace'
 
 const NavaraMap3D = lazy(() => import('../map3d/NavaraMap3D').then((module) => ({ default: module.NavaraMap3D })))
 
@@ -107,6 +108,7 @@ function BoundaryFallback({ reason, locale, onFallback, mapProps, camera, surfac
 }
 
 export function MapExperience({ dimension, camera, onDimensionChange, onCameraChange, onNotice, weatherMode, onWeatherModeChange, surface = 'map', ...mapProps }: MapExperienceProps) {
+  const workspaceVisible = useWorkspaceMapVisible()
   const [capabilities] = useState(() => getNavaraCapabilities())
   const provider = useMemo(() => selectThreeDProvider('navara', { navara: capabilities.supported, cesium: false }), [capabilities.supported])
   const [replayCameraOverride, setReplayCameraOverride] = useState<GeoCamera>()
@@ -325,7 +327,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
       </div>}
       <div className={`map-experience__body${panelOpen && !mapOnly ? ' map-experience__body--panel-open' : ''}`}>
         <div className="map-experience__map">
-          {dimension === '3d' ? <ThreeDErrorBoundary fallback={renderFallback}>
+          {dimension === '3d' && !workspaceVisible ? <div className="map-suspended">{locale === 'ja' ? '入力中は3D描画を休止しています。' : '3D rendering is suspended while entering inputs.'}</div> : dimension === '3d' ? <ThreeDErrorBoundary fallback={renderFallback}>
             <Suspense fallback={<Loading3D locale={locale} />}>
               <NavaraMap3D {...mapProps} locale={locale} mode={mode} surface={surface} camera={effectiveCamera} weatherMode={weatherMode} onWeatherModeChange={onWeatherModeChange} onCameraChange={onCameraChange} onSelectKnowledge={selectKnowledge} onClearKnowledge={clearKnowledge} onBackTo2D={() => changeDimension('2d')} onFallback={handleFallback} />
             </Suspense>
