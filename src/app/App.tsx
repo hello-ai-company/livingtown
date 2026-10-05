@@ -1,5 +1,6 @@
 import { MapInputWorkspace } from './MapInputWorkspace'
 import { BeginnerTraining } from '../beginner/BeginnerTraining'
+import { FamilyDashboard } from '../family/FamilyDashboard'
 import { AgentConsentPanel } from '../webmcp/AgentConsentPanel'
 import { TrainingAssistant } from '../training/TrainingAssistant'
 import { validateTrainingInput, type ManualTrainingConditions } from '../training/flow'
@@ -67,6 +68,7 @@ function repositoryStatusLabel(status: ReturnType<typeof townRepository.getStatu
 }
 
 function AppShell() {
+  const [showLegacy, setShowLegacy] = useState(false)
   const snapshot = useTownSnapshot(townRepository)
   const repositoryStatus = useRepositoryStatus(townRepository)
   const { phase, selectPhase, registry, phaseSignal, agentConsent } = usePhase()
@@ -213,6 +215,7 @@ function AppShell() {
   }, [repositoryStatus.connection, repositoryStatus.mode, snapshot.households, snapshot.knowledge, snapshot.routes])
 
   const transitionTo = useCallback((nextPanel: Phase | 'reports' | 'admin') => {
+    setShowLegacy(true)
     if (nextPanel !== 'drill') setManualConditions(undefined)
     setPanel(nextPanel)
     setObservationComposerOpen(false)
@@ -511,6 +514,9 @@ function AppShell() {
         {repositoryStatus.mode === 'SUPABASE_SHARED' && <button className="secondary-button" onClick={switchToLocalDemo}>このタブをローカル訓練モードに切り替える</button>}
       </section>
       <main className="workspace">
+        <FamilyDashboard repository={townRepository} onInvalidate={() => agentConsent.invalidate()} />
+        <button className="secondary-button" aria-expanded={showLegacy} onClick={() => { agentConsent.invalidate(); setShowLegacy(value => !value) }}>{showLegacy ? '従来の地図・1人向け訓練を閉じる' : '従来の地図・1人向け訓練を開く'}</button>
+        {showLegacy && <>
         <BeginnerTraining repository={townRepository} active={panel === 'map'} onHome={() => transitionTo('map')} onInvalidate={() => agentConsent.invalidate()} />
         <AgentConsentPanel repository={townRepository} onShowRoute={id => { setSelectedHouseholdId(id); transitionTo('drill'); setTrainingInputFocusKey(0); setTrainingMapFocusKey(value => value + 1) }} onEditRoute={value => {
           try {
@@ -571,6 +577,7 @@ function AppShell() {
             </div>
           </aside>}
         </div>
+        </>}
       </main>
 
       <footer className="footer-bar">

@@ -1,0 +1,51 @@
+
+> livingtown@0.1.0 test:assistant
+> node --test server/*.node-test.mjs
+
+✔ fake never accesses network; duplicates coalesce and per-user limits apply (2.167015ms)
+✔ global limit includes separate users (0.187311ms)
+✔ invalid tool names, extra fields, oversized and missing request IDs rejected (0.257206ms)
+✔ missing paid opt-in or settings fails without network (4.614002ms)
+✔ already aborted request consumes no budget (0.291578ms)
+✔ mock Vertex uses service identity, bounded structured output, and no tools/user data (1.013062ms)
+✔ invalid model route/verification output is rejected (0.22626ms)
+✔ provider error is not automatically retried or refunded (5.934797ms)
+✔ in-flight interruption reaches provider signal (0.537477ms)
+✔ HTTP validates content, sanitizes errors, locks paid providers regardless of settings (178.321889ms)
+✔ fully configured Vertex has no default network transport even outside HTTP (0.348453ms)
+✔ prepared 3.1 Flash-Lite request pins minimal thinking without adding retries or tools (4.652951ms)
+✔ explicit new attempt recovers after failure but consumes user quota (0.61248ms)
+✔ parallel unique calls cannot race beyond global or user quota (0.370617ms)
+✔ offline plan may validate syntax but never authorize deployment or enable AI (1.979003ms)
+✔ plan rejects uncertain billing, wrong project identity, incompatible model, origins and dates without echoing values (0.801465ms)
+✔ empty template exits blocked locally and CLI never prints supplied credentials (154.071599ms)
+✔ HTTP liveness works offline; fake requests return questions and unsupported operations stop (98.90725ms)
+✔ real startup refuses cloud missing settings and every paid-provider setting before listening (232.885316ms)
+✔ build recipe uses explicit server Dockerfile, root context and no deployment step (13.51792ms)
+✔ future source upload excludes local credentials, logs, tests, client and evidence; retains build/license files (4.74561ms)
+✔ runtime is offline by default; missing/invalid settings and paid provider never open a pool (2.448809ms)
+✔ pg connection pins TLS, role, pool/timeouts; pooler username must match the Auth project (0.316195ms)
+✔ wired fake runtime checks readiness, authenticates and reserves via the shared SQL adapter (2.496ms)
+✔ readiness failure closes the pool and emits only a stable public error (1.017629ms)
+✔ auth: missing config/transport, forged/expired token, anonymous and uninvited users fail closed (4.970548ms)
+✔ auth trusts only configured server response; redirects prohibited and abort propagated (0.395965ms)
+✔ exact CORS allowlist rejects wildcards, null, userinfo, suffix attacks and paths (0.411018ms)
+✔ HTTP verified pipeline ignores impersonation headers, validates input first, reserves before assistant (60.132229ms)
+✔ HTTP: auth/quota outage, missing wiring, cloud local mode, paid provider never reach assistant (47.071301ms)
+✔ HTTP CORS preflight is exact and grants no credentials; no-Origin requests still authenticate (25.239891ms)
+✔ quota adapter fails closed on malformed/outage/abort; no implicit retries or identity interpolation (1.195796ms)
+✔ cancelled reservation may commit later; it is never refunded or reused for inference (0.812851ms)
+✔ Postgres proposal: persisted reservations survive reopen, duplicates/caps/permissions remain enforced (4572.916345ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5114.787047
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
