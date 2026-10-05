@@ -1,0 +1,137 @@
+[
+  {
+    "width": 320,
+    "passed": true,
+    "externalRequests": 0,
+    "pageErrors": [],
+    "overflow": false,
+    "checks": [
+      "body-part editing",
+      "member isolation",
+      "remove/undo",
+      "family intersection",
+      "source/date",
+      "confirmation",
+      "no-candidate",
+      "pending warning",
+      "old/duplicate/simultaneous",
+      "contradiction",
+      "withdraw/hold",
+      "no automatic active switch",
+      "focus",
+      "no map on entry"
+    ]
+  },
+  {
+    "width": 390,
+    "passed": true,
+    "externalRequests": 0,
+    "pageErrors": [],
+    "overflow": false,
+    "checks": [
+      "body-part editing",
+      "member isolation",
+      "remove/undo",
+      "family intersection",
+      "source/date",
+      "confirmation",
+      "no-candidate",
+      "pending warning",
+      "old/duplicate/simultaneous",
+      "contradiction",
+      "withdraw/hold",
+      "no automatic active switch",
+      "focus",
+      "no map on entry"
+    ]
+  },
+  {
+    "width": 1440,
+    "passed": true,
+    "externalRequests": 0,
+    "pageErrors": [],
+    "overflow": false,
+    "checks": [
+      "body-part editing",
+      "member isolation",
+      "remove/undo",
+      "family intersection",
+      "source/date",
+      "confirmation",
+      "no-candidate",
+      "pending warning",
+      "old/duplicate/simultaneous",
+      "contradiction",
+      "withdraw/hold",
+      "no automatic active switch",
+      "focus",
+      "no map on entry"
+    ]
+  },
+  {
+    "width": 320,
+    "people": 8,
+    "passed": true,
+    "externalRequests": 0,
+    "pageErrors": [],
+    "overflow": false,
+    "modelRequests": 0,
+    "checks": [
+      "4/8 total including self",
+      "individual edits and reasons",
+      "compact member switcher",
+      "delete then fresh add",
+      "restore capacity",
+      "fresh identity",
+      "no persistent 3D for other people"
+    ]
+  },
+  {
+    "width": 390,
+    "people": 8,
+    "passed": true,
+    "externalRequests": 0,
+    "pageErrors": [],
+    "overflow": false,
+    "modelRequests": 0,
+    "checks": [
+      "4/8 total including self",
+      "individual edits and reasons",
+      "compact member switcher",
+      "delete then fresh add",
+      "restore capacity",
+      "fresh identity",
+      "no persistent 3D for other people"
+    ]
+  },
+  {
+    "width": 1440,
+    "people": 8,
+    "passed": true,
+    "externalRequests": 0,
+    "pageErrors": [],
+    "overflow": false,
+    "modelRequests": 0,
+    "checks": [
+      "4/8 total including self",
+      "individual edits and reasons",
+      "compact member switcher",
+      "delete then fresh add",
+      "restore capacity",
+      "fresh identity",
+      "no persistent 3D for other people"
+    ]
+  },
+  {
+    "guide": "normal",
+    "passed": true,
+    "externalRequests": 0,
+    "memberSwitchDisposesCanvas": true
+  },
+  {
+    "guide": "failure",
+    "passed": true,
+    "externalRequests": 0,
+    "memberSwitchDisposesCanvas": true
+  }
+]

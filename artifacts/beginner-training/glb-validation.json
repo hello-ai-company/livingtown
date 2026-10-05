@@ -1,0 +1,35 @@
+{
+  "file": "livingtown-guide.glb",
+  "size_bytes": 282888,
+  "size_kib": 276.26,
+  "sha256": "da6045e63b20567cba529d50b887d34c8cc554e181cf9d050341509fe7b9be3b",
+  "glb_version": 2,
+  "meshes": 1,
+  "primitives_expected_drawcalls": 1,
+  "materials": 1,
+  "textures": 0,
+  "animations": 0,
+  "external_dependencies": 0,
+  "vertices": 5919,
+  "triangles": 11406,
+  "degenerate_triangles": 0,
+  "finite_geometry": true,
+  "normalized_normals": true,
+  "bounds_gltf_m": {
+    "min": [
+      -0.35600000619888306,
+      0.00599999725818634,
+      -0.1289999932050705
+    ],
+    "max": [
+      0.35600000619888306,
+      1.7949999570846558,
+      0.17000003159046173
+    ]
+  },
+  "color_attribute": "COLOR_0",
+  "under_300_KiB": true,
+  "front_axis_gltf": "+Z",
+  "up_axis_gltf": "+Y",
+  "idle_animation": "None; intentionally static."
+}

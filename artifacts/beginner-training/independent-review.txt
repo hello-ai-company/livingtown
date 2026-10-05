@@ -1,0 +1,19 @@
+Independent review — 2026-10-05
+Reviewer: existing /root/independent_review (did not implement this change)
+Scope: read-only review of src/beginner and integration differences.
+
+Finding: CandidateCard onClick contained one extra closing brace and prevented compilation.
+Resolution: removed the extra brace in BeginnerTraining.tsx. Build including TypeScript and all 283 unit tests passed after correction.
+
+No other material finding was reported. Reviewed boundaries:
+- required support with unknown evidence excludes the option
+- disaster, emergency-vs-stay use, and welfare admission are distinct
+- expired/changed reports invalidate candidates; snapshot is checked immediately before actions
+- preferences remain in memory, without writes to the existing household/repository or external transmission
+- optional GLB is same-origin, external URIs/extensions are rejected, and failure does not block text input
+- missing original model is explicitly unverified
+
+Additional read-only review after regeneration: no material concern with allowing only KHR_materials_specular, the built-in Three.js material extension. External URIs, other extensions, size limits, abort/dispose and input independence remain intact. Reviewer did not independently regenerate or render the artwork.
+
+Final source verification by implementer: 47 files / 288 unit tests passed; build including TypeScript passed. 390/1440 widths passed; report-change invalidation passed; 320px, enlarged text, keyboard and pending 3D cancellation passed. Actual regenerated GLB static rendering, manual rotation, cleanup, and unsupported-WebGL fallback passed. Page errors and Auth/DB/AI requests: 0.
+Original Library ZIP remains unreceived. Original source was received as an authorized message, SHA verified before execution, and locally regenerated with existing Blender4.3.2. Actual device/hardware performance and real screen reader remain unverified.
