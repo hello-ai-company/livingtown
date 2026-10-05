@@ -1,0 +1,15 @@
+{
+  "blender_version": "4.3.2",
+  "editable_mesh_parts": 63,
+  "runtime_meshes": 1,
+  "runtime_materials": 1,
+  "textures": 0,
+  "animations": 0,
+  "source_vertices": 5919,
+  "source_faces": 5767,
+  "height_m": 1.795,
+  "render_size": [
+    768,
+    1024
+  ]
+}

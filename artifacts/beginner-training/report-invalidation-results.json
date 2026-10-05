@@ -1,0 +1,10 @@
+{
+  "synthetic_choices_only": true,
+  "checks": [
+    "report change hides candidates and prior choice",
+    "new confirmation required",
+    "confirmed recomputation works",
+    "households unchanged; support choices never enter repository"
+  ],
+  "page_errors": 0
+}

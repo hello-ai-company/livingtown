@@ -1,0 +1,25 @@
+{
+  "origin": "locally regenerated original CC0 source",
+  "original_library_zip_received": false,
+  "actual_regenerated_model_verified": true,
+  "real_iphone_and_hardware_performance": "not tested",
+  "checks": [
+    {
+      "scenario": "actual regenerated GLB",
+      "png": true,
+      "lazy_model_fetch": true,
+      "static_render_and_manual_rotation": true,
+      "controls_keep_answer": true,
+      "close_and_view_change_cleanup": true,
+      "page_errors": 0,
+      "auth_db_ai_requests": 0
+    },
+    {
+      "scenario": "unsupported WebGL",
+      "fallback_png_and_text": true,
+      "confirmation_and_comparison_work": true,
+      "page_errors": 0,
+      "auth_db_ai_requests": 0
+    }
+  ]
+}

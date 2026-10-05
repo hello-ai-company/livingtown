@@ -1,0 +1,35 @@
+{
+  "origin": "Original procedural artwork received as source in authorized task message; regenerated locally with existing Blender 4.3.2",
+  "license": "CC0-1.0 (provided by original creator)",
+  "source_sha256": "537fb90ef0582535c24016d18372e2cf2ec379bb3e0f719e59b43f9c9128be3c",
+  "library_zip_received": false,
+  "formal_library_error": "library file transfer failed: download failed",
+  "formal_attempts": 2,
+  "output_directory": "/workspace/livingtown/artifacts/beginner-assets-regenerated-20261005",
+  "editable_blend": "/workspace/livingtown/artifacts/beginner-assets-regenerated-20261005/livingtown-guide.blend",
+  "public_files": {
+    "public/media/beginner-guide.glb": {
+      "bytes": 282888,
+      "sha256": "da6045e63b20567cba529d50b887d34c8cc554e181cf9d050341509fe7b9be3b"
+    },
+    "public/media/beginner-guide.png": {
+      "bytes": 70346,
+      "sha256": "0b0f0dff1125e8e517434f9005c3777ba914be373442376d895271d126cf6843"
+    }
+  },
+  "web_fallback": {
+    "size": [
+      240,
+      320
+    ],
+    "cycles_samples": 48,
+    "source_scene_unchanged": true
+  },
+  "render_checks": [
+    "original fallback",
+    "front",
+    "back",
+    "actual GLB roundtrip"
+  ],
+  "external_dependencies": 0
+}

@@ -1,0 +1,47 @@
+
+> livingtown@0.1.0 build
+> tsc -b && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 170 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                       0.83 kB │ gzip:     0.57 kB
+dist/assets/transmittance-euSPPNgD.exr               27.95 kB
+dist/assets/shape_detail-Tuf-gW3D.bin                32.77 kB
+dist/assets/turbulence-DqexPSLa.png                  49.69 kB
+dist/assets/stars-BRrCNvCq.bin                       90.96 kB
+dist/assets/fontWorker-C5cHhkWQ-Ck_EtXWS.js         133.42 kB
+dist/assets/draco_decoder-Z1_iN-Ht-Z1_iN-Ht.wasm    192.42 kB │ gzip:    63.46 kB
+dist/assets/waternormals-Dfm-ILpY.jpg               248.81 kB
+dist/assets/draco_decoder-C32yEggz-C32yEggz.wasm    285.75 kB │ gzip:    88.64 kB
+dist/assets/index-VfUncKuS-u14kJpcn.js              324.20 kB
+dist/assets/local_weather-DSzanC6h.png              679.65 kB
+dist/assets/stbn-CqLOkRpq.bin                     1,048.58 kB
+dist/assets/navara_wasm_worker_bg-CT26EH41.wasm   1,819.44 kB │ gzip:   746.45 kB
+dist/assets/navara_wasm_api_bg-CgDmo69W.wasm      1,854.86 kB │ gzip:   763.25 kB
+dist/assets/single_mie_scattering-DSDvMnqN.exr    1,949.39 kB
+dist/assets/shape-C0zrEmxc.bin                    2,097.15 kB
+dist/assets/higher_order_scattering-DESNvLXy.exr  3,583.04 kB
+dist/assets/scattering-CCKbhVfn.exr               4,088.74 kB
+dist/assets/navara_wasm_bg-HHmzdWJw.wasm          4,654.01 kB │ gzip: 1,726.02 kB
+dist/assets/index-DmFUPH5a.css                      223.51 kB │ gzip:    35.94 kB
+dist/assets/NavaraMap3D-Cgs3t2Yq.js                  45.37 kB │ gzip:    14.48 kB
+dist/assets/guideScene-DDbkE478.js                   47.16 kB │ gzip:    14.52 kB
+dist/assets/three.module-6M8Mjjnu.js                609.84 kB │ gzip:   154.50 kB
+dist/assets/index-C810Rqib.js                     1,007.18 kB │ gzip:   330.92 kB
+dist/assets/index-B_pLN9pb.js                     1,819.22 kB │ gzip:   509.95 kB
+dist/assets/index-unb-F0Ba.js                     2,408.01 kB │ gzip:   613.43 kB
+dist/assets/spark.module-COrDCc4I-BK4wK-Vr.js     5,053.04 kB │ gzip: 1,785.96 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 9.90s
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

@@ -1,4 +1,5 @@
 import { MapInputWorkspace } from './MapInputWorkspace'
+import { BeginnerTraining } from '../beginner/BeginnerTraining'
 import { AgentConsentPanel } from '../webmcp/AgentConsentPanel'
 import { TrainingAssistant } from '../training/TrainingAssistant'
 import { validateTrainingInput, type ManualTrainingConditions } from '../training/flow'
@@ -510,6 +511,7 @@ function AppShell() {
         {repositoryStatus.mode === 'SUPABASE_SHARED' && <button className="secondary-button" onClick={switchToLocalDemo}>このタブをローカル訓練モードに切り替える</button>}
       </section>
       <main className="workspace">
+        <BeginnerTraining repository={townRepository} active={panel === 'map'} onHome={() => transitionTo('map')} onInvalidate={() => agentConsent.invalidate()} />
         <AgentConsentPanel repository={townRepository} onShowRoute={id => { setSelectedHouseholdId(id); transitionTo('drill'); setTrainingInputFocusKey(0); setTrainingMapFocusKey(value => value + 1) }} onEditRoute={value => {
           try {
             const input = validateTrainingInput(value)
@@ -518,9 +520,10 @@ function AppShell() {
           } catch { setNotice('提案は取り消しました。訓練モードと対象世帯を確認して条件を選び直してください。') }
         }} />
         <section className="map-first-intro">
-          <div><h1>{locale === 'ja' ? '地図から、家族の移動を練習' : 'Practice your family’s journey'}</h1><p>{locale === 'ja' ? '4つの条件を選んで、約1分の訓練体験。登録は不要です（サンプルモード）。' : 'Explore the map, then check your travel needs.'}</p></div>
+          <div><h2>{locale === 'ja' ? '別の練習：地図から、家族の移動を試す' : 'Separate exercise: practice the map journey'}</h2><p>{locale === 'ja' ? '従来の4質問のサンプルです。上の配慮選択とは別の計算・入力になります。' : 'Explore the map, then check your travel needs.'}</p></div>
           {panel === 'map' ? <button className="primary-button" onClick={() => transitionTo('drill')}>{locale === 'ja' ? '家族の訓練を始める' : 'Start family training'} →</button> : <button className="secondary-button" onClick={() => transitionTo('map')}>← {locale === 'ja' ? '地図へ戻る' : 'Back to map'}</button>}
         </section>
+        <p className="legacy-training-note">従来の地図・投稿・4質問の練習は下にあります。初心者体験で選んだ配慮は、この従来の経路計算には適用されません。</p>
 
         <nav className="phase-nav" aria-label={t('phase.navLabel')}>
           <div className="phase-nav__rail" />

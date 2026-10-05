@@ -1,0 +1,65 @@
+
+> livingtown@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /workspace/livingtown
+
+ ✓ src/training/releasePolicy.test.ts (3 tests) 70ms
+ ✓ src/webmcp/agentGateway.test.ts (7 tests) 54ms
+ ✓ src/map/map2dSvg.test.tsx (2 tests) 25ms
+ ✓ src/beginner/model.test.ts (22 tests) 35ms
+ ✓ src/map/MapExperience.test.tsx (8 tests) 87ms
+ ✓ src/sim/longDistanceDemo.test.ts (10 tests) 23ms
+ ✓ src/observations/aroundYou.test.ts (5 tests) 33ms
+ ✓ src/data/supabaseRepository.test.ts (14 tests) 30ms
+ ✓ src/map/MyReportsPanel.test.tsx (3 tests) 36ms
+ ✓ src/data/repository.test.ts (7 tests) 32ms
+ ✓ src/map/KnowledgeVisual.test.tsx (2 tests) 15ms
+ ✓ src/map/ObservationComposer.test.tsx (7 tests) 25ms
+ ✓ src/training/auth.test.ts (7 tests) 34ms
+ ✓ src/app/longDistanceExample.test.tsx (8 tests) 15ms
+ ✓ src/map3d/navaraCamera.test.ts (8 tests) 9ms
+ ✓ src/training/flow.test.ts (8 tests) 16ms
+ ✓ src/observations/observations.test.ts (23 tests) 14ms
+ ✓ src/map/basemaps.test.ts (10 tests) 8ms
+ ✓ src/sim/route.test.ts (11 tests) 11ms
+ ✓ src/data/store.test.ts (10 tests) 14ms
+ ✓ src/webmcp/register.test.ts (10 tests) 23ms
+ ✓ src/map3d/plateauDatasets.test.ts (4 tests) 3ms
+ ✓ src/map/MapFocusPanel.test.tsx (1 test) 24ms
+ ✓ src/webmcp/diagnostics.test.ts (3 tests) 6ms
+ ✓ src/beginner/state.test.ts (10 tests) 8ms
+ ✓ src/map3d/plateauLoader.test.ts (7 tests) 11ms
+ ✓ src/webmcp/tools/tools.test.ts (3 tests) 9ms
+ ✓ src/map/knowledgeVisuals.test.ts (16 tests) 10ms
+ ✓ src/map3d/navaraCapabilities.test.ts (3 tests) 5ms
+ ✓ src/map3d/navaraWeather.test.ts (2 tests) 3ms
+ ✓ src/map/mapGeoJson.test.ts (4 tests) 16ms
+ ✓ src/map3d/navaraLoader.test.ts (2 tests) 4ms
+ ✓ src/map3d/navaraDatasets.test.ts (2 tests) 4ms
+ ✓ src/map3d/navaraWalkthrough.test.ts (9 tests) 5ms
+ ✓ src/map/geolocation.test.ts (3 tests) 6ms
+ ✓ src/training/endpoint.test.ts (3 tests) 8ms
+ ✓ src/training/draft.test.ts (1 test) 8ms
+ ✓ src/map3d/navaraPhotorealistic.test.ts (4 tests) 4ms
+ ✓ src/data/localTrainingSwitch.test.ts (2 tests) 11ms
+ ✓ src/map3d/navaraStory.test.ts (3 tests) 4ms
+ ✓ src/app/routeInputs.test.ts (3 tests) 3ms
+ ✓ src/app/verificationTarget.test.ts (4 tests) 3ms
+ ✓ src/i18n.test.ts (3 tests) 3ms
+ ✓ src/app/mapDimension.test.ts (3 tests) 3ms
+ ✓ src/map3d/provider.test.ts (4 tests) 2ms
+ ✓ src/map/mapFilters.test.ts (3 tests) 3ms
+ ✓ src/beginner/guideAsset.test.mjs (1 test) 4ms
+
+ Test Files  47 passed (47)
+      Tests  288 passed (288)
+   Start at  06:48:00
+   Duration  5.65s (transform 1.59s, setup 0ms, collect 4.31s, tests 780ms, environment 9ms, prepare 3.31s)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

@@ -1,0 +1,13 @@
+{
+  "synthetic_choices_only": true,
+  "width": 320,
+  "cpu_throttle": 4,
+  "reduced_motion": true,
+  "keyboard_focus_and_enter_space": true,
+  "pending_3d_cancel_no_stale_status": true,
+  "enlarged_font_no_horizontal_overflow": true,
+  "page_errors": 0,
+  "auth_db_ai_requests": 0,
+  "real_screen_reader_and_iphone_device": "not tested",
+  "actual_model_rendering": "covered separately by guide-ui-results.json"
+}

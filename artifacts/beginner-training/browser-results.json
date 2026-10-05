@@ -1,0 +1,36 @@
+{
+  "synthetic_choices_only": true,
+  "real_ai": false,
+  "real_data": false,
+  "actual_model_rendering": "covered separately by guide-ui-results.json",
+  "checks": [
+    {
+      "width": 390,
+      "keyboard": true,
+      "back_skip_unknown_pause_resume": true,
+      "confirmation_and_double_submit": true,
+      "home_matches_candidate": true,
+      "persistent_across_views_memory_only": true,
+      "change_invalidates": true,
+      "mandatory_unknown_no_candidate": true,
+      "disaster_purpose_welfare": true,
+      "closed_unknown_no_path": true,
+      "illustration_failure_no_interruption": true,
+      "auth_db_ai_requests": 0
+    },
+    {
+      "width": 1440,
+      "keyboard": true,
+      "back_skip_unknown_pause_resume": true,
+      "confirmation_and_double_submit": true,
+      "home_matches_candidate": true,
+      "persistent_across_views_memory_only": true,
+      "change_invalidates": true,
+      "mandatory_unknown_no_candidate": true,
+      "disaster_purpose_welfare": true,
+      "closed_unknown_no_path": true,
+      "illustration_failure_no_interruption": true,
+      "auth_db_ai_requests": 0
+    }
+  ]
+}
