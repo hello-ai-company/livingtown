@@ -1,3 +1,4 @@
+import './clearMap.css'
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Map2D, type Map2DProps, type MapSurface } from './Map2D'
 import { MapFocusPanel, type MapFocusPanelTab } from './MapFocusPanel'
@@ -114,14 +115,20 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
   const [replayCameraOverride, setReplayCameraOverride] = useState<GeoCamera>()
   const [focusOpen, setFocusOpen] = useState(false)
   const [mapOnly, setMapOnly] = useState(false)
-  const initialRoute = mapProps.focusHouseholdId ? mapProps.snapshot.routes[mapProps.focusHouseholdId] : Object.values(mapProps.snapshot.routes)[0]
-  const [panelOpen, setPanelOpen] = useState(() => Boolean(mapProps.selectedKnowledgeId) || (dimension === '2d' && mapProps.mode === 'advanced' && surface === 'map') || (surface !== 'map' && Boolean(initialRoute)))
+  const [panelOpen, setPanelOpen] = useState(() => Boolean(mapProps.selectedKnowledgeId))
   const [panelTab, setPanelTab] = useState<MapFocusPanelTab>(() => mapProps.selectedKnowledgeId ? 'details' : mapProps.mode === 'advanced' && surface === 'map' ? 'filters' : 'details')
   const [filterState, setFilterState] = useState<MapFilterState>(DEFAULT_MAP_FILTER_STATE)
   const previousDimension = useRef(dimension)
   const previousSelectedKnowledgeId = useRef(mapProps.selectedKnowledgeId)
   const previousFocusOpen = useRef(focusOpen)
   const experienceRef = useRef<HTMLDivElement>(null)
+  const mapOnlyRef = useRef<HTMLButtonElement>(null)
+  const recoveryRef = useRef<HTMLButtonElement>(null)
+  const collapsedPanelRef = useRef<HTMLButtonElement>(null)
+  const previousMapOnly = useRef(mapOnly)
+  const panelReturnRef = useRef<HTMLElement | null>(null)
+  const filterToggleRef = useRef<HTMLButtonElement>(null)
+  const lastPanelOpen = useRef(panelOpen)
   const expandFocusRef = useRef<HTMLButtonElement>(null)
   const closeFocusRef = useRef<HTMLButtonElement>(null)
   const t = useMemo(() => mapProps.locale === 'en' ? {
@@ -155,16 +162,33 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
   const hasRouteContext = Boolean(selectedRoute && surface !== 'map')
 
   useEffect(() => {
+    if (panelOpen && !lastPanelOpen.current) {
+      panelReturnRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      experienceRef.current?.querySelector<HTMLButtonElement>('.map-side-panel__close')?.focus()
+    } else if (!panelOpen && lastPanelOpen.current) {
+      const previous = panelReturnRef.current
+      if (previous?.isConnected && previous !== document.body && previous !== document.documentElement && previous.getClientRects().length) previous.focus()
+      else (collapsedPanelRef.current ?? filterToggleRef.current ?? closeFocusRef.current ?? expandFocusRef.current)?.focus()
+    }
+    lastPanelOpen.current = panelOpen
+  }, [panelOpen])
+
+  useEffect(() => {
+    if (previousMapOnly.current === mapOnly) return
+    previousMapOnly.current = mapOnly
+    ;(mapOnly ? recoveryRef.current : mapOnlyRef.current)?.focus({ preventScroll: true })
+  }, [mapOnly])
+
+  useEffect(() => {
     if (mode === 'simple') {
       setFilterState((current) => current.category === 'all' ? current : { ...current, category: 'all' })
     }
     if (dimension === '2d' && surface === 'map' && mode === 'advanced' && !mapProps.selectedKnowledgeId) {
       setPanelTab('filters')
-      setPanelOpen(true)
     }
     if (surface !== 'map' && !mapProps.selectedKnowledgeId) {
       setPanelTab('details')
-      setPanelOpen(hasRouteContext)
+      setPanelOpen(false)
     }
   }, [dimension, hasRouteContext, mapProps.selectedKnowledgeId, mode, surface])
 
@@ -213,6 +237,13 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (focusOpen && event.key === 'Tab') {
+        const elements = [...(experienceRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary,[tabindex="0"]') ?? [])].filter(element => element.getClientRects().length > 0)
+        const first = elements[0], last = elements.at(-1)
+        if (first && last && ((!event.shiftKey && document.activeElement === last) || (event.shiftKey && document.activeElement === first) || !experienceRef.current?.contains(document.activeElement))) {
+          event.preventDefault(); (event.shiftKey ? last : first).focus()
+        }
+      }
       if (event.key !== 'Escape' || event.defaultPrevented) return
       // Navara owns Escape while the guided walkthrough is active. The
       // marker keeps this presentation shell from consuming that first key.
@@ -308,17 +339,18 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
   </div>
 
   const filterToggle = showMapFilters && <div className="map-filter-shell">
-    <button type="button" className="map-filter-toggle" aria-expanded={panelOpen && panelTab === 'filters'} aria-controls="maplibre-filter-panel" onClick={() => { setPanelTab('filters'); setPanelOpen(true) }}>
+    <button ref={filterToggleRef} type="button" className="map-filter-toggle" aria-expanded={panelOpen && panelTab === 'filters'} aria-controls="maplibre-filter-panel" onClick={() => { setPanelTab('filters'); setPanelOpen(true) }}>
       <span>{t.filters}</span>{filterCount > 0 && <span className="map-filter-toggle__count"> · {filterCount}</span>}
     </button>
   </div>
 
-  const mapOnlyToggle = <button type="button" className="map-only-toggle" onClick={enterMapOnly} aria-label={t.mapOnly}><span aria-hidden="true">◌</span>{t.mapOnly}</button>
+  const mapOnlyToggle = <button ref={mapOnlyRef} type="button" className="map-only-toggle" onClick={enterMapOnly} aria-label={t.mapOnly}><span aria-hidden="true">◌</span>{t.mapOnly}</button>
   const focusToggle = focusOpen ? <button ref={closeFocusRef} type="button" className="map-focus-toggle" aria-label={locale === 'en' ? 'Exit map focus' : '地図を戻す'} onClick={() => setFocusOpen(false)}><span aria-hidden="true">×</span><span>{locale === 'en' ? 'Exit map' : '地図を戻す'}</span></button> : <button ref={expandFocusRef} type="button" className="map-focus-toggle" aria-label={locale === 'en' ? 'Focus map' : '地図を大きく見る'} onClick={() => setFocusOpen(true)}><span aria-hidden="true">⛶</span><span>{locale === 'en' ? 'Expand map' : '地図を大きく見る'}</span></button>
-  const mapOnlyRecovery = <div className="map-only-recovery"><button type="button" className="map-only-recovery__button" onClick={showControls} aria-label={t.showControls}><span aria-hidden="true">＋</span>{t.showControls}</button>{focusOpen && focusToggle}</div>
+  const mapOnlyRecovery = <div className="map-only-recovery"><button ref={recoveryRef} type="button" className="map-only-recovery__button" onClick={showControls} aria-label={t.showControls}><span aria-hidden="true">＋</span>{t.showControls}</button>{focusOpen && focusToggle}</div>
 
   return (
-    <div ref={experienceRef} className={`map-experience map-experience--${surface}${focusOpen ? ' map-experience--focused' : ''}${mapOnly ? ' map-experience--map-only' : ''}`} data-surface={surface} data-map-focus={focusOpen ? 'active' : 'inactive'} data-map-only={mapOnly ? 'active' : 'inactive'} role={focusOpen ? 'region' : undefined} aria-label={focusOpen ? (locale === 'en' ? 'Focus map' : '地図に集中') : undefined}>
+    <div ref={experienceRef} className={`map-experience map-experience--${surface}${focusOpen ? ' map-experience--focused' : ''}${mapOnly ? ' map-experience--map-only' : ''}`} data-surface={surface} data-map-focus={focusOpen ? 'active' : 'inactive'} data-map-only={mapOnly ? 'active' : 'inactive'} role={focusOpen ? 'dialog' : undefined} aria-modal={focusOpen ? true : undefined} aria-label={focusOpen ? (locale === 'en' ? 'Focus map' : '地図に集中') : undefined}>
+      <p className="map-safety-note" role="note">{locale === 'en' ? 'Fictional training map. Real-world access and safety are unverified.' : '架空の訓練地図です。実際の通行・安全は未確認です。'}</p>
       {mapOnly ? mapOnlyRecovery : focusOpen ? <div className="map-focus-header">
         <strong className="map-focus-header__brand">LivingTown</strong>
         <div className="map-focus-header__actions">{dimensionSwitcher}{filterToggle}{mapOnlyToggle}{focusToggle}</div>
@@ -334,7 +366,7 @@ export function MapExperience({ dimension, camera, onDimensionChange, onCameraCh
           </ThreeDErrorBoundary> : <Map2D {...rendererMapProps} surface={surface} camera={effectiveCamera} onCameraChange={onCameraChange} />}
         </div>
         {!mapOnly && panelOpen && <MapFocusPanel tab={panelTab} selectedView={selectedView} selectedHousehold={selectedHousehold} selectedRoute={selectedRoute} surface={surface} locale={locale} mode={mode} filters={filterState} showFilters={showMapFilters} onTabChange={(tab) => { setPanelTab(tab); setPanelOpen(true) }} onClose={() => setPanelOpen(false)} onClearSelection={clearKnowledge} onFilterStateChange={setFilterState} onVerifyKnowledge={mapProps.onVerifyKnowledge} onEditKnowledge={mapProps.onEditKnowledge} onDeleteKnowledge={mapProps.onDeleteKnowledge} />}
-        {!mapOnly && !panelOpen && panelContext && <button type="button" className="map-side-panel__collapsed-trigger" onClick={() => { setPanelTab(panelContextTab); setPanelOpen(true) }}>{panelContextTab === 'details' ? t.details : t.filters}{filterCount > 0 && panelContextTab === 'filters' && <span> · {filterCount}</span>}</button>}
+        {!mapOnly && !panelOpen && panelContext && <button ref={collapsedPanelRef} type="button" className="map-side-panel__collapsed-trigger" onClick={() => { setPanelTab(panelContextTab); setPanelOpen(true) }}>{panelContextTab === 'details' ? t.details : t.filters}{filterCount > 0 && panelContextTab === 'filters' && <span> · {filterCount}</span>}</button>}
       </div>
       {!mapOnly && dimension !== '3d' && <MapSurfaceSummary surface={surface} mapProps={{ ...mapProps, focusHouseholdId: surface === 'replay' && mapProps.snapshot.replay.camera !== 'household' ? undefined : mapProps.focusHouseholdId }} />}
     </div>

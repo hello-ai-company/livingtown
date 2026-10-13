@@ -1,0 +1,57 @@
+.family-workbook { --workbook-ink:#203b2c; --workbook-border:#c6d5c4; --workbook-muted:#4d6051; color:var(--workbook-ink); line-height:1.7; overflow-wrap:anywhere; }
+.family-workbook :is(h2,h3,p) { margin:0 0 12px; }
+.family-workbook h2 { font-size:clamp(23px,3vw,30px); line-height:1.4; }
+.family-workbook h3 { font-size:19px; line-height:1.55; }
+.family-workbook-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:20px; }
+.family-workbook-eyebrow { display:block; color:var(--workbook-muted); font-size:14px; font-weight:700; margin-bottom:8px; letter-spacing:.06em; }
+.family-workbook-mode { flex-shrink:0; padding:5px 12px; border:1px solid var(--workbook-border); border-radius:20px; background:#fff; font-size:13px; font-weight:650; }
+.family-workbook-caution { border:1px solid #cfb575; border-left:5px solid #a77319; border-radius:10px; padding:16px 18px; background:#fff8e6; color:#60451a; }
+.family-workbook-caution p { margin:6px 0 0; }
+.family-workbook-context { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0; }
+.family-workbook-context span { background:#eaf0e5; border:1px solid var(--workbook-border); border-radius:6px; padding:4px 10px; font-size:14px; }
+.family-workbook-steps { list-style:none; padding:0; margin:0 0 20px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.family-workbook-steps li { display:flex; gap:10px; padding:14px 12px; border:1px solid var(--workbook-border); border-radius:12px; background:#fff; }
+.family-workbook-step-number { flex:0 0 26px; width:26px; height:26px; display:grid; place-items:center; border:1px solid #819c7f; border-radius:50%; font-weight:700; font-size:14px; background:#f3f6ee; }
+.family-workbook-steps strong { display:block; font-size:15px; }
+.family-workbook-steps :is(small,div > span) { display:block; font-size:13px; color:var(--workbook-muted); }
+.family-workbook-steps li[data-done=true] { border-color:#80a176; background:#f0f6e9; }
+.family-workbook-blockers { border:1px solid #d5c6a5; background:#fffaf0; border-radius:10px; padding:16px 18px; margin-bottom:20px; }
+.family-workbook-blockers ul { margin:8px 0 12px; padding-left:22px; }
+.family-workbook-blockers li + li { margin-top:8px; }
+.family-workbook-blockers p { margin-bottom:0; }
+.family-workbook-progress { padding:14px 0; border-top:1px solid var(--workbook-border); }
+.family-workbook-progress p { margin:8px 0 0; color:#684718; }
+.family-workbook-questions { min-width:0; margin:0; padding:0; border:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.family-workbook-questions legend { font-weight:700; padding:8px 0 16px; font-size:20px; }
+.family-workbook-question { min-width:0; padding:20px; background:#fff; border:1px solid var(--workbook-border); border-radius:14px; }
+.family-workbook-question[data-status=stale] { border-color:#b88832; }
+.family-workbook-question-heading { display:flex; align-items:flex-start; gap:10px; margin-bottom:12px; }
+.family-workbook-question-heading > span { font-size:15px; font-weight:700; color:#456b40; background:#ecf3e4; border-radius:6px; padding:2px 7px; }
+.family-workbook-question-heading h3 { margin:0; }
+.family-workbook-hint { font-size:14px; color:var(--workbook-muted); }
+.family-workbook-check { display:flex; align-items:flex-start; gap:11px; min-height:48px; border-top:1px solid #e0e7d9; padding:14px 0 6px; cursor:pointer; }
+.family-workbook-check input { flex:0 0 23px; width:23px; height:23px; margin:2px 0 0; accent-color:#315e38; }
+.family-workbook-check span { font-size:15px; font-weight:600; }
+.family-workbook-mark { display:block; margin-left:34px; color:var(--workbook-muted); font-size:13px; }
+.family-workbook-question[data-status=stale] .family-workbook-mark { color:#775214; font-weight:700; }
+.family-workbook-footer { margin:20px 0 26px; }
+.family-workbook-footer p { font-size:14px; color:var(--workbook-muted); }
+.family-workbook-button { min-height:48px; padding:11px 16px; font:inherit; font-weight:600; border:1px solid #718e68; border-radius:9px; background:#eef4e8; color:#264730; cursor:pointer; white-space:normal; }
+.family-workbook .family-workbook-reset { font-size:14px; background:#fff; }
+.family-workbook-button:disabled { opacity:1; color:#62695f; background:#edf0e9; border-color:#c7cdc1; cursor:default; }
+.family-workbook :is(button,input,summary,a,pre):focus-visible { outline:3px solid #a6751e; outline-offset:4px; }
+.family-workbook-export { padding:20px; background:#edf3e7; border:1px solid var(--workbook-border); border-radius:14px; }
+.family-workbook-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.family-workbook-export-status { font-size:14px; margin:12px 0 0!important; }
+.family-workbook-preview { margin:12px 0 0; }
+.family-workbook-preview summary { cursor:pointer; font-weight:650; min-height:48px; padding:8px 0; }
+.family-workbook-preview pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:30rem; overflow:auto; border:1px solid var(--workbook-border); border-radius:8px; padding:16px; background:#fff; color:#25392a; font:14px/1.75 sans-serif; }
+.family-workbook-sources { margin-top:24px; font-size:14px; }
+.family-workbook-sources h3 { font-size:17px; }
+.family-workbook-sources ul { padding-left:22px; margin:0; }
+.family-workbook-sources a { display:inline-block; padding:9px 0; color:#295b37; text-decoration:underline; text-underline-offset:3px; }
+.family-workbook-print-frame { position:fixed; width:1px; height:1px; left:-10000px; top:0; border:0; }
+@media(max-width:1050px) { .family-workbook-steps { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:650px) { .family-workbook-header { flex-direction:column; gap:8px; }.family-workbook-questions { grid-template-columns:1fr; }.family-workbook-question,.family-workbook-export { padding:16px; }.family-workbook-steps li { padding:12px 10px; }.family-workbook-step-number { display:none; }.family-workbook-actions { flex-direction:column; }.family-workbook-actions button { width:100%; }.family-workbook-context span { max-width:100%; } }
+@media(forced-colors:active) { .family-workbook-question,.family-workbook-caution,.family-workbook-steps li,.family-workbook-button { border-color:CanvasText; }.family-workbook-check input { forced-color-adjust:auto; } }
+@media print { .family-workbook { color:#000; }.family-workbook-actions,.family-workbook-reset,.family-workbook-export-status { display:none; }.family-workbook-question,.family-workbook-caution { break-inside:avoid; }.family-workbook-preview pre { max-height:none; overflow:visible; } }

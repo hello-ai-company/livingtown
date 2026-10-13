@@ -1,0 +1,18 @@
+{
+  "oldFiles": 498,
+  "newFiles": 508,
+  "oldArchiveEntries": 505,
+  "oldFilesRemoved": 0,
+  "oldArchiveEntriesRemoved": 0,
+  "baselineUnchanged": true,
+  "forwardApplyMatches": true,
+  "reverseApplyMatches": true,
+  "combinedFourArchivesMatch": true,
+  "historicalEntriesUnchanged": true,
+  "addedFiles": 10,
+  "changedOldFiles": [
+    "src/guided/GuidedStart.tsx",
+    "src/workbook/WorkbookPanel.tsx"
+  ],
+  "browserVerified": false
+}

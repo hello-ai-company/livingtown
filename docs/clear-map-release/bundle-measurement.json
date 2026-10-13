@@ -1,0 +1,32 @@
+{
+  "method": "Vite production builds with same installed dependency tree, configuration and environment; static JS imports including modulepreloads; gzip level 9 per file. Dynamic map/3D imports excluded until requested. Byte sizes are not device latency or frame rate.",
+  "baseline": {
+    "staticJavaScriptFiles": [
+      {
+        "filename": "assets/index-DCwX4HDq.js",
+        "bytes": 1923756,
+        "gzipBytes": 541170,
+        "sha256": "be65f94b46d228642b6c241b0390eb6c44e06c302ff99146b00dbe48bb044c79"
+      }
+    ],
+    "bytes": 1923756,
+    "gzipBytes": 541170
+  },
+  "candidate": {
+    "staticJavaScriptFiles": [
+      {
+        "filename": "assets/index-C4VKrgUW.js",
+        "bytes": 846370,
+        "gzipBytes": 249672,
+        "sha256": "cb937f6de9ec4fb1737b079b6ebe4a40f783ed95a713042a920ec6dc69075e4d"
+      }
+    ],
+    "bytes": 846370,
+    "gzipBytes": 249672
+  },
+  "reduction": {
+    "bytes": 1077386,
+    "gzipBytes": 291498,
+    "gzipPercent": 53.864404900493376
+  }
+}

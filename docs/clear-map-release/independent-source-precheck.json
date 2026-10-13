@@ -1,0 +1,14 @@
+{
+  "baselineFiles": 508,
+  "baselineUnchanged": true,
+  "oldFileModesPreserved": true,
+  "removedFiles": [],
+  "changedFiles": [
+    "src/main.tsx",
+    "src/map/KnowledgeVisual.tsx",
+    "src/map/Map2D.tsx",
+    "src/map/MapExperience.test.tsx",
+    "src/map/MapExperience.tsx",
+    "src/map/MapLibreMap.tsx"
+  ]
+}

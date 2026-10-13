@@ -1,0 +1,19 @@
+{
+  "method": "Actual baseline/candidate MapLibreMap React effects with identical LocalTownRepository fixture and mocked map source.setData; jsdom, no WebGL/layout/network timing.",
+  "results": {
+    "baseline": {
+      "initialDeliveryCalls": 5,
+      "selections": 20,
+      "selectionDeliveryCalls": 100,
+      "cameraChanges": 20,
+      "cameraDeliveryCalls": 0
+    },
+    "candidate": {
+      "initialDeliveryCalls": 5,
+      "selections": 20,
+      "selectionDeliveryCalls": 20,
+      "cameraChanges": 20,
+      "cameraDeliveryCalls": 0
+    }
+  }
+}

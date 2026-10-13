@@ -79,3 +79,19 @@ it('gates every remaining mutation and reuses domain validation before asking th
   const {gate,phase,store,inspect}=setup();const tool=getToolDefinitions('drill',store).find(t=>t.name==='register_household')!
   expect((await gate.execute(tool,{request_id:'outside-demo-area',expected_revision:(await inspect()).revision,input:{constraints:[],start_lat:90,start_lng:0}},phase.signal) as any).error.code).toBe('INVALID_INPUT')
 })
+
+it('disposal unbinds old inspection data and in-flight completion cannot restore pending state', async () => {
+  const { gate, phase, tool, request } = setup()
+  let finish!: (value: unknown) => void
+  const delayed = { ...tool, run: vi.fn(() => new Promise(resolve => { finish = resolve })) }
+  const envelope = await request('pending-before-stop')
+  await gate.execute(delayed, envelope, phase.signal)
+  const running = gate.approve(envelope.request_id)
+  expect(gate.getSnapshot()?.status).toBe('executing')
+  phase.abort(); gate.dispose()
+  finish({ route: 'old-route' }); await running
+  expect(gate.getSnapshot()).toBeUndefined()
+  const inspected = await gate.execute(tool, { inspect: true }, phase.signal) as any
+  expect(inspected.ok).toBe(false); expect(inspected.state).toBeUndefined()
+  expect(JSON.stringify(inspected)).not.toContain('old-route')
+})

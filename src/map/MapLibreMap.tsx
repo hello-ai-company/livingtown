@@ -1,3 +1,6 @@
+import 'maplibre-gl/dist/maplibre-gl.css'
+import { applyOverlayUpdates } from './overlayUpdates'
+import { MapPlaceList } from './MapPlaceList'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl, { type GeoJSONSource, type Map as MapLibreInstance } from 'maplibre-gl'
 import { DEMO_AREA } from '../sim/graph'
@@ -170,10 +173,15 @@ export function MapLibreMap({
   const selectedView = selectedKnowledgeId && isKnowledgeSelectionVisible(selectedKnowledgeId, visibleViews)
     ? views.find((view) => view.item.id === selectedKnowledgeId)
     : undefined
-  const overlayData = useMemo(
-    () => createOverlayData(snapshot, visibleViews, selectedRoute, selectedKnowledgeId, focusHouseholdId, filters, surface, t),
-    [filters, focusHouseholdId, selectedKnowledgeId, selectedRoute, snapshot, surface, t, visibleViews],
-  )
+  const knowledgeData = useMemo(() => createKnowledgeFeatureCollection(visibleViews, selectedKnowledgeId, category => categoryLabel(category, t)), [visibleViews, selectedKnowledgeId, t])
+  const routeData = useMemo(() => createRouteFeatureCollection(selectedRoute), [selectedRoute])
+  const avoidedData = useMemo(() => createAvoidedEdgeFeatureCollection(selectedRoute), [selectedRoute])
+  const householdsData = useMemo(() => createHouseholdFeatureCollection(snapshot.households, focusHouseholdId, household => householdDisplayLabel(household, t)), [snapshot.households, focusHouseholdId, t])
+  const bottlenecksData = useMemo(() => createBottleneckFeatureCollection(surface !== 'map' || ((filters.category === 'all' || filters.category === 'bottleneck') && filters.status === 'all') ? snapshot.bottlenecks : [], getBottleneckLabel), [snapshot.bottlenecks, surface, filters.category, filters.status])
+  const overlayData = useMemo(() => ({ knowledge: knowledgeData, route: routeData, avoided: avoidedData, households: householdsData, bottlenecks: bottlenecksData }), [knowledgeData, routeData, avoidedData, householdsData, bottlenecksData])
+  const overlayDataRef = useRef(overlayData)
+  overlayDataRef.current = overlayData
+  const sentOverlayData = useRef(new Map<string, unknown>())
   useEffect(() => {
     callbacksRef.current = { onRequestContribution, onLocationPicked, onSelectHousehold, onSelectKnowledge, onCameraChange }
   }, [onCameraChange, onLocationPicked, onRequestContribution, onSelectHousehold, onSelectKnowledge])
@@ -250,7 +258,8 @@ export function MapLibreMap({
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
 
     map.on('load', () => {
-      addOverlayLayers(map, overlayData)
+      sentOverlayData.current.clear()
+      addOverlayLayers(map, overlayDataRef.current)
       map.on('mouseenter', 'knowledge-points', () => { map.getCanvas().style.cursor = 'pointer' })
       map.on('mouseleave', 'knowledge-points', () => { map.getCanvas().style.cursor = '' })
       map.on('mouseenter', 'knowledge-clusters', () => { map.getCanvas().style.cursor = 'pointer' })
@@ -347,7 +356,7 @@ export function MapLibreMap({
       ['household-overlay', overlayData.households],
       ['bottleneck-overlay', overlayData.bottlenecks],
     ]
-    updates.forEach(([id, data]) => source(map, id)?.setData(data as never))
+    applyOverlayUpdates(updates, sentOverlayData.current, id => source(map, id))
   }, [mapReady, overlayData])
 
   useEffect(() => {
@@ -423,6 +432,9 @@ export function MapLibreMap({
       </div>
       <div className={`map-frame map-frame--maplibre map-frame--${surface}${compact ? ' map-frame--compact' : ''}${selectedView ? ' map-frame--has-detail' : ''}`} data-basemap-provider={provider} data-basemap-mode={basemapMode} data-surface={surface}>
         <div ref={mapContainer} className="maplibre-canvas" role="region" aria-label={t('map.knowledgeMapAlt')} aria-busy={!mapReady} />
+      </div>
+      <div className="map-edge-content">
+      <MapPlaceList views={visibleViews} locale={locale} selectedId={selectedKnowledgeId} onSelect={onSelectKnowledge} />
       {surface === 'map' && <div className="map-posting-controls">
         <button type="button" className={`map-post-button${postingMode ? ' is-active' : ''}`} aria-pressed={postingMode} onClick={togglePostingMode}>
           <span aria-hidden="true">{postingMode ? '×' : '+'}</span>{postingMode ? t('map.cancelPost') : t('map.post')}
