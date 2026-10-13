@@ -1,0 +1,13 @@
+{
+  "baselineCommit": "d37fb7aad518f6d687c8487bd3e318fafb5107d4",
+  "baselineFiles": 462,
+  "releaseSourceFiles": 485,
+  "forwardCheck": true,
+  "forwardApplyByteMatchesManifest": true,
+  "reverseCheck": true,
+  "reverseApplyByteMatchesOriginal": true,
+  "originalCheckoutClean": true,
+  "patchSha256": "6bd2a10a882234257a0ac6f74921c84752c7c08052e6f276f0a4f4c596d58540",
+  "sourceManifestSha256": "caa6fca93e9f3ae87d170f2e67c5e3009df2a06a7be1df29b5d749f29a05a572",
+  "browserExecuted": false
+}

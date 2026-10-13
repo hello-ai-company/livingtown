@@ -1,5 +1,20 @@
 # LivingTown
 
+## 2026-10-12 Clear Map v1：地図を見やすく・未公開
+
+地図の外に操作と説明を配置し、選択時の詳細とキーボードで選べる場所一覧を追加しました。初期の地図ライブラリ読み込みを分割し、地点選択時の不要な地図データ送信を削減しています。実機の速度・表示は未検証です。[変更と限界](./docs/clear-map-release/RELEASE.md)、[検証記録](./docs/clear-map-release/VERIFICATION.md)を参照してください。
+
+## 2026-10-12 Guided Glass v2：初めての人向け導線・未公開
+
+3ステップと状態別の次アクション、文字付きアイコン、常設の訓練停止、透明感のある軽量UIを追加しました。実際の施設・通行は未確認のままです。旧版を保全した別コピーで、公開サイトは更新していません。新しい変更と限界は [v2説明](./docs/guided-glass-release/RELEASE.md)、検証は [v2記録](./docs/guided-glass-release/VERIFICATION.md) を参照してください。
+
+
+## 2026-10-12 実用訓練版：別系統の再実装・未公開
+
+このソースは PR #14 の `d37fb7aad518f6d687c8487bd3e318fafb5107d4` を保全し、確認できた仕様から地域・障害物・緊急時・協力者の架空訓練を再実装した版です。以前の未pushソースそのものの復元ではありません。家族8人、確認準備ワークブック、厳格なファイル入出力を統合しています。
+
+実AI・共有DB・実マイク・通報・公開は行っていません。ブラウザ実操作は未検証です。以下の過去の公開URL・PASS・スクリーンショットは、この版の検証結果ではありません。新しい内容と限界は [再実装の説明](./docs/practical-release/REIMPLEMENTATION.md)、今回の結果は [検証記録](./docs/practical-release/VERIFICATION.md) を参照してください。
+
 English submission and testing guide: [README.en.md](./README.en.md).
 License: MIT — see [LICENSE](./LICENSE).
 
@@ -20,6 +35,12 @@ productionはサンプル訓練に固定し、既存Netlifyの環境設定が残
 - **まだ未完了:** RPC-only contractは未適用、動画、Devpost最終提出は未実施。Native in-flight AbortSignalの実機中断確認は今回未実行で、non-blocking limitationとして記録。
 
 下記に残る接続手順・PASS・未実施は各時点の履歴です。現在の接続可否は10月の状態と公開準備を参照してください。
+
+## 初心者向け体験（ローカル実装・2026-10-05）
+
+6つの配慮を「必要／できれば希望／今回は不要／わからない／スキップ」で選び、本人が確認した条件で架空の3施設・5経路を比較します。ホームに選択内容と候補への影響を残し、変更・住民投稿の変更や失効では候補を再確認します。新しい回答はタブのメモリ内だけで扱い、保存・AI送信・共有DBへの書込みを行いません。既存の地図・4質問の訓練とは区別しています。
+
+この変更はGitHub Draft PRのレビュー対象で、サイトへのデプロイは行いません。任意の人物PNG/GLBは、正規に受領したCC0のオリジナル制作ソースから既存Blenderでローカル再生成して組み込みました。元Library ZIPの転送は未成立のままです。[仕様・再現手順・独立レビュー・未検証項目](./docs/BEGINNER_TRAINING_REVIEW.md) と [費用を発生させないDraft保存方針](./docs/BEGINNER_DRAFT_PUBLICATION.md) を参照してください。
 
 ## Quick start
 

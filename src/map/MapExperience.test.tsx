@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { LocalTownRepository } from '../data/supabase'
 import type { ExperienceMode } from '../i18n'
 import type { TownSnapshot } from '../sim/types'
+import { MapLibreMap } from './MapLibreMap'
 import { MapExperience, type MapExperienceProps } from './MapExperience'
 import type { MapSurface } from './Map2D'
 import { NavaraMap3D } from '../map3d/NavaraMap3D'
@@ -34,10 +35,10 @@ describe('MapExperience presentation surfaces', () => {
     const markup = renderMap('drill')
 
     expect(markup).toContain('data-surface="drill"')
-    expect(markup).toContain('maplibre-canvas')
+    expect(markup).toContain('map-loading')
     expect(markup).toContain('地図上の避難ルート')
     expect(markup).toContain('map-side-panel')
-    expect(markup).toContain('このルートにした理由')
+    expect(markup).not.toContain('map-side-panel__content')
     expect(markup).not.toContain('map-filter-bar')
     expect(markup).not.toContain('map-posting-controls')
   })
@@ -49,7 +50,7 @@ describe('MapExperience presentation surfaces', () => {
     const markup = renderMap('replay', { ...snapshot, replay: repository.getSnapshot().replay })
 
     expect(markup).toContain('data-surface="replay"')
-    expect(markup).toContain('maplibre-canvas')
+    expect(markup).toContain('map-loading')
     expect(markup).toContain('振り返りの地図')
     expect(markup).toContain('世帯A')
     expect(markup).not.toContain('map-filter-bar')
@@ -65,16 +66,16 @@ describe('MapExperience presentation surfaces', () => {
     expect(markup).not.toContain('id="maplibre-filter-panel"')
   })
 
-  it('keeps the filter panel outside the map frame when it is rendered', () => {
+  it('keeps filters closed until explicitly requested', () => {
     const markup = renderMap('map', snapshotWithRoute(), 'advanced')
 
-    expect(markup.indexOf('map-filter-shell')).toBeLessThan(markup.indexOf('map-frame'))
+    expect(markup.indexOf('map-filter-shell')).toBeLessThan(markup.indexOf('map-loading'))
     expect(markup).toContain('aria-controls="maplibre-filter-panel"')
-    expect(markup).toContain('id="maplibre-filter-panel"')
+    expect(markup).not.toContain('id="maplibre-filter-panel"')
   })
 
   it('renders the 2D title in normal flow above the map frame', () => {
-    const markup = renderMap('map', snapshotWithRoute(), 'advanced')
+    const markup = renderToStaticMarkup(<MapLibreMap snapshot={snapshotWithRoute()} locale="ja" mode="advanced" onFallback={() => undefined} />)
 
     expect(markup.indexOf('map-frame__topline')).toBeLessThan(markup.indexOf('class="map-frame map-frame--maplibre'))
   })
@@ -103,7 +104,7 @@ describe('MapExperience presentation surfaces', () => {
 
   it('renders selected knowledge in the side panel instead of over the map', () => {
     const markup = renderMap('map', snapshotWithRoute(), 'simple', { selectedKnowledgeId: 'k-flood-crosswalk' })
-    const mapIndex = markup.indexOf('map-frame')
+    const mapIndex = markup.indexOf('map-loading')
     const panelIndex = markup.indexOf('map-side-panel')
     expect(markup).toContain('data-map-focus="inactive"')
     expect(markup).toContain('map-side-panel__clear')

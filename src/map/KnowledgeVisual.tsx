@@ -115,7 +115,7 @@ export function KnowledgeVisual({ view, x, y, selected, isNew, isTransitioning, 
         <circle className="knowledge-visual__hit" r="27" aria-hidden="true" />
         <circle className="knowledge-visual__halo" r={view.affectsCurrentRoute ? 28 : view.verified ? 22 : 18} aria-hidden="true" />
         <KnowledgeShape view={view} />
-        <text className="knowledge-visual__state-label" x="24" y="4" aria-hidden="true">{statusLabel}</text>
+        {selected && <text className="knowledge-visual__state-label" x="24" y="4" aria-hidden="true">{statusLabel}</text>}
         {selected && <text className="knowledge-visual__category-label" x="24" y="-9" aria-hidden="true">{categoryLabel}</text>}
       </g>
     </g>

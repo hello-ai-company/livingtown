@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } fr
 import { DEMO_AREA, DEMO_GRAPH_EDGES, DEMO_GRAPH_NODES, getVisibleDemoGraph } from '../sim/graph'
 import type { Household, RouteResult, TownSnapshot } from '../sim/types'
 import { KnowledgeVisual } from './KnowledgeVisual'
-import { MapLibreMap } from './MapLibreMap'
+import type { MapLibreMap as MapLibreComponent } from './MapLibreMap'
+import { MapPlaceList } from './MapPlaceList'
 import { createTranslator, type ExperienceMode, type Locale } from '../i18n'
 import { householdDisplayLabel } from '../app/longDistanceExample'
 import type { GeoCamera } from '../map3d/types'
@@ -286,7 +287,7 @@ export function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, high
         {visibleKnowledge.map((view) => {
           const point = MapPoint({ lat: view.item.lat, lng: view.item.lng, bounds })
           const offset = overlapOffset(view, visibleKnowledge)
-          return <KnowledgeVisual key={view.item.id} view={view} x={point.x + offset.x} y={point.y + offset.y} selected={view.item.id === selectedId} isNew={newKnowledgeIds.has(view.item.id)} isTransitioning={transitioningKnowledgeIds.has(view.item.id)} onSelect={selectKnowledge} locale={locale} mode={mode} />
+          return <KnowledgeVisual key={view.item.id} view={view} x={point.x + offset.x} y={point.y + offset.y} selected={view.item.id === selectedId} isNew={newKnowledgeIds.has(view.item.id)} isTransitioning={transitioningKnowledgeIds.has(view.item.id)} onSelect={onSelectKnowledge ?? setInternalSelectedKnowledgeId} locale={locale} mode={mode} />
         })}
 
         {visibleBottlenecks.map((item) => {
@@ -333,6 +334,9 @@ export function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, high
         })}
       </svg>
 
+      </div>
+      <div className="map-edge-content">
+      <MapPlaceList views={visibleKnowledge} locale={locale} selectedId={selectedId} onSelect={onSelectKnowledge ?? setInternalSelectedKnowledgeId} />
       {surface === 'map' && <div className="map-posting-controls">
         <button type="button" className={`map-post-button${postingMode ? ' is-active' : ''}`} aria-pressed={postingMode} onClick={togglePostingMode}>
           <span aria-hidden="true">{postingMode ? '×' : '+'}</span>{postingMode ? t('map.cancelPost') : t('map.post')}
@@ -372,6 +376,13 @@ export function SvgMap2D({ snapshot, focusHouseholdId, selectedKnowledgeId, high
 export function Map2D(props: Map2DProps) {
   const [useFallback, setUseFallback] = useState(false)
   const handleFallback = useCallback(() => setUseFallback(true), [])
+  const [Renderer, setRenderer] = useState<typeof MapLibreComponent>()
+  useEffect(() => {
+    let active = true
+    void import('./MapLibreMap').then(module => { if (active) setRenderer(() => module.MapLibreMap) }).catch(() => { if (active) setUseFallback(true) })
+    return () => { active = false }
+  }, [])
   if (useFallback) return <SvgMap2D {...props} />
-  return <MapLibreMap {...props} locale={props.locale ?? 'ja'} mode={props.mode ?? 'simple'} onFallback={handleFallback} />
+  if (!Renderer) return <div className="map-loading" role="status" aria-live="polite">{props.locale === 'en' ? 'Loading map…' : '地図を読み込んでいます…'}</div>
+  return <Renderer {...props} locale={props.locale ?? 'ja'} mode={props.mode ?? 'simple'} onFallback={handleFallback} />
 }

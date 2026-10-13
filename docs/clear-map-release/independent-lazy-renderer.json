@@ -1,0 +1,17 @@
+{
+  "method": "Actual Map2D bundled with a deliberately deferred fake MapLibre module; React DOM/jsdom, no real browser or WebGL.",
+  "results": [
+    {
+      "scenario": "reject",
+      "pass": true
+    },
+    {
+      "scenario": "resolve-after-unmount",
+      "pass": true
+    },
+    {
+      "scenario": "resolve-while-mounted",
+      "pass": true
+    }
+  ]
+}

@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "seed": "tsx seed/seed.ts",
     "assistant": "node server/index.mjs",
-    "test:assistant": "node --test server/*.node-test.mjs"
+    "test:assistant": "node --test server/*.node-test.mjs",
+    "test:evidence": "node --import tsx --test src/evidence/*.node-test.mjs"
   },
   "dependencies": {
     "@navaramap/three": "0.1.1",

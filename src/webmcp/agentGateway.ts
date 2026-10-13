@@ -138,7 +138,7 @@ export function createAgentGateway(authorize: () => unknown = () => trainingAuth
       } catch { update(entry, 'unconfirmed') }
     },
     cancel(requestId: string) { const entry = entries.get(requestId); if (entry?.view.status === 'awaiting_confirmation') update(entry, 'cancelled') },
-    dispose() { invalidate(); unsubscribe?.(); unsubscribe = undefined },
+    dispose() { invalidate(); unsubscribe?.(); unsubscribe = undefined; store = undefined; pending = undefined; entries.clear() },
   }
 }
 export type AgentGateway = ReturnType<typeof createAgentGateway>

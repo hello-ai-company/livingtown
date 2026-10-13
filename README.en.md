@@ -1,4 +1,19 @@
+## 2026-10-12 Clear Map v1 (unpublished)
+
+Map controls and explanations now sit outside the canvas. Details open on selection, with a keyboard-accessible place list. MapLibre loads on demand; unchanged sources are not resent when selecting a report. Bundle bytes and mocked setData calls are measured separately from device speed, which is unverified. See [release notes](docs/clear-map-release/RELEASE.md) and [verification](docs/clear-map-release/VERIFICATION.md).
+
 # LivingTown
+
+## 2026-10-12 Guided Glass v2 — local and unpublished
+
+Three guided steps, a state-derived next action, labeled icons, a persistent training STOP, and scoped accessible glass styling. Actual facilities and roads remain unverified. This upgrade preserves the prior release separately and does not update the public website. See [v2 release](./docs/guided-glass-release/RELEASE.md) and [v2 verification](./docs/guided-glass-release/VERIFICATION.md).
+
+
+## 2026-10-12 practical training release: isolated reimplementation, unpublished
+
+This source preserves PR #14 baseline `d37fb7aad518f6d687c8487bd3e318fafb5107d4` and reimplements bounded fictional regional, obstacle, emergency-phrase and cooperator training from confirmed requirements. It is not a recovery of the original later unpushed bytes. It integrates eight-person family support, a preparation workbook and strict session transfer.
+
+No live AI, shared database, microphone, emergency call or deployment was performed. Actual browser interaction remains unverified. Historical deployed URLs, PASS claims and screenshots below are not evidence for this release. Read the [lineage and safety limits](./docs/practical-release/REIMPLEMENTATION.md) and [new verification record](./docs/practical-release/VERIFICATION.md).
 
 Current status (2026-10-04): production is sample training only, even with inherited Auth/shared DB/API environment settings. Real AI remains locked. Supabase was read-only confirmed INACTIVE. September shared/production evidence below is historical. Current target, costs and connection prerequisites: [Zenn vol5 readiness](./docs/ZENN_VOL5_PRODUCTION_READINESS.md).
 

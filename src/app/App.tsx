@@ -1,4 +1,6 @@
 import { MapInputWorkspace } from './MapInputWorkspace'
+import { BeginnerTraining } from '../beginner/BeginnerTraining'
+import { FamilyDashboard } from '../family/FamilyDashboard'
 import { AgentConsentPanel } from '../webmcp/AgentConsentPanel'
 import { TrainingAssistant } from '../training/TrainingAssistant'
 import { validateTrainingInput, type ManualTrainingConditions } from '../training/flow'
@@ -66,9 +68,12 @@ function repositoryStatusLabel(status: ReturnType<typeof townRepository.getStatu
 }
 
 function AppShell() {
+  const [showLegacy, setShowLegacy] = useState(false)
+  const [walkingStopped, setWalkingStopped] = useState(false)
   const snapshot = useTownSnapshot(townRepository)
   const repositoryStatus = useRepositoryStatus(townRepository)
-  const { phase, selectPhase, registry, phaseSignal, agentConsent } = usePhase()
+  const { phase, selectPhase, registry, phaseSignal, agentConsent, suspendLegacy, legacySuspended } = usePhase()
+  const handleWalkingStop = useCallback((stopped: boolean) => { setWalkingStopped(stopped); if (stopped) { setShowLegacy(false); suspendLegacy() } }, [suspendLegacy])
   const { locale, mode, setLocale, setMode } = useUiPreferences()
   const t = useTranslator(locale)
   const phaseMeta = useMemo(() => getPhaseMeta(t), [t])
@@ -212,6 +217,7 @@ function AppShell() {
   }, [repositoryStatus.connection, repositoryStatus.mode, snapshot.households, snapshot.knowledge, snapshot.routes])
 
   const transitionTo = useCallback((nextPanel: Phase | 'reports' | 'admin') => {
+    setShowLegacy(true)
     if (nextPanel !== 'drill') setManualConditions(undefined)
     setPanel(nextPanel)
     setObservationComposerOpen(false)
@@ -228,6 +234,7 @@ function AppShell() {
   }, [selectPhase])
 
   const runTool = useCallback(async (name: string, input: unknown) => {
+    if (phaseSignal.aborted || legacySuspended) return undefined
     const definition = getToolDefinitions(phase, townRepository).find((tool) => tool.name === name)
     if (!definition) {
       const message = locale === 'ja' ? `このフェーズでは ${name} は利用できません。` : `${name} is not available in this phase.`
@@ -262,7 +269,7 @@ function AppShell() {
       setNotice(message)
       return undefined
     }
-  }, [locale, mode, phase, phaseSignal, t])
+  }, [locale, mode, phase, phaseSignal, t, legacySuspended])
 
   const contributeDemoKnowledge = async () => {
     const result = await runTool('contribute_knowledge', {
@@ -510,6 +517,11 @@ function AppShell() {
         {repositoryStatus.mode === 'SUPABASE_SHARED' && <button className="secondary-button" onClick={switchToLocalDemo}>このタブをローカル訓練モードに切り替える</button>}
       </section>
       <main className="workspace">
+        <FamilyDashboard repository={townRepository} onInvalidate={() => agentConsent.invalidate()} onWalkingStopChange={handleWalkingStop} />
+        <button className="secondary-button" disabled={legacySuspended || walkingStopped} aria-expanded={showLegacy} onClick={() => { agentConsent.invalidate(); setShowLegacy(value => !value) }}>{showLegacy ? '従来の地図・1人向け訓練を閉じる' : '従来の地図・1人向け訓練を開く'}</button>
+        {legacySuspended && <p role="status">停止またはファイル読み込みにより、このタブでは従来の地図・1人向け訓練と外部エージェント操作を終了しました。古い案内は復帰しません。上の家族の訓練は、条件を確認して再開できます。</p>}
+        {showLegacy && !walkingStopped && !legacySuspended && <>
+        <BeginnerTraining repository={townRepository} active={panel === 'map'} onHome={() => transitionTo('map')} onInvalidate={() => agentConsent.invalidate()} />
         <AgentConsentPanel repository={townRepository} onShowRoute={id => { setSelectedHouseholdId(id); transitionTo('drill'); setTrainingInputFocusKey(0); setTrainingMapFocusKey(value => value + 1) }} onEditRoute={value => {
           try {
             const input = validateTrainingInput(value)
@@ -518,9 +530,10 @@ function AppShell() {
           } catch { setNotice('提案は取り消しました。訓練モードと対象世帯を確認して条件を選び直してください。') }
         }} />
         <section className="map-first-intro">
-          <div><h1>{locale === 'ja' ? '地図から、家族の移動を練習' : 'Practice your family’s journey'}</h1><p>{locale === 'ja' ? '4つの条件を選んで、約1分の訓練体験。登録は不要です（サンプルモード）。' : 'Explore the map, then check your travel needs.'}</p></div>
+          <div><h2>{locale === 'ja' ? '別の練習：地図から、家族の移動を試す' : 'Separate exercise: practice the map journey'}</h2><p>{locale === 'ja' ? '従来の4質問のサンプルです。上の配慮選択とは別の計算・入力になります。' : 'Explore the map, then check your travel needs.'}</p></div>
           {panel === 'map' ? <button className="primary-button" onClick={() => transitionTo('drill')}>{locale === 'ja' ? '家族の訓練を始める' : 'Start family training'} →</button> : <button className="secondary-button" onClick={() => transitionTo('map')}>← {locale === 'ja' ? '地図へ戻る' : 'Back to map'}</button>}
         </section>
+        <p className="legacy-training-note">従来の地図・投稿・4質問の練習は下にあります。初心者体験で選んだ配慮は、この従来の経路計算には適用されません。</p>
 
         <nav className="phase-nav" aria-label={t('phase.navLabel')}>
           <div className="phase-nav__rail" />
@@ -568,6 +581,7 @@ function AppShell() {
             </div>
           </aside>}
         </div>
+        </>}
       </main>
 
       <footer className="footer-bar">

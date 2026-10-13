@@ -5,6 +5,8 @@ dist
 .env.server
 server/.env
 server/deployment-plan.local.json
+artifacts/beginner-assets-staging/
+artifacts/beginner-assets-regenerated-20261005/
 .DS_Store
 *.log
 coverage
